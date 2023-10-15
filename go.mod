@@ -2,7 +2,11 @@ module github.com/traPtitech/portal-oidc
 
 go 1.21.3
 
-require github.com/ory/fosite v0.44.0
+require (
+	github.com/ory/fosite v0.44.0
+	github.com/ory/viper v1.7.5
+	github.com/spf13/cobra v1.0.0
+)
 
 require (
 	github.com/asaskevich/govalidator v0.0.0-20200428143746-21a406dcc535 // indirect
@@ -27,7 +31,6 @@ require (
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/ory/go-acc v0.2.6 // indirect
 	github.com/ory/go-convenience v0.1.0 // indirect
-	github.com/ory/viper v1.7.5 // indirect
 	github.com/ory/x v0.0.214 // indirect
 	github.com/pborman/uuid v1.2.0 // indirect
 	github.com/pelletier/go-toml v1.8.0 // indirect
@@ -35,7 +38,6 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/spf13/afero v1.3.2 // indirect
 	github.com/spf13/cast v1.3.2-0.20200723214538-8d17101741c8 // indirect
-	github.com/spf13/cobra v1.0.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/testify v1.7.0 // indirect
