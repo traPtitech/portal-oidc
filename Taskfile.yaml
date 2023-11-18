@@ -4,6 +4,8 @@ tasks:
     cmds:
       - go install github.com/go-task/task/v3/cmd/task@latest
       - go install github.com/rubenv/sql-migrate/...@latest
+      - go install github.com/volatiletech/sqlboiler/v4@latest
+      - go install github.com/volatiletech/sqlboiler/v4/drivers/sqlboiler-mysql@latest
 
   migrate:
     cmds:
@@ -14,3 +16,7 @@ tasks:
   migrate:up:
     cmds:
       - sql-migrate up
+
+  gen:db:
+    cmds:
+      - sqlboiler mysql

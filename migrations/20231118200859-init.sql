@@ -12,7 +12,7 @@ CREATE TABLE `clients` (
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_general_ci;
 
-CREATE TABLE `redirect_uris` (
+CREATE TABLE `redirect_uri` (
     `id` CHAR(36) NOT NULL,
     `client_id` CHAR(36) NOT NULL,
     `uri` TEXT NOT NULL,

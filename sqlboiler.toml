@@ -1,0 +1,11 @@
+output = "pkg/infrastructure/db/gen"
+wipe = true
+
+[mysql]
+dbname = "oidc"
+host = "localhost"
+port = 3307
+user = "root"
+pass = "password"
+sslmode = "false"
+blacklist = ["migrations"]
