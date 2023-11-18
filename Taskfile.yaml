@@ -1,6 +1,16 @@
 version: "3"
-
 tasks:
   init:
     cmds:
       - go install github.com/go-task/task/v3/cmd/task@latest
+      - go install github.com/rubenv/sql-migrate/...@latest
+
+  migrate:
+    cmds:
+      - sql-migrate {{ .CLI_ARGS }}
+  migrate:new:
+    cmds:
+      - sql-migrate new _
+  migrate:up:
+    cmds:
+      - sql-migrate up

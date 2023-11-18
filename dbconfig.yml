@@ -1,0 +1,5 @@
+development:
+  dialect: mysql
+  dir: migrations
+  datasource: root:password@tcp(localhost:3307)/oidc?parseTime=true
+  table: migrations
