@@ -39,12 +39,10 @@ func NewHandler(st store.Store, signer jwt.Signer, globalSecret []byte) *Handler
 		},
 		compose.OAuth2AuthorizeExplicitFactory,
 		compose.OAuth2AuthorizeImplicitFactory,
-		compose.OAuth2ClientCredentialsGrantFactory,
 		compose.OAuth2RefreshTokenGrantFactory,
 		compose.RFC7523AssertionGrantFactory,
 
 		compose.OpenIDConnectExplicitFactory,
-		compose.OpenIDConnectImplicitFactory,
 		compose.OpenIDConnectHybridFactory,
 		compose.OpenIDConnectRefreshFactory,
 
