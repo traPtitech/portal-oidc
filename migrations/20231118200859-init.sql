@@ -48,3 +48,6 @@ CREATE INDEX `authorization_sessions_type_and_signature_idx` ON `authorization_s
 -- +migrate Down
 SELECT 'down SQL query';
 DROP TABLE `authorization_sessions`;
+DROP TABLE `redirect_uri`;
+DROP TABLE `clients`;
+
