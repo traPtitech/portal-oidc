@@ -11,7 +11,10 @@ import (
 	"github.com/ory/fosite/storage"
 	"github.com/ory/fosite/token/jwt"
 
+	repov1 "github.com/traPtitech/portal-oidc/pkg/infrastructure/mariadb/v1"
+	portalv1 "github.com/traPtitech/portal-oidc/pkg/infrastructure/portal/v1"
 	v1 "github.com/traPtitech/portal-oidc/pkg/interface/handler/v1"
+	"github.com/traPtitech/portal-oidc/pkg/usecase"
 )
 
 func NewServer(config Config) http.Handler {
@@ -29,11 +32,24 @@ func NewServer(config Config) http.Handler {
 		},
 	}
 
-	handler := v1.NewHandler(store, signer, []byte(config.OIDCSecret))
+	po, err := portalv1.NewPortal(config.Portal.DB)
+	if err != nil {
+		panic(err)
+	}
+
+	repo, err := repov1.NewRepository(config.DB)
+	if err != nil {
+		panic(err)
+	}
+
+	usecase := usecase.NewUseCase(repo, po, po)
+
+	handler := v1.NewHandler(usecase, store, signer, []byte(config.OIDCSecret))
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/oauth2/auth", handler.AuthEndpoint)
 	mux.HandleFunc("/oauth2/token", handler.TokenEndpoint)
+	mux.HandleFunc("/oauth2/userinfo", handler.UserInfoEndpoint)
 
 	return cors.New(cors.Options{
 		AllowOriginFunc: func(origin string) bool {

@@ -5,18 +5,13 @@ import (
 	"strconv"
 
 	"github.com/go-sql-driver/mysql"
-	"github.com/traPtitech/portal-oidc/pkg/domain/portal"
-	"github.com/traPtitech/portal-oidc/pkg/domain/rs"
 )
 
-type Portal struct {
+type MariaDBRepository struct {
 	db *sql.DB
 }
 
-var _ rs.ResourceServer = (*Portal)(nil)
-var _ portal.Portal = (*Portal)(nil)
-
-func NewPortal(conf Config) (*Portal, error) {
+func NewRepository(conf Config) (*MariaDBRepository, error) {
 	mycnf := mysql.Config{
 		User:                 conf.User,
 		Passwd:               conf.Password,
@@ -32,6 +27,7 @@ func NewPortal(conf Config) (*Portal, error) {
 		return nil, err
 	}
 
-	return &Portal{db: db}, nil
-
+	return &MariaDBRepository{
+		db: db,
+	}, nil
 }

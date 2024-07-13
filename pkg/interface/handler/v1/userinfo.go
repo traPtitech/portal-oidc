@@ -9,7 +9,7 @@ import (
 	"github.com/traPtitech/portal-oidc/pkg/domain/portal"
 )
 
-func (h *Handler) UserInfoHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) UserInfoEndpoint(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	sess := &openid.DefaultSession{}
