@@ -8,7 +8,6 @@ import (
 
 	"github.com/rs/cors"
 
-	"github.com/labstack/echo/v4"
 	"github.com/ory/fosite/storage"
 	"github.com/ory/fosite/token/jwt"
 
@@ -32,10 +31,9 @@ func NewServer(config Config) http.Handler {
 
 	handler := v1.NewHandler(store, signer, []byte(config.OIDCSecret))
 
-	e := echo.New()
-	oauth2Route := e.Group("/oauth2")
-	oauth2Route.Any("/auth", handler.AuthEndpoint)
-	oauth2Route.Any("/token", handler.TokenEndpoint)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/oauth2/auth", handler.AuthEndpoint)
+	mux.HandleFunc("/oauth2/token", handler.TokenEndpoint)
 
 	return cors.New(cors.Options{
 		AllowOriginFunc: func(origin string) bool {
@@ -46,6 +44,6 @@ func NewServer(config Config) http.Handler {
 			"Set-Cookie",
 			"Cookie",
 		},
-		AllowCredentials:    true,
-	}).Handler(e)
+		AllowCredentials: true,
+	}).Handler(mux)
 }
