@@ -11,6 +11,4 @@ type ResourceServer interface {
 	GetEmail(context.Context, domain.UserID) (domain.Email, error)
 	GetAddress(context.Context, domain.UserID) (domain.Address, error)
 	GetPhone(context.Context, domain.UserID) (domain.Phone, error)
-	GetResource(context.Context, domain.UserID, domain.ResourceID) (domain.Resource, error)
-	GetResources(context.Context, domain.UserID, []domain.ResourceID) ([]domain.Resource, error)
 }
