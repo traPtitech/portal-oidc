@@ -2,14 +2,17 @@ package main
 
 import (
 	"log"
+	"net/http"
 
 	"github.com/spf13/cobra"
+
+	"github.com/traPtitech/portal-oidc/pkg/server"
 	"github.com/traPtitech/portal-oidc/pkg/util"
 )
 
 var (
 	configFilePath string
-	config         Config
+	config         server.Config
 )
 
 var rootCommand = &cobra.Command{
@@ -24,12 +27,14 @@ func main() {
 		Use:   "serve",
 		Short: "Starts the server",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return nil
+			srv := server.NewServer(config)
+			return http.ListenAndServe(":8080", srv)
 		},
 	})
 
 	flags := rootCommand.PersistentFlags()
 	flags.StringVarP(&configFilePath, "config", "c", "", "config file path (default: ./config.*)")
+	setupDefaults()
 
 	if err := rootCommand.Execute(); err != nil {
 		log.Fatal(err)

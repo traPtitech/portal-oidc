@@ -1,7 +1,9 @@
 package main
 
-type Config struct{}
+import (
+	"github.com/spf13/viper"
+)
 
-func init() {
-
+func setupDefaults() {
+	viper.SetDefault("oidc_secret", "some-cool-secret-that-is-32bytes")
 }
