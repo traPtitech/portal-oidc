@@ -46,6 +46,6 @@ func NewServer(config Config) http.Handler {
 			"Set-Cookie",
 			"Cookie",
 		},
-		AllowCredentials:    true,
+		AllowCredentials: true,
 	}).Handler(e)
 }

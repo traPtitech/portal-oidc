@@ -1,5 +1,9 @@
 package domain
 
+const (
+	ExtrakeyGrade = "grade"
+)
+
 type UserInfo struct {
 	Sub string `json:"sub"`
 

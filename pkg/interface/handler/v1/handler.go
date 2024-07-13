@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/traPtitech/portal-oidc/pkg/domain/store"
+	"github.com/traPtitech/portal-oidc/pkg/usecase"
 
 	"github.com/ory/fosite"
 	"github.com/ory/fosite/compose"
@@ -13,10 +14,11 @@ import (
 )
 
 type Handler struct {
-	oauth2 fosite.OAuth2Provider
+	oauth2  fosite.OAuth2Provider
+	usecase usecase.UseCase
 }
 
-func NewHandler(st store.Store, signer jwt.Signer, globalSecret []byte) *Handler {
+func NewHandler(u usecase.UseCase, st store.Store, signer jwt.Signer, globalSecret []byte) *Handler {
 	conf := &fosite.Config{
 		AccessTokenLifespan: time.Minute * 30,
 		GlobalSecret:        globalSecret,
@@ -52,6 +54,7 @@ func NewHandler(st store.Store, signer jwt.Signer, globalSecret []byte) *Handler
 		compose.OAuth2PKCEFactory,
 	)
 	return &Handler{
-		oauth2: provider,
+		oauth2:  provider,
+		usecase: u,
 	}
 }
