@@ -1,4 +1,4 @@
-output = "pkg/infrastructure/portal/db/gen"
+output = "pkg/infrastructure/portal/v1/db/gen"
 wipe = true
 [mysql]
 dbname = "portal"
