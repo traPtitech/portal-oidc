@@ -1,6 +1,6 @@
 module github.com/traPtitech/portal-oidc
 
-go 1.22.4
+go 1.22.5
 
 require (
 	github.com/friendsofgo/errors v0.9.2
@@ -12,9 +12,10 @@ require (
 	github.com/rs/cors v1.6.0
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.12.0
+	github.com/volatiletech/null/v8 v8.1.2
 	github.com/volatiletech/randomize v0.0.1
 	github.com/volatiletech/sqlboiler/v4 v4.15.0
-	github.com/volatiletech/strmangle v0.0.5
+	github.com/volatiletech/strmangle v0.0.6
 )
 
 require (
