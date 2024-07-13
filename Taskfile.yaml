@@ -18,5 +18,13 @@ tasks:
       - sql-migrate up
 
   gen:db:
+    deps:
+      - gen:db:oidc
+      - gen:db:portal
+
+  gen:db:oidc:
     cmds:
       - sqlboiler mysql
+  gen:db:portal:
+    cmds:
+      - sqlboiler mysql --config sqlboiler.portal.toml
