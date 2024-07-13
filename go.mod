@@ -1,6 +1,6 @@
 module github.com/traPtitech/portal-oidc
 
-go 1.22.4
+go 1.22.5
 
 require (
 	github.com/friendsofgo/errors v0.9.2

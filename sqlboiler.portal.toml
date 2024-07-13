@@ -1,0 +1,10 @@
+output = "pkg/infrastructure/portal/db/gen"
+wipe = true
+[mysql]
+dbname = "portal"
+host = "localhost"
+port = 3306
+user = "root"
+pass = "password"
+sslmode = "false"
+blacklist = ["migrations"]
