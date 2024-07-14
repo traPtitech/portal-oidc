@@ -142,27 +142,18 @@ var (
 	_ = qmhelper.Where
 )
 
-var mailAfterSelectMu sync.Mutex
 var mailAfterSelectHooks []MailHook
 
-var mailBeforeInsertMu sync.Mutex
 var mailBeforeInsertHooks []MailHook
-var mailAfterInsertMu sync.Mutex
 var mailAfterInsertHooks []MailHook
 
-var mailBeforeUpdateMu sync.Mutex
 var mailBeforeUpdateHooks []MailHook
-var mailAfterUpdateMu sync.Mutex
 var mailAfterUpdateHooks []MailHook
 
-var mailBeforeDeleteMu sync.Mutex
 var mailBeforeDeleteHooks []MailHook
-var mailAfterDeleteMu sync.Mutex
 var mailAfterDeleteHooks []MailHook
 
-var mailBeforeUpsertMu sync.Mutex
 var mailBeforeUpsertHooks []MailHook
-var mailAfterUpsertMu sync.Mutex
 var mailAfterUpsertHooks []MailHook
 
 // doAfterSelectHooks executes all "after Select" hooks.
@@ -304,41 +295,23 @@ func (o *Mail) doAfterUpsertHooks(ctx context.Context, exec boil.ContextExecutor
 func AddMailHook(hookPoint boil.HookPoint, mailHook MailHook) {
 	switch hookPoint {
 	case boil.AfterSelectHook:
-		mailAfterSelectMu.Lock()
 		mailAfterSelectHooks = append(mailAfterSelectHooks, mailHook)
-		mailAfterSelectMu.Unlock()
 	case boil.BeforeInsertHook:
-		mailBeforeInsertMu.Lock()
 		mailBeforeInsertHooks = append(mailBeforeInsertHooks, mailHook)
-		mailBeforeInsertMu.Unlock()
 	case boil.AfterInsertHook:
-		mailAfterInsertMu.Lock()
 		mailAfterInsertHooks = append(mailAfterInsertHooks, mailHook)
-		mailAfterInsertMu.Unlock()
 	case boil.BeforeUpdateHook:
-		mailBeforeUpdateMu.Lock()
 		mailBeforeUpdateHooks = append(mailBeforeUpdateHooks, mailHook)
-		mailBeforeUpdateMu.Unlock()
 	case boil.AfterUpdateHook:
-		mailAfterUpdateMu.Lock()
 		mailAfterUpdateHooks = append(mailAfterUpdateHooks, mailHook)
-		mailAfterUpdateMu.Unlock()
 	case boil.BeforeDeleteHook:
-		mailBeforeDeleteMu.Lock()
 		mailBeforeDeleteHooks = append(mailBeforeDeleteHooks, mailHook)
-		mailBeforeDeleteMu.Unlock()
 	case boil.AfterDeleteHook:
-		mailAfterDeleteMu.Lock()
 		mailAfterDeleteHooks = append(mailAfterDeleteHooks, mailHook)
-		mailAfterDeleteMu.Unlock()
 	case boil.BeforeUpsertHook:
-		mailBeforeUpsertMu.Lock()
 		mailBeforeUpsertHooks = append(mailBeforeUpsertHooks, mailHook)
-		mailBeforeUpsertMu.Unlock()
 	case boil.AfterUpsertHook:
-		mailAfterUpsertMu.Lock()
 		mailAfterUpsertHooks = append(mailAfterUpsertHooks, mailHook)
-		mailAfterUpsertMu.Unlock()
 	}
 }
 
@@ -1002,3 +975,493 @@ func MailExists(ctx context.Context, exec boil.ContextExecutor, iD string) (bool
 func (o *Mail) Exists(ctx context.Context, exec boil.ContextExecutor) (bool, error) {
 	return MailExists(ctx, exec, o.ID)
 }
+
+// /////////////////////////////// BEGIN EXTENSIONS /////////////////////////////////
+// Expose table columns
+var (
+	MailAllColumns            = mailAllColumns
+	MailColumnsWithoutDefault = mailColumnsWithoutDefault
+	MailColumnsWithDefault    = mailColumnsWithDefault
+	MailPrimaryKeyColumns     = mailPrimaryKeyColumns
+	MailGeneratedColumns      = mailGeneratedColumns
+)
+
+// GetID get ID from model object
+func (o *Mail) GetID() string {
+	return o.ID
+}
+
+// GetIDs extract IDs from model objects
+func (s MailSlice) GetIDs() []string {
+	result := make([]string, len(s))
+	for i := range s {
+		result[i] = s[i].ID
+	}
+	return result
+}
+
+// GetIntfIDs extract IDs from model objects as interface slice
+func (s MailSlice) GetIntfIDs() []interface{} {
+	result := make([]interface{}, len(s))
+	for i := range s {
+		result[i] = s[i].ID
+	}
+	return result
+}
+
+// ToIDMap convert a slice of model objects to a map with ID as key
+func (s MailSlice) ToIDMap() map[string]*Mail {
+	result := make(map[string]*Mail, len(s))
+	for _, o := range s {
+		result[o.ID] = o
+	}
+	return result
+}
+
+// ToUniqueItems construct a slice of unique items from the given slice
+func (s MailSlice) ToUniqueItems() MailSlice {
+	result := make(MailSlice, 0, len(s))
+	mapChk := make(map[string]struct{}, len(s))
+	for i := len(s) - 1; i >= 0; i-- {
+		o := s[i]
+		if _, ok := mapChk[o.ID]; !ok {
+			mapChk[o.ID] = struct{}{}
+			result = append(result, o)
+		}
+	}
+	return result
+}
+
+// FindItemByID find item by ID in the slice
+func (s MailSlice) FindItemByID(id string) *Mail {
+	for _, o := range s {
+		if o.ID == id {
+			return o
+		}
+	}
+	return nil
+}
+
+// FindMissingItemIDs find all item IDs that are not in the list
+// NOTE: the input ID slice should contain unique values
+func (s MailSlice) FindMissingItemIDs(expectedIDs []string) []string {
+	if len(s) == 0 {
+		return expectedIDs
+	}
+	result := []string{}
+	mapChk := s.ToIDMap()
+	for _, id := range expectedIDs {
+		if _, ok := mapChk[id]; !ok {
+			result = append(result, id)
+		}
+	}
+	return result
+}
+
+// InsertAll inserts all rows with the specified column values, using an executor.
+// IMPORTANT: this will calculate the widest columns from all items in the slice, be careful if you want to use default column values
+func (o MailSlice) InsertAll(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns) (int64, error) {
+	if len(o) == 0 {
+		return 0, nil
+	}
+
+	// Calculate the widest columns from all rows need to insert
+	wlCols := make(map[string]struct{}, 10)
+	for _, row := range o {
+		wl, _ := columns.InsertColumnSet(
+			mailAllColumns,
+			mailColumnsWithDefault,
+			mailColumnsWithoutDefault,
+			queries.NonZeroDefaultSet(mailColumnsWithDefault, row),
+		)
+		for _, col := range wl {
+			wlCols[col] = struct{}{}
+		}
+	}
+	wl := make([]string, 0, len(wlCols))
+	for _, col := range mailAllColumns {
+		if _, ok := wlCols[col]; ok {
+			wl = append(wl, col)
+		}
+	}
+
+	var sql string
+	vals := []interface{}{}
+	for i, row := range o {
+		if !boil.TimestampsAreSkipped(ctx) {
+			currTime := time.Now().In(boil.GetLocation())
+			if queries.MustTime(row.CreatedAt).IsZero() {
+				queries.SetScanner(&row.CreatedAt, currTime)
+			}
+		}
+
+		if err := row.doBeforeInsertHooks(ctx, exec); err != nil {
+			return 0, err
+		}
+
+		if i == 0 {
+			sql = "INSERT INTO `mails` " + "(`" + strings.Join(wl, "`,`") + "`)" + " VALUES "
+		}
+		sql += strmangle.Placeholders(dialect.UseIndexPlaceholders, len(wl), len(vals)+1, len(wl))
+		if i != len(o)-1 {
+			sql += ","
+		}
+		valMapping, err := queries.BindMapping(mailType, mailMapping, wl)
+		if err != nil {
+			return 0, err
+		}
+
+		value := reflect.Indirect(reflect.ValueOf(row))
+		vals = append(vals, queries.ValuesFromMapping(value, valMapping)...)
+	}
+
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, sql)
+		fmt.Fprintln(writer, vals)
+	}
+
+	result, err := exec.ExecContext(ctx, sql, vals...)
+	if err != nil {
+		return 0, errors.Wrap(err, "models: unable to insert all from mail slice")
+	}
+
+	rowsAff, err := result.RowsAffected()
+	if err != nil {
+		return 0, errors.Wrap(err, "models: failed to get rows affected by insertall for mails")
+	}
+
+	if len(mailAfterInsertHooks) != 0 {
+		for _, obj := range o {
+			if err := obj.doAfterInsertHooks(ctx, exec); err != nil {
+				return 0, err
+			}
+		}
+	}
+
+	return rowsAff, nil
+}
+
+// InsertIgnoreAll inserts all rows with ignoring the existing ones having the same primary key values.
+// IMPORTANT: this will calculate the widest columns from all items in the slice, be careful if you want to use default column values
+func (o MailSlice) InsertIgnoreAll(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns) (int64, error) {
+	return o.UpsertAll(ctx, exec, boil.None(), columns)
+}
+
+// UpsertAll inserts or updates all rows
+// Currently it doesn't support "NoContext" and "NoRowsAffected"
+// IMPORTANT: this will calculate the widest columns from all items in the slice, be careful if you want to use default column values
+func (o MailSlice) UpsertAll(ctx context.Context, exec boil.ContextExecutor, updateColumns, insertColumns boil.Columns) (int64, error) {
+	if len(o) == 0 {
+		return 0, nil
+	}
+
+	// Calculate the widest columns from all rows need to upsert
+	insertCols := make(map[string]struct{}, 10)
+	for _, row := range o {
+		nzUniques := queries.NonZeroDefaultSet(mySQLMailUniqueColumns, row)
+		if len(nzUniques) == 0 {
+			return 0, errors.New("cannot upsert with a table that cannot conflict on a unique column")
+		}
+		insert, _ := insertColumns.InsertColumnSet(
+			mailAllColumns,
+			mailColumnsWithDefault,
+			mailColumnsWithoutDefault,
+			queries.NonZeroDefaultSet(mailColumnsWithDefault, row),
+		)
+		for _, col := range insert {
+			insertCols[col] = struct{}{}
+		}
+	}
+	insert := make([]string, 0, len(insertCols))
+	for _, col := range mailAllColumns {
+		if _, ok := insertCols[col]; ok {
+			insert = append(insert, col)
+		}
+	}
+
+	update := updateColumns.UpdateColumnSet(
+		mailAllColumns,
+		mailPrimaryKeyColumns,
+	)
+	if !updateColumns.IsNone() && len(update) == 0 {
+		return 0, errors.New("models: unable to upsert mails, could not build update column list")
+	}
+
+	buf := strmangle.GetBuffer()
+	defer strmangle.PutBuffer(buf)
+
+	if len(update) == 0 {
+		fmt.Fprintf(
+			buf,
+			"INSERT IGNORE INTO `mails`(%s) VALUES %s",
+			strings.Join(strmangle.IdentQuoteSlice(dialect.LQ, dialect.RQ, insert), ","),
+			strmangle.Placeholders(false, len(insert)*len(o), 1, len(insert)),
+		)
+	} else {
+		fmt.Fprintf(
+			buf,
+			"INSERT INTO `mails`(%s) VALUES %s ON DUPLICATE KEY UPDATE ",
+			strings.Join(strmangle.IdentQuoteSlice(dialect.LQ, dialect.RQ, insert), ","),
+			strmangle.Placeholders(false, len(insert)*len(o), 1, len(insert)),
+		)
+
+		for i, v := range update {
+			if i != 0 {
+				buf.WriteByte(',')
+			}
+			quoted := strmangle.IdentQuote(dialect.LQ, dialect.RQ, v)
+			buf.WriteString(quoted)
+			buf.WriteString(" = VALUES(")
+			buf.WriteString(quoted)
+			buf.WriteByte(')')
+		}
+	}
+
+	query := buf.String()
+	valueMapping, err := queries.BindMapping(mailType, mailMapping, insert)
+	if err != nil {
+		return 0, err
+	}
+
+	var vals []interface{}
+	for _, row := range o {
+		if !boil.TimestampsAreSkipped(ctx) {
+			currTime := time.Now().In(boil.GetLocation())
+			if queries.MustTime(row.CreatedAt).IsZero() {
+				queries.SetScanner(&row.CreatedAt, currTime)
+			}
+
+		}
+
+		if err := row.doBeforeUpsertHooks(ctx, exec); err != nil {
+			return 0, err
+		}
+
+		value := reflect.Indirect(reflect.ValueOf(row))
+		vals = append(vals, queries.ValuesFromMapping(value, valueMapping)...)
+	}
+
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, query)
+		fmt.Fprintln(writer, vals)
+	}
+
+	result, err := exec.ExecContext(ctx, query, vals...)
+	if err != nil {
+		return 0, errors.Wrap(err, "models: unable to upsert for mails")
+	}
+
+	rowsAff, err := result.RowsAffected()
+	if err != nil {
+		return 0, errors.Wrap(err, "models: failed to get rows affected by upsert for mails")
+	}
+
+	if len(mailAfterUpsertHooks) != 0 {
+		for _, obj := range o {
+			if err := obj.doAfterUpsertHooks(ctx, exec); err != nil {
+				return 0, err
+			}
+		}
+	}
+
+	return rowsAff, nil
+}
+
+// DeleteAllByPage delete all Mail records from the slice.
+// This function deletes data by pages to avoid exceeding Mysql limitation (max placeholders: 65535)
+// Mysql Error 1390: Prepared statement contains too many placeholders.
+func (s MailSlice) DeleteAllByPage(ctx context.Context, exec boil.ContextExecutor, limits ...int) (int64, error) {
+	length := len(s)
+	if length == 0 {
+		return 0, nil
+	}
+
+	// MySQL max placeholders = 65535
+	chunkSize := DefaultPageSize
+	if len(limits) > 0 && limits[0] > 0 && limits[0] <= MaxPageSize {
+		chunkSize = limits[0]
+	}
+	if length <= chunkSize {
+		return s.DeleteAll(ctx, exec)
+	}
+
+	rowsAffected := int64(0)
+	start := 0
+	for {
+		end := start + chunkSize
+		if end > length {
+			end = length
+		}
+		rows, err := s[start:end].DeleteAll(ctx, exec)
+		if err != nil {
+			return rowsAffected, err
+		}
+
+		rowsAffected += rows
+		start = end
+		if start >= length {
+			break
+		}
+	}
+	return rowsAffected, nil
+}
+
+// UpdateAllByPage update all Mail records from the slice.
+// This function updates data by pages to avoid exceeding Mysql limitation (max placeholders: 65535)
+// Mysql Error 1390: Prepared statement contains too many placeholders.
+func (s MailSlice) UpdateAllByPage(ctx context.Context, exec boil.ContextExecutor, cols M, limits ...int) (int64, error) {
+	length := len(s)
+	if length == 0 {
+		return 0, nil
+	}
+
+	// MySQL max placeholders = 65535
+	// NOTE (eric): len(cols) should not be too big
+	chunkSize := DefaultPageSize
+	if len(limits) > 0 && limits[0] > 0 && limits[0] <= MaxPageSize {
+		chunkSize = limits[0]
+	}
+	if length <= chunkSize {
+		return s.UpdateAll(ctx, exec, cols)
+	}
+
+	rowsAffected := int64(0)
+	start := 0
+	for {
+		end := start + chunkSize
+		if end > length {
+			end = length
+		}
+		rows, err := s[start:end].UpdateAll(ctx, exec, cols)
+		if err != nil {
+			return rowsAffected, err
+		}
+
+		rowsAffected += rows
+		start = end
+		if start >= length {
+			break
+		}
+	}
+	return rowsAffected, nil
+}
+
+// InsertAllByPage insert all Mail records from the slice.
+// This function inserts data by pages to avoid exceeding Mysql limitation (max placeholders: 65535)
+// Mysql Error 1390: Prepared statement contains too many placeholders.
+func (s MailSlice) InsertAllByPage(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns, limits ...int) (int64, error) {
+	length := len(s)
+	if length == 0 {
+		return 0, nil
+	}
+
+	// MySQL max placeholders = 65535
+	chunkSize := MaxPageSize / reflect.ValueOf(&MailColumns).Elem().NumField()
+	if len(limits) > 0 && limits[0] > 0 && limits[0] < chunkSize {
+		chunkSize = limits[0]
+	}
+	if length <= chunkSize {
+		return s.InsertAll(ctx, exec, columns)
+	}
+
+	rowsAffected := int64(0)
+	start := 0
+	for {
+		end := start + chunkSize
+		if end > length {
+			end = length
+		}
+		rows, err := s[start:end].InsertAll(ctx, exec, columns)
+		if err != nil {
+			return rowsAffected, err
+		}
+
+		rowsAffected += rows
+		start = end
+		if start >= length {
+			break
+		}
+	}
+	return rowsAffected, nil
+}
+
+// InsertIgnoreAllByPage insert all Mail records from the slice.
+// This function inserts data by pages to avoid exceeding Postgres limitation (max parameters: 65535)
+func (s MailSlice) InsertIgnoreAllByPage(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns, limits ...int) (int64, error) {
+	length := len(s)
+	if length == 0 {
+		return 0, nil
+	}
+
+	// max number of parameters = 65535
+	chunkSize := MaxPageSize / reflect.ValueOf(&MailColumns).Elem().NumField()
+	if len(limits) > 0 && limits[0] > 0 && limits[0] < chunkSize {
+		chunkSize = limits[0]
+	}
+	if length <= chunkSize {
+		return s.InsertIgnoreAll(ctx, exec, columns)
+	}
+
+	rowsAffected := int64(0)
+	start := 0
+	for {
+		end := start + chunkSize
+		if end > length {
+			end = length
+		}
+		rows, err := s[start:end].InsertIgnoreAll(ctx, exec, columns)
+		if err != nil {
+			return rowsAffected, err
+		}
+
+		rowsAffected += rows
+		start = end
+		if start >= length {
+			break
+		}
+	}
+	return rowsAffected, nil
+}
+
+// UpsertAllByPage upsert all Mail records from the slice.
+// This function upserts data by pages to avoid exceeding Mysql limitation (max placeholders: 65535)
+// Mysql Error 1390: Prepared statement contains too many placeholders.
+func (s MailSlice) UpsertAllByPage(ctx context.Context, exec boil.ContextExecutor, updateColumns, insertColumns boil.Columns, limits ...int) (int64, error) {
+	length := len(s)
+	if length == 0 {
+		return 0, nil
+	}
+
+	// MySQL max placeholders = 65535
+	chunkSize := MaxPageSize / reflect.ValueOf(&MailColumns).Elem().NumField()
+	if len(limits) > 0 && limits[0] > 0 && limits[0] < chunkSize {
+		chunkSize = limits[0]
+	}
+	if length <= chunkSize {
+		return s.UpsertAll(ctx, exec, updateColumns, insertColumns)
+	}
+
+	rowsAffected := int64(0)
+	start := 0
+	for {
+		end := start + chunkSize
+		if end > length {
+			end = length
+		}
+		rows, err := s[start:end].UpsertAll(ctx, exec, updateColumns, insertColumns)
+		if err != nil {
+			return rowsAffected, err
+		}
+
+		rowsAffected += rows
+		start = end
+		if start >= length {
+			break
+		}
+	}
+	return rowsAffected, nil
+}
+
+///////////////////////////////// END EXTENSIONS /////////////////////////////////

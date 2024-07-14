@@ -687,7 +687,7 @@ func testRedirectUrisSelect(t *testing.T) {
 }
 
 var (
-	redirectURIDBTypes = map[string]string{`ID`: `char`, `ClientID`: `char`, `URI`: `text`, `CreatedAt`: `datetime`, `UpdatedAt`: `datetime`}
+	redirectURIDBTypes = map[string]string{`ID`: `int`, `ClientID`: `char`, `URI`: `text`, `CreatedAt`: `datetime`, `UpdatedAt`: `datetime`}
 	_                  = bytes.MinRead
 )
 

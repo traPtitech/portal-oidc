@@ -6,6 +6,7 @@ require (
 	github.com/cockroachdb/errors v1.11.3
 	github.com/friendsofgo/errors v0.9.2
 	github.com/go-sql-driver/mysql v1.7.0
+	github.com/google/uuid v1.3.0
 	github.com/kat-co/vala v0.0.0-20170210184112-42e1d8b61f12
 	github.com/labstack/echo/v4 v4.11.2
 	github.com/ory/fosite v0.46.1
@@ -45,7 +46,6 @@ require (
 	github.com/golang/glog v1.1.1 // indirect
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
-	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.2 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect

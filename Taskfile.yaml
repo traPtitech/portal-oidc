@@ -1,4 +1,9 @@
 version: "3"
+
+env:
+  BOIL_EXT_VER: "v0.8.0"
+  BOIL_VER: "v4.15.0"
+
 tasks:
   init:
     cmds:
@@ -20,6 +25,9 @@ tasks:
   migrate:up:
     cmds:
       - sql-migrate up
+  migrate:down:
+    cmds:
+      - sql-migrate down
 
   gen:db:
     deps:
@@ -28,7 +36,11 @@ tasks:
 
   gen:db:oidc:
     cmds:
-      - sqlboiler mysql
+      - go get -u github.com/tiendc/sqlboiler-extensions@{{.BOIL_EXT_VER}}
+      - sqlboiler mysql --templates {{.GOPATH}}/pkg/mod/github.com/volatiletech/sqlboiler/v4@{{.BOIL_VER}}/templates/main --templates {{.GOPATH}}/pkg/mod/github.com/volatiletech/sqlboiler/v4@{{.BOIL_VER}}/templates/test --templates {{.GOPATH}}/pkg/mod/github.com/tiendc/sqlboiler-extensions@{{.BOIL_EXT_VER}}/templates/boilv4/mysql
+      - go mod tidy
   gen:db:portal:
     cmds:
-      - sqlboiler mysql --config sqlboiler.portal.toml
+      - go get -u github.com/tiendc/sqlboiler-extensions@{{.BOIL_EXT_VER}}
+      - sqlboiler mysql --config sqlboiler.portal.toml --templates {{.GOPATH}}/pkg/mod/github.com/volatiletech/sqlboiler/v4@{{.BOIL_VER}}/templates/main --templates {{.GOPATH}}/pkg/mod/github.com/volatiletech/sqlboiler/v4@{{.BOIL_VER}}/templates/test --templates {{.GOPATH}}/pkg/mod/github.com/tiendc/sqlboiler-extensions@{{.BOIL_EXT_VER}}/templates/boilv4/mysql
+      - go mod tidy

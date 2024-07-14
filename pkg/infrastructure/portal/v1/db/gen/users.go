@@ -226,27 +226,18 @@ var (
 	_ = qmhelper.Where
 )
 
-var userAfterSelectMu sync.Mutex
 var userAfterSelectHooks []UserHook
 
-var userBeforeInsertMu sync.Mutex
 var userBeforeInsertHooks []UserHook
-var userAfterInsertMu sync.Mutex
 var userAfterInsertHooks []UserHook
 
-var userBeforeUpdateMu sync.Mutex
 var userBeforeUpdateHooks []UserHook
-var userAfterUpdateMu sync.Mutex
 var userAfterUpdateHooks []UserHook
 
-var userBeforeDeleteMu sync.Mutex
 var userBeforeDeleteHooks []UserHook
-var userAfterDeleteMu sync.Mutex
 var userAfterDeleteHooks []UserHook
 
-var userBeforeUpsertMu sync.Mutex
 var userBeforeUpsertHooks []UserHook
-var userAfterUpsertMu sync.Mutex
 var userAfterUpsertHooks []UserHook
 
 // doAfterSelectHooks executes all "after Select" hooks.
@@ -388,41 +379,23 @@ func (o *User) doAfterUpsertHooks(ctx context.Context, exec boil.ContextExecutor
 func AddUserHook(hookPoint boil.HookPoint, userHook UserHook) {
 	switch hookPoint {
 	case boil.AfterSelectHook:
-		userAfterSelectMu.Lock()
 		userAfterSelectHooks = append(userAfterSelectHooks, userHook)
-		userAfterSelectMu.Unlock()
 	case boil.BeforeInsertHook:
-		userBeforeInsertMu.Lock()
 		userBeforeInsertHooks = append(userBeforeInsertHooks, userHook)
-		userBeforeInsertMu.Unlock()
 	case boil.AfterInsertHook:
-		userAfterInsertMu.Lock()
 		userAfterInsertHooks = append(userAfterInsertHooks, userHook)
-		userAfterInsertMu.Unlock()
 	case boil.BeforeUpdateHook:
-		userBeforeUpdateMu.Lock()
 		userBeforeUpdateHooks = append(userBeforeUpdateHooks, userHook)
-		userBeforeUpdateMu.Unlock()
 	case boil.AfterUpdateHook:
-		userAfterUpdateMu.Lock()
 		userAfterUpdateHooks = append(userAfterUpdateHooks, userHook)
-		userAfterUpdateMu.Unlock()
 	case boil.BeforeDeleteHook:
-		userBeforeDeleteMu.Lock()
 		userBeforeDeleteHooks = append(userBeforeDeleteHooks, userHook)
-		userBeforeDeleteMu.Unlock()
 	case boil.AfterDeleteHook:
-		userAfterDeleteMu.Lock()
 		userAfterDeleteHooks = append(userAfterDeleteHooks, userHook)
-		userAfterDeleteMu.Unlock()
 	case boil.BeforeUpsertHook:
-		userBeforeUpsertMu.Lock()
 		userBeforeUpsertHooks = append(userBeforeUpsertHooks, userHook)
-		userBeforeUpsertMu.Unlock()
 	case boil.AfterUpsertHook:
-		userAfterUpsertMu.Lock()
 		userAfterUpsertHooks = append(userAfterUpsertHooks, userHook)
-		userAfterUpsertMu.Unlock()
 	}
 }
 
@@ -1098,3 +1071,497 @@ func UserExists(ctx context.Context, exec boil.ContextExecutor, iD string) (bool
 func (o *User) Exists(ctx context.Context, exec boil.ContextExecutor) (bool, error) {
 	return UserExists(ctx, exec, o.ID)
 }
+
+// /////////////////////////////// BEGIN EXTENSIONS /////////////////////////////////
+// Expose table columns
+var (
+	UserAllColumns            = userAllColumns
+	UserColumnsWithoutDefault = userColumnsWithoutDefault
+	UserColumnsWithDefault    = userColumnsWithDefault
+	UserPrimaryKeyColumns     = userPrimaryKeyColumns
+	UserGeneratedColumns      = userGeneratedColumns
+)
+
+// GetID get ID from model object
+func (o *User) GetID() string {
+	return o.ID
+}
+
+// GetIDs extract IDs from model objects
+func (s UserSlice) GetIDs() []string {
+	result := make([]string, len(s))
+	for i := range s {
+		result[i] = s[i].ID
+	}
+	return result
+}
+
+// GetIntfIDs extract IDs from model objects as interface slice
+func (s UserSlice) GetIntfIDs() []interface{} {
+	result := make([]interface{}, len(s))
+	for i := range s {
+		result[i] = s[i].ID
+	}
+	return result
+}
+
+// ToIDMap convert a slice of model objects to a map with ID as key
+func (s UserSlice) ToIDMap() map[string]*User {
+	result := make(map[string]*User, len(s))
+	for _, o := range s {
+		result[o.ID] = o
+	}
+	return result
+}
+
+// ToUniqueItems construct a slice of unique items from the given slice
+func (s UserSlice) ToUniqueItems() UserSlice {
+	result := make(UserSlice, 0, len(s))
+	mapChk := make(map[string]struct{}, len(s))
+	for i := len(s) - 1; i >= 0; i-- {
+		o := s[i]
+		if _, ok := mapChk[o.ID]; !ok {
+			mapChk[o.ID] = struct{}{}
+			result = append(result, o)
+		}
+	}
+	return result
+}
+
+// FindItemByID find item by ID in the slice
+func (s UserSlice) FindItemByID(id string) *User {
+	for _, o := range s {
+		if o.ID == id {
+			return o
+		}
+	}
+	return nil
+}
+
+// FindMissingItemIDs find all item IDs that are not in the list
+// NOTE: the input ID slice should contain unique values
+func (s UserSlice) FindMissingItemIDs(expectedIDs []string) []string {
+	if len(s) == 0 {
+		return expectedIDs
+	}
+	result := []string{}
+	mapChk := s.ToIDMap()
+	for _, id := range expectedIDs {
+		if _, ok := mapChk[id]; !ok {
+			result = append(result, id)
+		}
+	}
+	return result
+}
+
+// InsertAll inserts all rows with the specified column values, using an executor.
+// IMPORTANT: this will calculate the widest columns from all items in the slice, be careful if you want to use default column values
+func (o UserSlice) InsertAll(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns) (int64, error) {
+	if len(o) == 0 {
+		return 0, nil
+	}
+
+	// Calculate the widest columns from all rows need to insert
+	wlCols := make(map[string]struct{}, 10)
+	for _, row := range o {
+		wl, _ := columns.InsertColumnSet(
+			userAllColumns,
+			userColumnsWithDefault,
+			userColumnsWithoutDefault,
+			queries.NonZeroDefaultSet(userColumnsWithDefault, row),
+		)
+		for _, col := range wl {
+			wlCols[col] = struct{}{}
+		}
+	}
+	wl := make([]string, 0, len(wlCols))
+	for _, col := range userAllColumns {
+		if _, ok := wlCols[col]; ok {
+			wl = append(wl, col)
+		}
+	}
+
+	var sql string
+	vals := []interface{}{}
+	for i, row := range o {
+		if !boil.TimestampsAreSkipped(ctx) {
+			currTime := time.Now().In(boil.GetLocation())
+			if queries.MustTime(row.CreatedAt).IsZero() {
+				queries.SetScanner(&row.CreatedAt, currTime)
+			}
+			if queries.MustTime(row.UpdatedAt).IsZero() {
+				queries.SetScanner(&row.UpdatedAt, currTime)
+			}
+		}
+
+		if err := row.doBeforeInsertHooks(ctx, exec); err != nil {
+			return 0, err
+		}
+
+		if i == 0 {
+			sql = "INSERT INTO `users` " + "(`" + strings.Join(wl, "`,`") + "`)" + " VALUES "
+		}
+		sql += strmangle.Placeholders(dialect.UseIndexPlaceholders, len(wl), len(vals)+1, len(wl))
+		if i != len(o)-1 {
+			sql += ","
+		}
+		valMapping, err := queries.BindMapping(userType, userMapping, wl)
+		if err != nil {
+			return 0, err
+		}
+
+		value := reflect.Indirect(reflect.ValueOf(row))
+		vals = append(vals, queries.ValuesFromMapping(value, valMapping)...)
+	}
+
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, sql)
+		fmt.Fprintln(writer, vals)
+	}
+
+	result, err := exec.ExecContext(ctx, sql, vals...)
+	if err != nil {
+		return 0, errors.Wrap(err, "models: unable to insert all from user slice")
+	}
+
+	rowsAff, err := result.RowsAffected()
+	if err != nil {
+		return 0, errors.Wrap(err, "models: failed to get rows affected by insertall for users")
+	}
+
+	if len(userAfterInsertHooks) != 0 {
+		for _, obj := range o {
+			if err := obj.doAfterInsertHooks(ctx, exec); err != nil {
+				return 0, err
+			}
+		}
+	}
+
+	return rowsAff, nil
+}
+
+// InsertIgnoreAll inserts all rows with ignoring the existing ones having the same primary key values.
+// IMPORTANT: this will calculate the widest columns from all items in the slice, be careful if you want to use default column values
+func (o UserSlice) InsertIgnoreAll(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns) (int64, error) {
+	return o.UpsertAll(ctx, exec, boil.None(), columns)
+}
+
+// UpsertAll inserts or updates all rows
+// Currently it doesn't support "NoContext" and "NoRowsAffected"
+// IMPORTANT: this will calculate the widest columns from all items in the slice, be careful if you want to use default column values
+func (o UserSlice) UpsertAll(ctx context.Context, exec boil.ContextExecutor, updateColumns, insertColumns boil.Columns) (int64, error) {
+	if len(o) == 0 {
+		return 0, nil
+	}
+
+	// Calculate the widest columns from all rows need to upsert
+	insertCols := make(map[string]struct{}, 10)
+	for _, row := range o {
+		nzUniques := queries.NonZeroDefaultSet(mySQLUserUniqueColumns, row)
+		if len(nzUniques) == 0 {
+			return 0, errors.New("cannot upsert with a table that cannot conflict on a unique column")
+		}
+		insert, _ := insertColumns.InsertColumnSet(
+			userAllColumns,
+			userColumnsWithDefault,
+			userColumnsWithoutDefault,
+			queries.NonZeroDefaultSet(userColumnsWithDefault, row),
+		)
+		for _, col := range insert {
+			insertCols[col] = struct{}{}
+		}
+	}
+	insert := make([]string, 0, len(insertCols))
+	for _, col := range userAllColumns {
+		if _, ok := insertCols[col]; ok {
+			insert = append(insert, col)
+		}
+	}
+
+	update := updateColumns.UpdateColumnSet(
+		userAllColumns,
+		userPrimaryKeyColumns,
+	)
+	if !updateColumns.IsNone() && len(update) == 0 {
+		return 0, errors.New("models: unable to upsert users, could not build update column list")
+	}
+
+	buf := strmangle.GetBuffer()
+	defer strmangle.PutBuffer(buf)
+
+	if len(update) == 0 {
+		fmt.Fprintf(
+			buf,
+			"INSERT IGNORE INTO `users`(%s) VALUES %s",
+			strings.Join(strmangle.IdentQuoteSlice(dialect.LQ, dialect.RQ, insert), ","),
+			strmangle.Placeholders(false, len(insert)*len(o), 1, len(insert)),
+		)
+	} else {
+		fmt.Fprintf(
+			buf,
+			"INSERT INTO `users`(%s) VALUES %s ON DUPLICATE KEY UPDATE ",
+			strings.Join(strmangle.IdentQuoteSlice(dialect.LQ, dialect.RQ, insert), ","),
+			strmangle.Placeholders(false, len(insert)*len(o), 1, len(insert)),
+		)
+
+		for i, v := range update {
+			if i != 0 {
+				buf.WriteByte(',')
+			}
+			quoted := strmangle.IdentQuote(dialect.LQ, dialect.RQ, v)
+			buf.WriteString(quoted)
+			buf.WriteString(" = VALUES(")
+			buf.WriteString(quoted)
+			buf.WriteByte(')')
+		}
+	}
+
+	query := buf.String()
+	valueMapping, err := queries.BindMapping(userType, userMapping, insert)
+	if err != nil {
+		return 0, err
+	}
+
+	var vals []interface{}
+	for _, row := range o {
+		if !boil.TimestampsAreSkipped(ctx) {
+			currTime := time.Now().In(boil.GetLocation())
+			if queries.MustTime(row.CreatedAt).IsZero() {
+				queries.SetScanner(&row.CreatedAt, currTime)
+			}
+
+			queries.SetScanner(&row.UpdatedAt, currTime)
+		}
+
+		if err := row.doBeforeUpsertHooks(ctx, exec); err != nil {
+			return 0, err
+		}
+
+		value := reflect.Indirect(reflect.ValueOf(row))
+		vals = append(vals, queries.ValuesFromMapping(value, valueMapping)...)
+	}
+
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, query)
+		fmt.Fprintln(writer, vals)
+	}
+
+	result, err := exec.ExecContext(ctx, query, vals...)
+	if err != nil {
+		return 0, errors.Wrap(err, "models: unable to upsert for users")
+	}
+
+	rowsAff, err := result.RowsAffected()
+	if err != nil {
+		return 0, errors.Wrap(err, "models: failed to get rows affected by upsert for users")
+	}
+
+	if len(userAfterUpsertHooks) != 0 {
+		for _, obj := range o {
+			if err := obj.doAfterUpsertHooks(ctx, exec); err != nil {
+				return 0, err
+			}
+		}
+	}
+
+	return rowsAff, nil
+}
+
+// DeleteAllByPage delete all User records from the slice.
+// This function deletes data by pages to avoid exceeding Mysql limitation (max placeholders: 65535)
+// Mysql Error 1390: Prepared statement contains too many placeholders.
+func (s UserSlice) DeleteAllByPage(ctx context.Context, exec boil.ContextExecutor, limits ...int) (int64, error) {
+	length := len(s)
+	if length == 0 {
+		return 0, nil
+	}
+
+	// MySQL max placeholders = 65535
+	chunkSize := DefaultPageSize
+	if len(limits) > 0 && limits[0] > 0 && limits[0] <= MaxPageSize {
+		chunkSize = limits[0]
+	}
+	if length <= chunkSize {
+		return s.DeleteAll(ctx, exec)
+	}
+
+	rowsAffected := int64(0)
+	start := 0
+	for {
+		end := start + chunkSize
+		if end > length {
+			end = length
+		}
+		rows, err := s[start:end].DeleteAll(ctx, exec)
+		if err != nil {
+			return rowsAffected, err
+		}
+
+		rowsAffected += rows
+		start = end
+		if start >= length {
+			break
+		}
+	}
+	return rowsAffected, nil
+}
+
+// UpdateAllByPage update all User records from the slice.
+// This function updates data by pages to avoid exceeding Mysql limitation (max placeholders: 65535)
+// Mysql Error 1390: Prepared statement contains too many placeholders.
+func (s UserSlice) UpdateAllByPage(ctx context.Context, exec boil.ContextExecutor, cols M, limits ...int) (int64, error) {
+	length := len(s)
+	if length == 0 {
+		return 0, nil
+	}
+
+	// MySQL max placeholders = 65535
+	// NOTE (eric): len(cols) should not be too big
+	chunkSize := DefaultPageSize
+	if len(limits) > 0 && limits[0] > 0 && limits[0] <= MaxPageSize {
+		chunkSize = limits[0]
+	}
+	if length <= chunkSize {
+		return s.UpdateAll(ctx, exec, cols)
+	}
+
+	rowsAffected := int64(0)
+	start := 0
+	for {
+		end := start + chunkSize
+		if end > length {
+			end = length
+		}
+		rows, err := s[start:end].UpdateAll(ctx, exec, cols)
+		if err != nil {
+			return rowsAffected, err
+		}
+
+		rowsAffected += rows
+		start = end
+		if start >= length {
+			break
+		}
+	}
+	return rowsAffected, nil
+}
+
+// InsertAllByPage insert all User records from the slice.
+// This function inserts data by pages to avoid exceeding Mysql limitation (max placeholders: 65535)
+// Mysql Error 1390: Prepared statement contains too many placeholders.
+func (s UserSlice) InsertAllByPage(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns, limits ...int) (int64, error) {
+	length := len(s)
+	if length == 0 {
+		return 0, nil
+	}
+
+	// MySQL max placeholders = 65535
+	chunkSize := MaxPageSize / reflect.ValueOf(&UserColumns).Elem().NumField()
+	if len(limits) > 0 && limits[0] > 0 && limits[0] < chunkSize {
+		chunkSize = limits[0]
+	}
+	if length <= chunkSize {
+		return s.InsertAll(ctx, exec, columns)
+	}
+
+	rowsAffected := int64(0)
+	start := 0
+	for {
+		end := start + chunkSize
+		if end > length {
+			end = length
+		}
+		rows, err := s[start:end].InsertAll(ctx, exec, columns)
+		if err != nil {
+			return rowsAffected, err
+		}
+
+		rowsAffected += rows
+		start = end
+		if start >= length {
+			break
+		}
+	}
+	return rowsAffected, nil
+}
+
+// InsertIgnoreAllByPage insert all User records from the slice.
+// This function inserts data by pages to avoid exceeding Postgres limitation (max parameters: 65535)
+func (s UserSlice) InsertIgnoreAllByPage(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns, limits ...int) (int64, error) {
+	length := len(s)
+	if length == 0 {
+		return 0, nil
+	}
+
+	// max number of parameters = 65535
+	chunkSize := MaxPageSize / reflect.ValueOf(&UserColumns).Elem().NumField()
+	if len(limits) > 0 && limits[0] > 0 && limits[0] < chunkSize {
+		chunkSize = limits[0]
+	}
+	if length <= chunkSize {
+		return s.InsertIgnoreAll(ctx, exec, columns)
+	}
+
+	rowsAffected := int64(0)
+	start := 0
+	for {
+		end := start + chunkSize
+		if end > length {
+			end = length
+		}
+		rows, err := s[start:end].InsertIgnoreAll(ctx, exec, columns)
+		if err != nil {
+			return rowsAffected, err
+		}
+
+		rowsAffected += rows
+		start = end
+		if start >= length {
+			break
+		}
+	}
+	return rowsAffected, nil
+}
+
+// UpsertAllByPage upsert all User records from the slice.
+// This function upserts data by pages to avoid exceeding Mysql limitation (max placeholders: 65535)
+// Mysql Error 1390: Prepared statement contains too many placeholders.
+func (s UserSlice) UpsertAllByPage(ctx context.Context, exec boil.ContextExecutor, updateColumns, insertColumns boil.Columns, limits ...int) (int64, error) {
+	length := len(s)
+	if length == 0 {
+		return 0, nil
+	}
+
+	// MySQL max placeholders = 65535
+	chunkSize := MaxPageSize / reflect.ValueOf(&UserColumns).Elem().NumField()
+	if len(limits) > 0 && limits[0] > 0 && limits[0] < chunkSize {
+		chunkSize = limits[0]
+	}
+	if length <= chunkSize {
+		return s.UpsertAll(ctx, exec, updateColumns, insertColumns)
+	}
+
+	rowsAffected := int64(0)
+	start := 0
+	for {
+		end := start + chunkSize
+		if end > length {
+			end = length
+		}
+		rows, err := s[start:end].UpsertAll(ctx, exec, updateColumns, insertColumns)
+		if err != nil {
+			return rowsAffected, err
+		}
+
+		rowsAffected += rows
+		start = end
+		if start >= length {
+			break
+		}
+	}
+	return rowsAffected, nil
+}
+
+///////////////////////////////// END EXTENSIONS /////////////////////////////////

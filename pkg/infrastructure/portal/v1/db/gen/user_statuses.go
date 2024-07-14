@@ -121,27 +121,18 @@ var (
 	_ = qmhelper.Where
 )
 
-var userStatusAfterSelectMu sync.Mutex
 var userStatusAfterSelectHooks []UserStatusHook
 
-var userStatusBeforeInsertMu sync.Mutex
 var userStatusBeforeInsertHooks []UserStatusHook
-var userStatusAfterInsertMu sync.Mutex
 var userStatusAfterInsertHooks []UserStatusHook
 
-var userStatusBeforeUpdateMu sync.Mutex
 var userStatusBeforeUpdateHooks []UserStatusHook
-var userStatusAfterUpdateMu sync.Mutex
 var userStatusAfterUpdateHooks []UserStatusHook
 
-var userStatusBeforeDeleteMu sync.Mutex
 var userStatusBeforeDeleteHooks []UserStatusHook
-var userStatusAfterDeleteMu sync.Mutex
 var userStatusAfterDeleteHooks []UserStatusHook
 
-var userStatusBeforeUpsertMu sync.Mutex
 var userStatusBeforeUpsertHooks []UserStatusHook
-var userStatusAfterUpsertMu sync.Mutex
 var userStatusAfterUpsertHooks []UserStatusHook
 
 // doAfterSelectHooks executes all "after Select" hooks.
@@ -283,41 +274,23 @@ func (o *UserStatus) doAfterUpsertHooks(ctx context.Context, exec boil.ContextEx
 func AddUserStatusHook(hookPoint boil.HookPoint, userStatusHook UserStatusHook) {
 	switch hookPoint {
 	case boil.AfterSelectHook:
-		userStatusAfterSelectMu.Lock()
 		userStatusAfterSelectHooks = append(userStatusAfterSelectHooks, userStatusHook)
-		userStatusAfterSelectMu.Unlock()
 	case boil.BeforeInsertHook:
-		userStatusBeforeInsertMu.Lock()
 		userStatusBeforeInsertHooks = append(userStatusBeforeInsertHooks, userStatusHook)
-		userStatusBeforeInsertMu.Unlock()
 	case boil.AfterInsertHook:
-		userStatusAfterInsertMu.Lock()
 		userStatusAfterInsertHooks = append(userStatusAfterInsertHooks, userStatusHook)
-		userStatusAfterInsertMu.Unlock()
 	case boil.BeforeUpdateHook:
-		userStatusBeforeUpdateMu.Lock()
 		userStatusBeforeUpdateHooks = append(userStatusBeforeUpdateHooks, userStatusHook)
-		userStatusBeforeUpdateMu.Unlock()
 	case boil.AfterUpdateHook:
-		userStatusAfterUpdateMu.Lock()
 		userStatusAfterUpdateHooks = append(userStatusAfterUpdateHooks, userStatusHook)
-		userStatusAfterUpdateMu.Unlock()
 	case boil.BeforeDeleteHook:
-		userStatusBeforeDeleteMu.Lock()
 		userStatusBeforeDeleteHooks = append(userStatusBeforeDeleteHooks, userStatusHook)
-		userStatusBeforeDeleteMu.Unlock()
 	case boil.AfterDeleteHook:
-		userStatusAfterDeleteMu.Lock()
 		userStatusAfterDeleteHooks = append(userStatusAfterDeleteHooks, userStatusHook)
-		userStatusAfterDeleteMu.Unlock()
 	case boil.BeforeUpsertHook:
-		userStatusBeforeUpsertMu.Lock()
 		userStatusBeforeUpsertHooks = append(userStatusBeforeUpsertHooks, userStatusHook)
-		userStatusBeforeUpsertMu.Unlock()
 	case boil.AfterUpsertHook:
-		userStatusAfterUpsertMu.Lock()
 		userStatusAfterUpsertHooks = append(userStatusAfterUpsertHooks, userStatusHook)
-		userStatusAfterUpsertMu.Unlock()
 	}
 }
 
@@ -966,3 +939,408 @@ func UserStatusExists(ctx context.Context, exec boil.ContextExecutor, userID str
 func (o *UserStatus) Exists(ctx context.Context, exec boil.ContextExecutor) (bool, error) {
 	return UserStatusExists(ctx, exec, o.UserID, o.Status)
 }
+
+// /////////////////////////////// BEGIN EXTENSIONS /////////////////////////////////
+// Expose table columns
+var (
+	UserStatusAllColumns            = userStatusAllColumns
+	UserStatusColumnsWithoutDefault = userStatusColumnsWithoutDefault
+	UserStatusColumnsWithDefault    = userStatusColumnsWithDefault
+	UserStatusPrimaryKeyColumns     = userStatusPrimaryKeyColumns
+	UserStatusGeneratedColumns      = userStatusGeneratedColumns
+)
+
+// InsertAll inserts all rows with the specified column values, using an executor.
+// IMPORTANT: this will calculate the widest columns from all items in the slice, be careful if you want to use default column values
+func (o UserStatusSlice) InsertAll(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns) (int64, error) {
+	if len(o) == 0 {
+		return 0, nil
+	}
+
+	// Calculate the widest columns from all rows need to insert
+	wlCols := make(map[string]struct{}, 10)
+	for _, row := range o {
+		wl, _ := columns.InsertColumnSet(
+			userStatusAllColumns,
+			userStatusColumnsWithDefault,
+			userStatusColumnsWithoutDefault,
+			queries.NonZeroDefaultSet(userStatusColumnsWithDefault, row),
+		)
+		for _, col := range wl {
+			wlCols[col] = struct{}{}
+		}
+	}
+	wl := make([]string, 0, len(wlCols))
+	for _, col := range userStatusAllColumns {
+		if _, ok := wlCols[col]; ok {
+			wl = append(wl, col)
+		}
+	}
+
+	var sql string
+	vals := []interface{}{}
+	for i, row := range o {
+
+		if err := row.doBeforeInsertHooks(ctx, exec); err != nil {
+			return 0, err
+		}
+
+		if i == 0 {
+			sql = "INSERT INTO `user_statuses` " + "(`" + strings.Join(wl, "`,`") + "`)" + " VALUES "
+		}
+		sql += strmangle.Placeholders(dialect.UseIndexPlaceholders, len(wl), len(vals)+1, len(wl))
+		if i != len(o)-1 {
+			sql += ","
+		}
+		valMapping, err := queries.BindMapping(userStatusType, userStatusMapping, wl)
+		if err != nil {
+			return 0, err
+		}
+
+		value := reflect.Indirect(reflect.ValueOf(row))
+		vals = append(vals, queries.ValuesFromMapping(value, valMapping)...)
+	}
+
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, sql)
+		fmt.Fprintln(writer, vals)
+	}
+
+	result, err := exec.ExecContext(ctx, sql, vals...)
+	if err != nil {
+		return 0, errors.Wrap(err, "models: unable to insert all from userStatus slice")
+	}
+
+	rowsAff, err := result.RowsAffected()
+	if err != nil {
+		return 0, errors.Wrap(err, "models: failed to get rows affected by insertall for user_statuses")
+	}
+
+	if len(userStatusAfterInsertHooks) != 0 {
+		for _, obj := range o {
+			if err := obj.doAfterInsertHooks(ctx, exec); err != nil {
+				return 0, err
+			}
+		}
+	}
+
+	return rowsAff, nil
+}
+
+// InsertIgnoreAll inserts all rows with ignoring the existing ones having the same primary key values.
+// IMPORTANT: this will calculate the widest columns from all items in the slice, be careful if you want to use default column values
+func (o UserStatusSlice) InsertIgnoreAll(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns) (int64, error) {
+	return o.UpsertAll(ctx, exec, boil.None(), columns)
+}
+
+// UpsertAll inserts or updates all rows
+// Currently it doesn't support "NoContext" and "NoRowsAffected"
+// IMPORTANT: this will calculate the widest columns from all items in the slice, be careful if you want to use default column values
+func (o UserStatusSlice) UpsertAll(ctx context.Context, exec boil.ContextExecutor, updateColumns, insertColumns boil.Columns) (int64, error) {
+	if len(o) == 0 {
+		return 0, nil
+	}
+
+	// Calculate the widest columns from all rows need to upsert
+	insertCols := make(map[string]struct{}, 10)
+	for _, row := range o {
+		nzUniques := queries.NonZeroDefaultSet(mySQLUserStatusUniqueColumns, row)
+		if len(nzUniques) == 0 {
+			return 0, errors.New("cannot upsert with a table that cannot conflict on a unique column")
+		}
+		insert, _ := insertColumns.InsertColumnSet(
+			userStatusAllColumns,
+			userStatusColumnsWithDefault,
+			userStatusColumnsWithoutDefault,
+			queries.NonZeroDefaultSet(userStatusColumnsWithDefault, row),
+		)
+		for _, col := range insert {
+			insertCols[col] = struct{}{}
+		}
+	}
+	insert := make([]string, 0, len(insertCols))
+	for _, col := range userStatusAllColumns {
+		if _, ok := insertCols[col]; ok {
+			insert = append(insert, col)
+		}
+	}
+
+	update := updateColumns.UpdateColumnSet(
+		userStatusAllColumns,
+		userStatusPrimaryKeyColumns,
+	)
+	if !updateColumns.IsNone() && len(update) == 0 {
+		return 0, errors.New("models: unable to upsert user_statuses, could not build update column list")
+	}
+
+	buf := strmangle.GetBuffer()
+	defer strmangle.PutBuffer(buf)
+
+	if len(update) == 0 {
+		fmt.Fprintf(
+			buf,
+			"INSERT IGNORE INTO `user_statuses`(%s) VALUES %s",
+			strings.Join(strmangle.IdentQuoteSlice(dialect.LQ, dialect.RQ, insert), ","),
+			strmangle.Placeholders(false, len(insert)*len(o), 1, len(insert)),
+		)
+	} else {
+		fmt.Fprintf(
+			buf,
+			"INSERT INTO `user_statuses`(%s) VALUES %s ON DUPLICATE KEY UPDATE ",
+			strings.Join(strmangle.IdentQuoteSlice(dialect.LQ, dialect.RQ, insert), ","),
+			strmangle.Placeholders(false, len(insert)*len(o), 1, len(insert)),
+		)
+
+		for i, v := range update {
+			if i != 0 {
+				buf.WriteByte(',')
+			}
+			quoted := strmangle.IdentQuote(dialect.LQ, dialect.RQ, v)
+			buf.WriteString(quoted)
+			buf.WriteString(" = VALUES(")
+			buf.WriteString(quoted)
+			buf.WriteByte(')')
+		}
+	}
+
+	query := buf.String()
+	valueMapping, err := queries.BindMapping(userStatusType, userStatusMapping, insert)
+	if err != nil {
+		return 0, err
+	}
+
+	var vals []interface{}
+	for _, row := range o {
+
+		if err := row.doBeforeUpsertHooks(ctx, exec); err != nil {
+			return 0, err
+		}
+
+		value := reflect.Indirect(reflect.ValueOf(row))
+		vals = append(vals, queries.ValuesFromMapping(value, valueMapping)...)
+	}
+
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, query)
+		fmt.Fprintln(writer, vals)
+	}
+
+	result, err := exec.ExecContext(ctx, query, vals...)
+	if err != nil {
+		return 0, errors.Wrap(err, "models: unable to upsert for user_statuses")
+	}
+
+	rowsAff, err := result.RowsAffected()
+	if err != nil {
+		return 0, errors.Wrap(err, "models: failed to get rows affected by upsert for user_statuses")
+	}
+
+	if len(userStatusAfterUpsertHooks) != 0 {
+		for _, obj := range o {
+			if err := obj.doAfterUpsertHooks(ctx, exec); err != nil {
+				return 0, err
+			}
+		}
+	}
+
+	return rowsAff, nil
+}
+
+// DeleteAllByPage delete all UserStatus records from the slice.
+// This function deletes data by pages to avoid exceeding Mysql limitation (max placeholders: 65535)
+// Mysql Error 1390: Prepared statement contains too many placeholders.
+func (s UserStatusSlice) DeleteAllByPage(ctx context.Context, exec boil.ContextExecutor, limits ...int) (int64, error) {
+	length := len(s)
+	if length == 0 {
+		return 0, nil
+	}
+
+	// MySQL max placeholders = 65535
+	chunkSize := DefaultPageSize
+	if len(limits) > 0 && limits[0] > 0 && limits[0] <= MaxPageSize {
+		chunkSize = limits[0]
+	}
+	if length <= chunkSize {
+		return s.DeleteAll(ctx, exec)
+	}
+
+	rowsAffected := int64(0)
+	start := 0
+	for {
+		end := start + chunkSize
+		if end > length {
+			end = length
+		}
+		rows, err := s[start:end].DeleteAll(ctx, exec)
+		if err != nil {
+			return rowsAffected, err
+		}
+
+		rowsAffected += rows
+		start = end
+		if start >= length {
+			break
+		}
+	}
+	return rowsAffected, nil
+}
+
+// UpdateAllByPage update all UserStatus records from the slice.
+// This function updates data by pages to avoid exceeding Mysql limitation (max placeholders: 65535)
+// Mysql Error 1390: Prepared statement contains too many placeholders.
+func (s UserStatusSlice) UpdateAllByPage(ctx context.Context, exec boil.ContextExecutor, cols M, limits ...int) (int64, error) {
+	length := len(s)
+	if length == 0 {
+		return 0, nil
+	}
+
+	// MySQL max placeholders = 65535
+	// NOTE (eric): len(cols) should not be too big
+	chunkSize := DefaultPageSize
+	if len(limits) > 0 && limits[0] > 0 && limits[0] <= MaxPageSize {
+		chunkSize = limits[0]
+	}
+	if length <= chunkSize {
+		return s.UpdateAll(ctx, exec, cols)
+	}
+
+	rowsAffected := int64(0)
+	start := 0
+	for {
+		end := start + chunkSize
+		if end > length {
+			end = length
+		}
+		rows, err := s[start:end].UpdateAll(ctx, exec, cols)
+		if err != nil {
+			return rowsAffected, err
+		}
+
+		rowsAffected += rows
+		start = end
+		if start >= length {
+			break
+		}
+	}
+	return rowsAffected, nil
+}
+
+// InsertAllByPage insert all UserStatus records from the slice.
+// This function inserts data by pages to avoid exceeding Mysql limitation (max placeholders: 65535)
+// Mysql Error 1390: Prepared statement contains too many placeholders.
+func (s UserStatusSlice) InsertAllByPage(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns, limits ...int) (int64, error) {
+	length := len(s)
+	if length == 0 {
+		return 0, nil
+	}
+
+	// MySQL max placeholders = 65535
+	chunkSize := MaxPageSize / reflect.ValueOf(&UserStatusColumns).Elem().NumField()
+	if len(limits) > 0 && limits[0] > 0 && limits[0] < chunkSize {
+		chunkSize = limits[0]
+	}
+	if length <= chunkSize {
+		return s.InsertAll(ctx, exec, columns)
+	}
+
+	rowsAffected := int64(0)
+	start := 0
+	for {
+		end := start + chunkSize
+		if end > length {
+			end = length
+		}
+		rows, err := s[start:end].InsertAll(ctx, exec, columns)
+		if err != nil {
+			return rowsAffected, err
+		}
+
+		rowsAffected += rows
+		start = end
+		if start >= length {
+			break
+		}
+	}
+	return rowsAffected, nil
+}
+
+// InsertIgnoreAllByPage insert all UserStatus records from the slice.
+// This function inserts data by pages to avoid exceeding Postgres limitation (max parameters: 65535)
+func (s UserStatusSlice) InsertIgnoreAllByPage(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns, limits ...int) (int64, error) {
+	length := len(s)
+	if length == 0 {
+		return 0, nil
+	}
+
+	// max number of parameters = 65535
+	chunkSize := MaxPageSize / reflect.ValueOf(&UserStatusColumns).Elem().NumField()
+	if len(limits) > 0 && limits[0] > 0 && limits[0] < chunkSize {
+		chunkSize = limits[0]
+	}
+	if length <= chunkSize {
+		return s.InsertIgnoreAll(ctx, exec, columns)
+	}
+
+	rowsAffected := int64(0)
+	start := 0
+	for {
+		end := start + chunkSize
+		if end > length {
+			end = length
+		}
+		rows, err := s[start:end].InsertIgnoreAll(ctx, exec, columns)
+		if err != nil {
+			return rowsAffected, err
+		}
+
+		rowsAffected += rows
+		start = end
+		if start >= length {
+			break
+		}
+	}
+	return rowsAffected, nil
+}
+
+// UpsertAllByPage upsert all UserStatus records from the slice.
+// This function upserts data by pages to avoid exceeding Mysql limitation (max placeholders: 65535)
+// Mysql Error 1390: Prepared statement contains too many placeholders.
+func (s UserStatusSlice) UpsertAllByPage(ctx context.Context, exec boil.ContextExecutor, updateColumns, insertColumns boil.Columns, limits ...int) (int64, error) {
+	length := len(s)
+	if length == 0 {
+		return 0, nil
+	}
+
+	// MySQL max placeholders = 65535
+	chunkSize := MaxPageSize / reflect.ValueOf(&UserStatusColumns).Elem().NumField()
+	if len(limits) > 0 && limits[0] > 0 && limits[0] < chunkSize {
+		chunkSize = limits[0]
+	}
+	if length <= chunkSize {
+		return s.UpsertAll(ctx, exec, updateColumns, insertColumns)
+	}
+
+	rowsAffected := int64(0)
+	start := 0
+	for {
+		end := start + chunkSize
+		if end > length {
+			end = length
+		}
+		rows, err := s[start:end].UpsertAll(ctx, exec, updateColumns, insertColumns)
+		if err != nil {
+			return rowsAffected, err
+		}
+
+		rowsAffected += rows
+		start = end
+		if start >= length {
+			break
+		}
+	}
+	return rowsAffected, nil
+}
+
+///////////////////////////////// END EXTENSIONS /////////////////////////////////
