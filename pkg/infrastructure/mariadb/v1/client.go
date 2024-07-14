@@ -25,7 +25,7 @@ func convertToDomainClient(client *models.Client) (domain.Client, error) {
 
 	return domain.Client{
 		ID:           domain.ClientID(clientID),
-		UserID:       domain.UserID(portal.PortalUserID(client.UserID)),
+		UserID:       domain.UserID(portal.PortalUserID(client.UserID)), // TODO: ここどうしよう（ちゃんとインターフェース切れてない）
 		Type:         domain.ClientType(client.Type),
 		Name:         client.Name,
 		Description:  client.Description,
