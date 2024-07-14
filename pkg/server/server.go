@@ -50,6 +50,7 @@ func NewServer(config Config) http.Handler {
 	mux.HandleFunc("/oauth2/auth", handler.AuthEndpoint)
 	mux.HandleFunc("/oauth2/token", handler.TokenEndpoint)
 	mux.HandleFunc("/oauth2/userinfo", handler.UserInfoEndpoint)
+	mux.HandleFunc("/.well-known/openid-configuration", handler.SetupOIDCDiscoveryHandler(config.Host))
 
 	return cors.New(cors.Options{
 		AllowOriginFunc: func(origin string) bool {

@@ -6,6 +6,7 @@ import (
 )
 
 type Config struct {
+	Host       string `mapstructure:"host"`
 	OIDCSecret string `mapstructure:"oidc_secret"`
 	Portal     struct {
 		DB portalv1.Config `mapstructure:"db"`
