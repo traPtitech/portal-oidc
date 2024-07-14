@@ -2,18 +2,21 @@
 SELECT 'up SQL query';
 CREATE TABLE `clients` (
     `id` CHAR(36) NOT NULL,
+    `user_id` VARCHAR(36) NOT NULL,
     `name` TEXT NOT NULL,
+    `type` TEXT NOT NULL,
     `description` TEXT NOT NULL,
     `secret_key` TEXT NOT NULL,
     `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`)
+    PRIMARY KEY (`id`),
+    INDEX `clients_user_id_index` (`user_id`)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_general_ci;
 
 CREATE TABLE `redirect_uri` (
-    `id` CHAR(36) NOT NULL,
+    `id` INT NOT NULL AUTO_INCREMENT,
     `client_id` CHAR(36) NOT NULL,
     `uri` TEXT NOT NULL,
     `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,

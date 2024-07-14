@@ -113,27 +113,18 @@ var (
 	_ = qmhelper.Where
 )
 
-var tokensScopeAfterSelectMu sync.Mutex
 var tokensScopeAfterSelectHooks []TokensScopeHook
 
-var tokensScopeBeforeInsertMu sync.Mutex
 var tokensScopeBeforeInsertHooks []TokensScopeHook
-var tokensScopeAfterInsertMu sync.Mutex
 var tokensScopeAfterInsertHooks []TokensScopeHook
 
-var tokensScopeBeforeUpdateMu sync.Mutex
 var tokensScopeBeforeUpdateHooks []TokensScopeHook
-var tokensScopeAfterUpdateMu sync.Mutex
 var tokensScopeAfterUpdateHooks []TokensScopeHook
 
-var tokensScopeBeforeDeleteMu sync.Mutex
 var tokensScopeBeforeDeleteHooks []TokensScopeHook
-var tokensScopeAfterDeleteMu sync.Mutex
 var tokensScopeAfterDeleteHooks []TokensScopeHook
 
-var tokensScopeBeforeUpsertMu sync.Mutex
 var tokensScopeBeforeUpsertHooks []TokensScopeHook
-var tokensScopeAfterUpsertMu sync.Mutex
 var tokensScopeAfterUpsertHooks []TokensScopeHook
 
 // doAfterSelectHooks executes all "after Select" hooks.
@@ -275,41 +266,23 @@ func (o *TokensScope) doAfterUpsertHooks(ctx context.Context, exec boil.ContextE
 func AddTokensScopeHook(hookPoint boil.HookPoint, tokensScopeHook TokensScopeHook) {
 	switch hookPoint {
 	case boil.AfterSelectHook:
-		tokensScopeAfterSelectMu.Lock()
 		tokensScopeAfterSelectHooks = append(tokensScopeAfterSelectHooks, tokensScopeHook)
-		tokensScopeAfterSelectMu.Unlock()
 	case boil.BeforeInsertHook:
-		tokensScopeBeforeInsertMu.Lock()
 		tokensScopeBeforeInsertHooks = append(tokensScopeBeforeInsertHooks, tokensScopeHook)
-		tokensScopeBeforeInsertMu.Unlock()
 	case boil.AfterInsertHook:
-		tokensScopeAfterInsertMu.Lock()
 		tokensScopeAfterInsertHooks = append(tokensScopeAfterInsertHooks, tokensScopeHook)
-		tokensScopeAfterInsertMu.Unlock()
 	case boil.BeforeUpdateHook:
-		tokensScopeBeforeUpdateMu.Lock()
 		tokensScopeBeforeUpdateHooks = append(tokensScopeBeforeUpdateHooks, tokensScopeHook)
-		tokensScopeBeforeUpdateMu.Unlock()
 	case boil.AfterUpdateHook:
-		tokensScopeAfterUpdateMu.Lock()
 		tokensScopeAfterUpdateHooks = append(tokensScopeAfterUpdateHooks, tokensScopeHook)
-		tokensScopeAfterUpdateMu.Unlock()
 	case boil.BeforeDeleteHook:
-		tokensScopeBeforeDeleteMu.Lock()
 		tokensScopeBeforeDeleteHooks = append(tokensScopeBeforeDeleteHooks, tokensScopeHook)
-		tokensScopeBeforeDeleteMu.Unlock()
 	case boil.AfterDeleteHook:
-		tokensScopeAfterDeleteMu.Lock()
 		tokensScopeAfterDeleteHooks = append(tokensScopeAfterDeleteHooks, tokensScopeHook)
-		tokensScopeAfterDeleteMu.Unlock()
 	case boil.BeforeUpsertHook:
-		tokensScopeBeforeUpsertMu.Lock()
 		tokensScopeBeforeUpsertHooks = append(tokensScopeBeforeUpsertHooks, tokensScopeHook)
-		tokensScopeBeforeUpsertMu.Unlock()
 	case boil.AfterUpsertHook:
-		tokensScopeAfterUpsertMu.Lock()
 		tokensScopeAfterUpsertHooks = append(tokensScopeAfterUpsertHooks, tokensScopeHook)
-		tokensScopeAfterUpsertMu.Unlock()
 	}
 }
 
@@ -958,3 +931,408 @@ func TokensScopeExists(ctx context.Context, exec boil.ContextExecutor, tokenID s
 func (o *TokensScope) Exists(ctx context.Context, exec boil.ContextExecutor) (bool, error) {
 	return TokensScopeExists(ctx, exec, o.TokenID, o.ScopeID)
 }
+
+// /////////////////////////////// BEGIN EXTENSIONS /////////////////////////////////
+// Expose table columns
+var (
+	TokensScopeAllColumns            = tokensScopeAllColumns
+	TokensScopeColumnsWithoutDefault = tokensScopeColumnsWithoutDefault
+	TokensScopeColumnsWithDefault    = tokensScopeColumnsWithDefault
+	TokensScopePrimaryKeyColumns     = tokensScopePrimaryKeyColumns
+	TokensScopeGeneratedColumns      = tokensScopeGeneratedColumns
+)
+
+// InsertAll inserts all rows with the specified column values, using an executor.
+// IMPORTANT: this will calculate the widest columns from all items in the slice, be careful if you want to use default column values
+func (o TokensScopeSlice) InsertAll(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns) (int64, error) {
+	if len(o) == 0 {
+		return 0, nil
+	}
+
+	// Calculate the widest columns from all rows need to insert
+	wlCols := make(map[string]struct{}, 10)
+	for _, row := range o {
+		wl, _ := columns.InsertColumnSet(
+			tokensScopeAllColumns,
+			tokensScopeColumnsWithDefault,
+			tokensScopeColumnsWithoutDefault,
+			queries.NonZeroDefaultSet(tokensScopeColumnsWithDefault, row),
+		)
+		for _, col := range wl {
+			wlCols[col] = struct{}{}
+		}
+	}
+	wl := make([]string, 0, len(wlCols))
+	for _, col := range tokensScopeAllColumns {
+		if _, ok := wlCols[col]; ok {
+			wl = append(wl, col)
+		}
+	}
+
+	var sql string
+	vals := []interface{}{}
+	for i, row := range o {
+
+		if err := row.doBeforeInsertHooks(ctx, exec); err != nil {
+			return 0, err
+		}
+
+		if i == 0 {
+			sql = "INSERT INTO `tokens_scopes` " + "(`" + strings.Join(wl, "`,`") + "`)" + " VALUES "
+		}
+		sql += strmangle.Placeholders(dialect.UseIndexPlaceholders, len(wl), len(vals)+1, len(wl))
+		if i != len(o)-1 {
+			sql += ","
+		}
+		valMapping, err := queries.BindMapping(tokensScopeType, tokensScopeMapping, wl)
+		if err != nil {
+			return 0, err
+		}
+
+		value := reflect.Indirect(reflect.ValueOf(row))
+		vals = append(vals, queries.ValuesFromMapping(value, valMapping)...)
+	}
+
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, sql)
+		fmt.Fprintln(writer, vals)
+	}
+
+	result, err := exec.ExecContext(ctx, sql, vals...)
+	if err != nil {
+		return 0, errors.Wrap(err, "models: unable to insert all from tokensScope slice")
+	}
+
+	rowsAff, err := result.RowsAffected()
+	if err != nil {
+		return 0, errors.Wrap(err, "models: failed to get rows affected by insertall for tokens_scopes")
+	}
+
+	if len(tokensScopeAfterInsertHooks) != 0 {
+		for _, obj := range o {
+			if err := obj.doAfterInsertHooks(ctx, exec); err != nil {
+				return 0, err
+			}
+		}
+	}
+
+	return rowsAff, nil
+}
+
+// InsertIgnoreAll inserts all rows with ignoring the existing ones having the same primary key values.
+// IMPORTANT: this will calculate the widest columns from all items in the slice, be careful if you want to use default column values
+func (o TokensScopeSlice) InsertIgnoreAll(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns) (int64, error) {
+	return o.UpsertAll(ctx, exec, boil.None(), columns)
+}
+
+// UpsertAll inserts or updates all rows
+// Currently it doesn't support "NoContext" and "NoRowsAffected"
+// IMPORTANT: this will calculate the widest columns from all items in the slice, be careful if you want to use default column values
+func (o TokensScopeSlice) UpsertAll(ctx context.Context, exec boil.ContextExecutor, updateColumns, insertColumns boil.Columns) (int64, error) {
+	if len(o) == 0 {
+		return 0, nil
+	}
+
+	// Calculate the widest columns from all rows need to upsert
+	insertCols := make(map[string]struct{}, 10)
+	for _, row := range o {
+		nzUniques := queries.NonZeroDefaultSet(mySQLTokensScopeUniqueColumns, row)
+		if len(nzUniques) == 0 {
+			return 0, errors.New("cannot upsert with a table that cannot conflict on a unique column")
+		}
+		insert, _ := insertColumns.InsertColumnSet(
+			tokensScopeAllColumns,
+			tokensScopeColumnsWithDefault,
+			tokensScopeColumnsWithoutDefault,
+			queries.NonZeroDefaultSet(tokensScopeColumnsWithDefault, row),
+		)
+		for _, col := range insert {
+			insertCols[col] = struct{}{}
+		}
+	}
+	insert := make([]string, 0, len(insertCols))
+	for _, col := range tokensScopeAllColumns {
+		if _, ok := insertCols[col]; ok {
+			insert = append(insert, col)
+		}
+	}
+
+	update := updateColumns.UpdateColumnSet(
+		tokensScopeAllColumns,
+		tokensScopePrimaryKeyColumns,
+	)
+	if !updateColumns.IsNone() && len(update) == 0 {
+		return 0, errors.New("models: unable to upsert tokens_scopes, could not build update column list")
+	}
+
+	buf := strmangle.GetBuffer()
+	defer strmangle.PutBuffer(buf)
+
+	if len(update) == 0 {
+		fmt.Fprintf(
+			buf,
+			"INSERT IGNORE INTO `tokens_scopes`(%s) VALUES %s",
+			strings.Join(strmangle.IdentQuoteSlice(dialect.LQ, dialect.RQ, insert), ","),
+			strmangle.Placeholders(false, len(insert)*len(o), 1, len(insert)),
+		)
+	} else {
+		fmt.Fprintf(
+			buf,
+			"INSERT INTO `tokens_scopes`(%s) VALUES %s ON DUPLICATE KEY UPDATE ",
+			strings.Join(strmangle.IdentQuoteSlice(dialect.LQ, dialect.RQ, insert), ","),
+			strmangle.Placeholders(false, len(insert)*len(o), 1, len(insert)),
+		)
+
+		for i, v := range update {
+			if i != 0 {
+				buf.WriteByte(',')
+			}
+			quoted := strmangle.IdentQuote(dialect.LQ, dialect.RQ, v)
+			buf.WriteString(quoted)
+			buf.WriteString(" = VALUES(")
+			buf.WriteString(quoted)
+			buf.WriteByte(')')
+		}
+	}
+
+	query := buf.String()
+	valueMapping, err := queries.BindMapping(tokensScopeType, tokensScopeMapping, insert)
+	if err != nil {
+		return 0, err
+	}
+
+	var vals []interface{}
+	for _, row := range o {
+
+		if err := row.doBeforeUpsertHooks(ctx, exec); err != nil {
+			return 0, err
+		}
+
+		value := reflect.Indirect(reflect.ValueOf(row))
+		vals = append(vals, queries.ValuesFromMapping(value, valueMapping)...)
+	}
+
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, query)
+		fmt.Fprintln(writer, vals)
+	}
+
+	result, err := exec.ExecContext(ctx, query, vals...)
+	if err != nil {
+		return 0, errors.Wrap(err, "models: unable to upsert for tokens_scopes")
+	}
+
+	rowsAff, err := result.RowsAffected()
+	if err != nil {
+		return 0, errors.Wrap(err, "models: failed to get rows affected by upsert for tokens_scopes")
+	}
+
+	if len(tokensScopeAfterUpsertHooks) != 0 {
+		for _, obj := range o {
+			if err := obj.doAfterUpsertHooks(ctx, exec); err != nil {
+				return 0, err
+			}
+		}
+	}
+
+	return rowsAff, nil
+}
+
+// DeleteAllByPage delete all TokensScope records from the slice.
+// This function deletes data by pages to avoid exceeding Mysql limitation (max placeholders: 65535)
+// Mysql Error 1390: Prepared statement contains too many placeholders.
+func (s TokensScopeSlice) DeleteAllByPage(ctx context.Context, exec boil.ContextExecutor, limits ...int) (int64, error) {
+	length := len(s)
+	if length == 0 {
+		return 0, nil
+	}
+
+	// MySQL max placeholders = 65535
+	chunkSize := DefaultPageSize
+	if len(limits) > 0 && limits[0] > 0 && limits[0] <= MaxPageSize {
+		chunkSize = limits[0]
+	}
+	if length <= chunkSize {
+		return s.DeleteAll(ctx, exec)
+	}
+
+	rowsAffected := int64(0)
+	start := 0
+	for {
+		end := start + chunkSize
+		if end > length {
+			end = length
+		}
+		rows, err := s[start:end].DeleteAll(ctx, exec)
+		if err != nil {
+			return rowsAffected, err
+		}
+
+		rowsAffected += rows
+		start = end
+		if start >= length {
+			break
+		}
+	}
+	return rowsAffected, nil
+}
+
+// UpdateAllByPage update all TokensScope records from the slice.
+// This function updates data by pages to avoid exceeding Mysql limitation (max placeholders: 65535)
+// Mysql Error 1390: Prepared statement contains too many placeholders.
+func (s TokensScopeSlice) UpdateAllByPage(ctx context.Context, exec boil.ContextExecutor, cols M, limits ...int) (int64, error) {
+	length := len(s)
+	if length == 0 {
+		return 0, nil
+	}
+
+	// MySQL max placeholders = 65535
+	// NOTE (eric): len(cols) should not be too big
+	chunkSize := DefaultPageSize
+	if len(limits) > 0 && limits[0] > 0 && limits[0] <= MaxPageSize {
+		chunkSize = limits[0]
+	}
+	if length <= chunkSize {
+		return s.UpdateAll(ctx, exec, cols)
+	}
+
+	rowsAffected := int64(0)
+	start := 0
+	for {
+		end := start + chunkSize
+		if end > length {
+			end = length
+		}
+		rows, err := s[start:end].UpdateAll(ctx, exec, cols)
+		if err != nil {
+			return rowsAffected, err
+		}
+
+		rowsAffected += rows
+		start = end
+		if start >= length {
+			break
+		}
+	}
+	return rowsAffected, nil
+}
+
+// InsertAllByPage insert all TokensScope records from the slice.
+// This function inserts data by pages to avoid exceeding Mysql limitation (max placeholders: 65535)
+// Mysql Error 1390: Prepared statement contains too many placeholders.
+func (s TokensScopeSlice) InsertAllByPage(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns, limits ...int) (int64, error) {
+	length := len(s)
+	if length == 0 {
+		return 0, nil
+	}
+
+	// MySQL max placeholders = 65535
+	chunkSize := MaxPageSize / reflect.ValueOf(&TokensScopeColumns).Elem().NumField()
+	if len(limits) > 0 && limits[0] > 0 && limits[0] < chunkSize {
+		chunkSize = limits[0]
+	}
+	if length <= chunkSize {
+		return s.InsertAll(ctx, exec, columns)
+	}
+
+	rowsAffected := int64(0)
+	start := 0
+	for {
+		end := start + chunkSize
+		if end > length {
+			end = length
+		}
+		rows, err := s[start:end].InsertAll(ctx, exec, columns)
+		if err != nil {
+			return rowsAffected, err
+		}
+
+		rowsAffected += rows
+		start = end
+		if start >= length {
+			break
+		}
+	}
+	return rowsAffected, nil
+}
+
+// InsertIgnoreAllByPage insert all TokensScope records from the slice.
+// This function inserts data by pages to avoid exceeding Postgres limitation (max parameters: 65535)
+func (s TokensScopeSlice) InsertIgnoreAllByPage(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns, limits ...int) (int64, error) {
+	length := len(s)
+	if length == 0 {
+		return 0, nil
+	}
+
+	// max number of parameters = 65535
+	chunkSize := MaxPageSize / reflect.ValueOf(&TokensScopeColumns).Elem().NumField()
+	if len(limits) > 0 && limits[0] > 0 && limits[0] < chunkSize {
+		chunkSize = limits[0]
+	}
+	if length <= chunkSize {
+		return s.InsertIgnoreAll(ctx, exec, columns)
+	}
+
+	rowsAffected := int64(0)
+	start := 0
+	for {
+		end := start + chunkSize
+		if end > length {
+			end = length
+		}
+		rows, err := s[start:end].InsertIgnoreAll(ctx, exec, columns)
+		if err != nil {
+			return rowsAffected, err
+		}
+
+		rowsAffected += rows
+		start = end
+		if start >= length {
+			break
+		}
+	}
+	return rowsAffected, nil
+}
+
+// UpsertAllByPage upsert all TokensScope records from the slice.
+// This function upserts data by pages to avoid exceeding Mysql limitation (max placeholders: 65535)
+// Mysql Error 1390: Prepared statement contains too many placeholders.
+func (s TokensScopeSlice) UpsertAllByPage(ctx context.Context, exec boil.ContextExecutor, updateColumns, insertColumns boil.Columns, limits ...int) (int64, error) {
+	length := len(s)
+	if length == 0 {
+		return 0, nil
+	}
+
+	// MySQL max placeholders = 65535
+	chunkSize := MaxPageSize / reflect.ValueOf(&TokensScopeColumns).Elem().NumField()
+	if len(limits) > 0 && limits[0] > 0 && limits[0] < chunkSize {
+		chunkSize = limits[0]
+	}
+	if length <= chunkSize {
+		return s.UpsertAll(ctx, exec, updateColumns, insertColumns)
+	}
+
+	rowsAffected := int64(0)
+	start := 0
+	for {
+		end := start + chunkSize
+		if end > length {
+			end = length
+		}
+		rows, err := s[start:end].UpsertAll(ctx, exec, updateColumns, insertColumns)
+		if err != nil {
+			return rowsAffected, err
+		}
+
+		rowsAffected += rows
+		start = end
+		if start >= length {
+			break
+		}
+	}
+	return rowsAffected, nil
+}
+
+///////////////////////////////// END EXTENSIONS /////////////////////////////////

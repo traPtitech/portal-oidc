@@ -1,4 +1,4 @@
-output = "pkg/infrastructure/db/gen"
+output = "pkg/infrastructure/mariadb/v1/gen"
 wipe = true
 
 [mysql]
