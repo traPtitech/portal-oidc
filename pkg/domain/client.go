@@ -3,8 +3,11 @@ package domain
 import (
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
 )
+
+const DefaultSecretLength = 32
 
 type ClientID uuid.UUID
 
@@ -16,6 +19,17 @@ type ClientType string
 
 func (c ClientType) String() string {
 	return string(c)
+}
+
+func ParseClientType(s string) (ClientType, error) {
+	switch s {
+	case ClientTypeConfidential.String():
+		return ClientTypeConfidential, nil
+	case ClientTypePublic.String():
+		return ClientTypePublic, nil
+	default:
+		return "", errors.New("invalid client type")
+	}
 }
 
 const (

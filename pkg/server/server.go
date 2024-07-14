@@ -52,6 +52,12 @@ func NewServer(config Config) http.Handler {
 	mux.HandleFunc("/oauth2/userinfo", handler.UserInfoEndpoint)
 	mux.HandleFunc("/.well-known/openid-configuration", handler.SetupOIDCDiscoveryHandler(config.Host))
 
+	mux.HandleFunc("POST /v1/clients", handler.CreateClientHandler)
+	mux.HandleFunc("GET /v1/clients", handler.ListClientsHandler)
+	mux.HandleFunc("PUT /v1/clients", handler.UpdateClientHandler)
+	mux.HandleFunc("PUT /v1/clients/secret", handler.UpdateClientSecretHandler)
+	mux.HandleFunc("DELETE /v1/clients", handler.DeleteClientHandler)
+
 	return cors.New(cors.Options{
 		AllowOriginFunc: func(origin string) bool {
 			return true
