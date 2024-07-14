@@ -1,9 +1,9 @@
 package v1
 
 import (
+	"encoding/json"
 	"net/http"
 
-	"github.com/labstack/echo/v4"
 	"github.com/traPtitech/portal-oidc/pkg/domain"
 )
 
@@ -24,14 +24,14 @@ type discoveryResponse struct {
 	TokenEndpointAuthMethodsSupported []string `json:"token_endpoint_auth_methods_supported"`
 }
 
-func (h *Handler) SetupOIDCDiscoveryHandler(host string) func(c echo.Context) error {
-	return func(c echo.Context) error {
+func (h *Handler) SetupOIDCDiscoveryHandler(host string) http.HandlerFunc {
+	return func(rw http.ResponseWriter, req *http.Request) {
 		resp := discoveryResponse{
 			Issuer:                            formatURL(host, ""),
-			AuthEndpoint:                      formatURL(host, "/auth"),
-			TokenEndpoint:                     formatURL(host, "/token"),
-			JWKSURI:                           formatURL(host, "/jwks"),
-			UserInfoEndpoint:                  formatURL(host, "/userinfo"),
+			AuthEndpoint:                      formatURL(host, "/oauth2/auth"),
+			TokenEndpoint:                     formatURL(host, "/oauth2/token"),
+			JWKSURI:                           formatURL(host, "/oauth2/jwks"),
+			UserInfoEndpoint:                  formatURL(host, "/oauth2/userinfo"),
 			ScopeSupported:                    domain.SupportedScopes,
 			ResponseTypesSupported:            domain.SupportedResponseTypes,
 			GrantTypesSupported:               domain.SupportedGrantTypes,
@@ -41,7 +41,15 @@ func (h *Handler) SetupOIDCDiscoveryHandler(host string) func(c echo.Context) er
 			ACRValuesSupported:                domain.SupportedACRValues,
 			TokenEndpointAuthMethodsSupported: domain.SupportedTokenEndpointAuthMethods,
 		}
-		return c.JSON(http.StatusOK, resp)
+
+		rw.Header().Set("Content-Type", "application/json; charset=utf-8")
+		rw.WriteHeader(http.StatusOK)
+		err := json.NewEncoder(rw).Encode(resp)
+		if err != nil {
+			rw.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		return
 	}
 }
 
