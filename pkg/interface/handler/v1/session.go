@@ -70,3 +70,15 @@ func newFositeSession(
 	}
 	return sess
 }
+
+func emptyFositeSession() *openid.DefaultSession {
+	return &openid.DefaultSession{
+		Claims: &jwt.IDTokenClaims{
+			RequestedAt: time.Now().UTC(),
+			Extra:       make(map[string]interface{}),
+		},
+		Headers: &jwt.Headers{
+			Extra: make(map[string]interface{}),
+		},
+	}
+}

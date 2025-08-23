@@ -45,12 +45,17 @@ func NewServer(config Config) http.Handler {
 
 	usecase := usecase.NewUseCase(repo, po, po)
 
-	handler := v1.NewHandler(usecase, store, signer, []byte(config.OIDCSecret))
+	handler := v1.NewHandler(usecase, store, signer, []byte(config.OIDCSecret), v1.Config{
+		Issuer:          config.Host,
+		SessionLifespan: config.SessionLifespan,
+	})
 
 	e := echo.New()
 	e.Any("/oauth2/auth", handler.AuthEndpoint)
 	e.Any("/oauth2/token", handler.TokenEndpoint)
 	e.Any("/oauth2/userinfo", handler.UserInfoEndpoint)
+	e.Any("/oauth2/revoke", handler.RevokeEndpoint)
+	e.Any("/oauth2/introspect", handler.IntrospectionEndpoint)
 	e.Any("/.well-known/openid-configuration", handler.SetupOIDCDiscoveryHandler(config.Host))
 
 	e.POST("/v1/clients", handler.CreateClientHandler)
