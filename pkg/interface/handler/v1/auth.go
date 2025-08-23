@@ -1,8 +1,7 @@
 package v1
 
-import (
-	"net/http"
-)
+import "github.com/labstack/echo/v4"
 
-func (h *Handler) AuthEndpoint(rw http.ResponseWriter, req *http.Request) {
+func (h *Handler) AuthEndpoint(c echo.Context) error {
+	return nil
 }

@@ -5,12 +5,13 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
 	"github.com/traPtitech/portal-oidc/pkg/domain"
 )
 
-func (h *Handler) CreateClientHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CreateClientHandler(c echo.Context) error {
 
-	ctx := r.Context()
+	ctx := c.Request().Context()
 
 	req := createClientRequest{}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -54,7 +55,6 @@ func (h *Handler) CreateClientHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	return
 }
 
 func (h *Handler) ListClientsHandler(w http.ResponseWriter, r *http.Request) {
@@ -91,7 +91,6 @@ func (h *Handler) ListClientsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	return
 }
 
 func (h *Handler) UpdateClientHandler(w http.ResponseWriter, r *http.Request) {

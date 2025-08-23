@@ -1,0 +1,6 @@
+package: models
+output: ./pkg/interface/handler/v1/gen/models.go
+generate:
+  models: true
+output-options:
+  skip-prune: true
