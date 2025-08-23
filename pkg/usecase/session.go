@@ -15,3 +15,13 @@ func (u *UseCase) GetSession(ctx context.Context, sessionID domain.SessionID) (d
 	// TODO: DBからとってくるときにExpiresAtでフィルターする
 	return domain.Session{}, nil
 }
+
+func (u *UseCase) CreateLoginSession(ctx context.Context, forms string) (domain.LoginSession, error) {
+	// TODO: DBに保存する
+	return domain.LoginSession{}, nil
+}
+
+func (u *UseCase) GetLoginSession(ctx context.Context, loginSessionID domain.LoginSessionID) (domain.LoginSession, error) {
+	// TODO: DBからとってくるときにExpiresAtでフィルターする
+	return domain.LoginSession{}, nil
+}

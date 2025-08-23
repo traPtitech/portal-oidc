@@ -16,3 +16,15 @@ type Session struct {
 	CreatedAt     time.Time
 	ExpiresAt     time.Time
 }
+
+type LoginSessionID uuid.UUID
+
+type LoginSession struct {
+	ID            LoginSessionID
+	Forms         string
+	AllowedScopes []string
+	UserID        TrapID
+	ClientID      ClientID
+	CreatedAt     time.Time
+	ExpiresAt     time.Time
+}

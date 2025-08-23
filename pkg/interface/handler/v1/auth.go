@@ -40,7 +40,7 @@ func (h *Handler) AuthEndpoint(c echo.Context) error {
 		}
 	}
 
-	// すべて許可する
+	// 許可されていないスコープはないのですべて許可する
 	for _, scope := range ar.GetRequestedScopes() {
 		ar.GrantScope(scope)
 	}
