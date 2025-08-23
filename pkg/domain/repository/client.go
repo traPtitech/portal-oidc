@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/traPtitech/portal-oidc/pkg/domain"
@@ -15,4 +16,6 @@ type OIDCClientRepository interface {
 	UpdateOIDCClientSecret(ctx context.Context, id domain.ClientID, secret string) (domain.Client, error)
 	DeleteOIDCClient(ctx context.Context, id domain.ClientID) error
 	GetBlacklistJTI(ctx context.Context, jti string) (domain.BlacklistedJTI, error)
+	DeleteOldBlacklistJTI(ctx context.Context) error
+	CreateBlacklistJTI(ctx context.Context, jti string, after time.Time) error
 }

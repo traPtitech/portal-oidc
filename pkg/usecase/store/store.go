@@ -53,3 +53,19 @@ func (s *Store) ClientAssertionJWTValid(ctx context.Context, jti string) error {
 
 	return nil
 }
+
+func (s *Store) SetClientAssertionJWT(ctx context.Context, jti string, after time.Time) error {
+	if err := s.repo.DeleteOldBlacklistJTI(ctx); err != nil {
+		return errors.Wrap(err, "Failed to delete old blacklisted JTI")
+	}
+
+	if blacklistedJTI, exists := s.repo.GetBlacklistJTI(ctx, jti); blacklistedJTI.JTI == jti && exists == nil {
+		return fosite.ErrJTIKnown
+	}
+
+	if err := s.repo.CreateBlacklistJTI(ctx, jti, after); err != nil {
+		return errors.Wrap(err, "Failed to create blacklisted JTI")
+	}
+
+	return nil
+}

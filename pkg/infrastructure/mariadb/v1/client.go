@@ -3,6 +3,7 @@ package v1
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
@@ -169,6 +170,25 @@ func (r *MariaDBRepository) AddBlacklistJTI(ctx context.Context, blacklistedJTI 
 		After: blacklistedJTI.After,
 	}); err != nil {
 		return errors.Wrap(err, "Failed to add blacklisted JTI")
+	}
+
+	return nil
+}
+
+func (r *MariaDBRepository) DeleteOldBlacklistJTI(ctx context.Context) error {
+	if err := r.q.DeleteOldBlacklistJTI(ctx); err != nil {
+		return errors.Wrap(err, "Failed to delete old blacklisted JTI")
+	}
+
+	return nil
+}
+
+func (r *MariaDBRepository) CreateBlacklistJTI(ctx context.Context, jti string, after time.Time) error {
+	if err := r.q.CreateBlacklistJTI(ctx, mariadb.CreateBlacklistJTIParams{
+		Jti:   jti,
+		After: after,
+	}); err != nil {
+		return errors.Wrap(err, "Failed to create blacklisted JTI")
 	}
 
 	return nil

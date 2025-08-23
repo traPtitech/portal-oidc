@@ -38,3 +38,9 @@ INSERT INTO blacklisted_jtis (jti, after) VALUES (?, ?);
 
 -- name: GetBlacklistJTI :one
 SELECT jti, after FROM blacklisted_jtis WHERE jti = ?;
+
+-- name: DeleteOldBlacklistJTI :exec
+DELETE FROM blacklisted_jtis WHERE after < NOW();
+
+-- name: CreateBlacklistJTI :exec
+INSERT INTO blacklisted_jtis (jti, after) VALUES (?, ?);

@@ -25,6 +25,20 @@ func (q *Queries) AddBlacklistJTI(ctx context.Context, arg AddBlacklistJTIParams
 	return err
 }
 
+const createBlacklistJTI = `-- name: CreateBlacklistJTI :exec
+INSERT INTO blacklisted_jtis (jti, after) VALUES (?, ?)
+`
+
+type CreateBlacklistJTIParams struct {
+	Jti   string
+	After time.Time
+}
+
+func (q *Queries) CreateBlacklistJTI(ctx context.Context, arg CreateBlacklistJTIParams) error {
+	_, err := q.db.ExecContext(ctx, createBlacklistJTI, arg.Jti, arg.After)
+	return err
+}
+
 const createClient = `-- name: CreateClient :exec
 INSERT INTO clients (
     id, 
@@ -66,6 +80,15 @@ DELETE FROM clients WHERE id = ?
 
 func (q *Queries) DeleteClient(ctx context.Context, id string) error {
 	_, err := q.db.ExecContext(ctx, deleteClient, id)
+	return err
+}
+
+const deleteOldBlacklistJTI = `-- name: DeleteOldBlacklistJTI :exec
+DELETE FROM blacklisted_jtis WHERE after < NOW()
+`
+
+func (q *Queries) DeleteOldBlacklistJTI(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteOldBlacklistJTI)
 	return err
 }
 
