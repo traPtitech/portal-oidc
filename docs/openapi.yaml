@@ -100,10 +100,16 @@ paths:
             type: string
       tags:
         - client
-  "/v1/clients/{clientId}/secret":
-    put:
+  "/v1/clients/secret":
+    post:
       summary: OIDCクライアントのシークレットを更新
       description: OIDCクライアントのシークレットを更新します
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateClientSecretRequest"
+        description: ""
       responses:
         "200":
           description: OK
@@ -114,12 +120,7 @@ paths:
         "400":
           description: Bad Request
       operationId: UpdateOIDCClientSecret
-      parameters:
-        - name: clientId
-          in: path
-          required: true
-          schema:
-            type: string
+
       tags:
         - client
 
@@ -130,12 +131,23 @@ components:
       type: object
       required:
         - client_id
-        - client_secret
+        - client_type
+        - client_name
+        - description
+        - redirect_uris
       properties:
         client_id:
           type: string
-        client_secret:
+        client_type:
           type: string
+        client_name:
+          type: string
+        description:
+          type: string
+        redirect_uris:
+          type: array
+          items:
+            type: string
     CreateClientRequest:
       type: object
       required:
@@ -172,6 +184,13 @@ components:
           type: array
           items:
             type: string
+    UpdateClientSecretRequest:
+      type: object
+      required:
+        - client_id
+      properties:
+        client_id:
+          type: string
     UpdateClientSecretResponse:
       type: object
       required:

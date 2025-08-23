@@ -1,5 +1,7 @@
 package domain
 
-import "fmt"
+type TrapID string
 
-type UserID fmt.Stringer
+func (u TrapID) String() string {
+	return string(u)
+}

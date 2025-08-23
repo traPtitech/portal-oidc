@@ -9,7 +9,7 @@ import (
 	"github.com/traPtitech/portal-oidc/pkg/domain/random"
 )
 
-func (u *UseCase) CreateClient(ctx context.Context, userID domain.UserID, typ domain.ClientType, name string, desc string, redirectURIs []string) (domain.Client, error) {
+func (u *UseCase) CreateClient(ctx context.Context, userID domain.TrapID, typ domain.ClientType, name string, desc string, redirectURIs []string) (domain.Client, error) {
 	id := uuid.New()
 	secret := random.GenerateRandomString(domain.DefaultSecretLength)
 
@@ -21,7 +21,7 @@ func (u *UseCase) CreateClient(ctx context.Context, userID domain.UserID, typ do
 	return client, nil
 }
 
-func (u *UseCase) ListClientsByUser(ctx context.Context, userID domain.UserID) ([]domain.Client, error) {
+func (u *UseCase) ListClientsByUser(ctx context.Context, userID domain.TrapID) ([]domain.Client, error) {
 	clients, err := u.repo.ListOIDCClientsByUser(ctx, userID)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to list clients")
@@ -30,7 +30,7 @@ func (u *UseCase) ListClientsByUser(ctx context.Context, userID domain.UserID) (
 	return clients, nil
 }
 
-func (u *UseCase) UpdateClient(ctx context.Context, id domain.ClientID, userID domain.UserID, typ domain.ClientType, name string, desc string, redirectURIs []string) (domain.Client, error) {
+func (u *UseCase) UpdateClient(ctx context.Context, id domain.ClientID, userID domain.TrapID, typ domain.ClientType, name string, desc string, redirectURIs []string) (domain.Client, error) {
 	client, err := u.repo.GetOIDCClient(ctx, id)
 	if err != nil {
 		return domain.Client{}, errors.Wrap(err, "Failed to get client")
@@ -48,7 +48,7 @@ func (u *UseCase) UpdateClient(ctx context.Context, id domain.ClientID, userID d
 	return newclient, nil
 }
 
-func (u *UseCase) UpdateClientSecret(ctx context.Context, userID domain.UserID, id domain.ClientID) (domain.Client, error) {
+func (u *UseCase) UpdateClientSecret(ctx context.Context, userID domain.TrapID, id domain.ClientID) (domain.Client, error) {
 	client, err := u.repo.GetOIDCClient(ctx, id)
 	secret := random.GenerateRandomString(domain.DefaultSecretLength)
 	if err != nil {
@@ -67,7 +67,7 @@ func (u *UseCase) UpdateClientSecret(ctx context.Context, userID domain.UserID, 
 	return newclient, nil
 }
 
-func (u *UseCase) DeleteClient(ctx context.Context, userID domain.UserID, id domain.ClientID) error {
+func (u *UseCase) DeleteClient(ctx context.Context, userID domain.TrapID, id domain.ClientID) error {
 	client, err := u.repo.GetOIDCClient(ctx, id)
 	if err != nil {
 		return errors.Wrap(err, "Failed to get client")

@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"net/http"
 
+	"github.com/labstack/echo/v4"
 	"github.com/rs/cors"
 
 	"github.com/ory/fosite/storage"
@@ -46,17 +47,17 @@ func NewServer(config Config) http.Handler {
 
 	handler := v1.NewHandler(usecase, store, signer, []byte(config.OIDCSecret))
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/oauth2/auth", handler.AuthEndpoint)
-	mux.HandleFunc("/oauth2/token", handler.TokenEndpoint)
-	mux.HandleFunc("/oauth2/userinfo", handler.UserInfoEndpoint)
-	mux.HandleFunc("/.well-known/openid-configuration", handler.SetupOIDCDiscoveryHandler(config.Host))
+	e := echo.New()
+	e.Any("/oauth2/auth", handler.AuthEndpoint)
+	e.Any("/oauth2/token", handler.TokenEndpoint)
+	e.Any("/oauth2/userinfo", handler.UserInfoEndpoint)
+	e.Any("/.well-known/openid-configuration", handler.SetupOIDCDiscoveryHandler(config.Host))
 
-	mux.HandleFunc("POST /v1/clients", handler.CreateClientHandler)
-	mux.HandleFunc("GET /v1/clients", handler.ListClientsHandler)
-	mux.HandleFunc("PUT /v1/clients", handler.UpdateClientHandler)
-	mux.HandleFunc("PUT /v1/clients/secret", handler.UpdateClientSecretHandler)
-	mux.HandleFunc("DELETE /v1/clients", handler.DeleteClientHandler)
+	e.POST("/v1/clients", handler.CreateClientHandler)
+	e.GET("/v1/clients", handler.ListClientsHandler)
+	e.PUT("/v1/clients", handler.UpdateClientHandler)
+	e.PUT("/v1/clients/secret", handler.UpdateClientSecretHandler)
+	e.DELETE("/v1/clients", handler.DeleteClientHandler)
 
 	return cors.New(cors.Options{
 		AllowOriginFunc: func(origin string) bool {
@@ -68,5 +69,5 @@ func NewServer(config Config) http.Handler {
 			"Cookie",
 		},
 		AllowCredentials: true,
-	}).Handler(mux)
+	}).Handler(e)
 }

@@ -7,8 +7,8 @@ import (
 )
 
 type ResourceServer interface {
-	GetProfile(context.Context, domain.UserID) (domain.Profile, error)
-	GetEmail(context.Context, domain.UserID) (domain.Email, error)
-	GetAddress(context.Context, domain.UserID) (domain.Address, error)
-	GetPhone(context.Context, domain.UserID) (domain.Phone, error)
+	GetProfile(context.Context, domain.TrapID) (domain.Profile, error)
+	GetEmail(context.Context, domain.TrapID) (domain.Email, error)
+	GetAddress(context.Context, domain.TrapID) (domain.Address, error)
+	GetPhone(context.Context, domain.TrapID) (domain.Phone, error)
 }

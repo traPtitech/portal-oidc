@@ -1,40 +1,36 @@
 package v1
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/traPtitech/portal-oidc/pkg/domain"
+	models "github.com/traPtitech/portal-oidc/pkg/interface/handler/v1/gen"
 )
 
 func (h *Handler) CreateClientHandler(c echo.Context) error {
 
 	ctx := c.Request().Context()
 
-	req := createClientRequest{}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+	req := models.CreateClientRequest{}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, err)
 	}
 
-	ctype, err := domain.ParseClientType(req.Typ)
+	ctype, err := domain.ParseClientType(req.ClientType)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return c.JSON(http.StatusBadRequest, err)
 	}
 
-	userID, ok := ctx.Value(domain.ContextKeyUser).(domain.UserID)
+	userID, ok := ctx.Value(domain.ContextKeyUser).(domain.TrapID)
 	if !ok {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
-		return
+		return c.JSON(http.StatusUnauthorized, "unauthorized")
 	}
 
-	client, err := h.usecase.CreateClient(ctx, userID, ctype, req.Name, req.Description, req.RedirectURIs)
+	client, err := h.usecase.CreateClient(ctx, userID, ctype, req.ClientName, req.Description, req.RedirectUris)
 	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
+		return c.JSON(http.StatusInternalServerError, "Internal Server Error")
 	}
 
 	res := createClientResponse{
@@ -47,173 +43,127 @@ func (h *Handler) CreateClientHandler(c echo.Context) error {
 		Expires:      0, // Never
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	err = json.NewEncoder(w).Encode(res)
-	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
+	return c.JSON(http.StatusCreated, res)
 }
 
-func (h *Handler) ListClientsHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
+func (h *Handler) ListClientsHandler(c echo.Context) error {
+	ctx := c.Request().Context()
 
-	userID, ok := ctx.Value(domain.ContextKeyUser).(domain.UserID)
+	userID, ok := ctx.Value(domain.ContextKeyUser).(domain.TrapID)
 	if !ok {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
-		return
+		return c.JSON(http.StatusUnauthorized, "unauthorized")
 	}
 
 	clients, err := h.usecase.ListClientsByUser(ctx, userID)
 	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
+		return c.JSON(http.StatusInternalServerError, "Internal Server Error")
 	}
 
-	res := make([]client, len(clients))
+	res := make([]models.Client, len(clients))
 	for i, c := range clients {
-		res[i] = client{
-			ClientID:     c.ID.String(),
-			Typ:          c.Type.String(),
-			Name:         c.Name,
+		res[i] = models.Client{
+			ClientId:     c.ID.String(),
+			ClientType:   c.Type.String(),
+			ClientName:   c.Name,
 			Description:  c.Description,
-			RedirectURIs: c.RedirectURIs,
+			RedirectUris: c.RedirectURIs,
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(res)
-	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
+	return c.JSON(http.StatusOK, res)
 }
 
-func (h *Handler) UpdateClientHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
+func (h *Handler) UpdateClientHandler(c echo.Context) error {
+	ctx := c.Request().Context()
 
-	req := client{}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+	req := models.UpdateClientRequest{}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, err)
 	}
 
-	ctype, err := domain.ParseClientType(req.Typ)
+	ctype, err := domain.ParseClientType(req.ClientType)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return c.JSON(http.StatusBadRequest, err)
 	}
 
-	userID, ok := ctx.Value(domain.ContextKeyUser).(domain.UserID)
+	userID, ok := ctx.Value(domain.ContextKeyUser).(domain.TrapID)
 	if !ok {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
-		return
+		return c.JSON(http.StatusUnauthorized, "unauthorized")
 	}
 
-	id, err := uuid.Parse(req.ClientID)
+	id, err := uuid.Parse(c.Param("clientId"))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return c.JSON(http.StatusBadRequest, err)
 	}
 
-	c, err := h.usecase.UpdateClient(ctx, domain.ClientID(id), userID, ctype, req.Name, req.Description, req.RedirectURIs)
+	client, err := h.usecase.UpdateClient(ctx, domain.ClientID(id), userID, ctype, req.ClientName, req.Description, req.RedirectUris)
 	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
+		return c.JSON(http.StatusInternalServerError, "Internal Server Error")
 	}
 
-	res := client{
-		ClientID:     c.ID.String(),
-		Typ:          c.Type.String(),
-		Name:         c.Name,
-		Description:  c.Description,
-		RedirectURIs: c.RedirectURIs,
+	res := models.Client{
+		ClientId:     client.ID.String(),
+		ClientType:   client.Type.String(),
+		ClientName:   client.Name,
+		Description:  client.Description,
+		RedirectUris: client.RedirectURIs,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(res)
-	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-	return
+	return c.JSON(http.StatusOK, res)
 }
 
-func (h *Handler) UpdateClientSecretHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
+func (h *Handler) UpdateClientSecretHandler(c echo.Context) error {
+	ctx := c.Request().Context()
 
-	req := updateClientSecretRequest{}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+	req := models.UpdateClientSecretRequest{}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, err)
 	}
 
-	userID, ok := ctx.Value(domain.ContextKeyUser).(domain.UserID)
+	userID, ok := ctx.Value(domain.ContextKeyUser).(domain.TrapID)
 	if !ok {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
-		return
+		return c.JSON(http.StatusUnauthorized, "unauthorized")
 	}
 
-	id, err := uuid.Parse(req.ClientID)
+	id, err := uuid.Parse(req.ClientId)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return c.JSON(http.StatusBadRequest, err)
 	}
 
-	c, err := h.usecase.UpdateClientSecret(ctx, userID, domain.ClientID(id))
+	client, err := h.usecase.UpdateClientSecret(ctx, userID, domain.ClientID(id))
 	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
+		return c.JSON(http.StatusInternalServerError, "Internal Server Error")
 	}
 
-	res := clientSecret{
-		ClientID: c.ID.String(),
-		Secret:   c.Secret,
-		Expires:  0, // Never
+	res := models.UpdateClientSecretResponse{
+		ClientSecret: client.Secret,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(res)
-	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-	return
+	return c.JSON(http.StatusOK, res)
 }
 
-func (h *Handler) DeleteClientHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
+func (h *Handler) DeleteClientHandler(c echo.Context) error {
+	ctx := c.Request().Context()
 
-	req := deleteClientRequest{}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+	clientId := c.Param(paramKeyClientId)
+	if clientId == "" {
+		return c.JSON(http.StatusBadRequest, "clientId is required")
 	}
 
-	userID, ok := ctx.Value(domain.ContextKeyUser).(domain.UserID)
+	userID, ok := ctx.Value(domain.ContextKeyUser).(domain.TrapID)
 	if !ok {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
-		return
+		return c.JSON(http.StatusUnauthorized, "unauthorized")
 	}
 
-	id, err := uuid.Parse(req.ClientID)
+	id, err := uuid.Parse(clientId)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return c.JSON(http.StatusBadRequest, err)
 	}
 
 	err = h.usecase.DeleteClient(ctx, userID, domain.ClientID(id))
 	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
+		return c.JSON(http.StatusInternalServerError, "Internal Server Error")
 	}
 
-	w.WriteHeader(http.StatusNoContent)
-	return
+	return c.NoContent(http.StatusNoContent)
 }

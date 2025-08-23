@@ -9,7 +9,7 @@ import (
 	models "github.com/traPtitech/portal-oidc/pkg/infrastructure/portal/v1/db/gen"
 )
 
-func (p *Portal) GetProfile(ctx context.Context, id domain.UserID) (domain.Profile, error) {
+func (p *Portal) GetProfile(ctx context.Context, id domain.TrapID) (domain.Profile, error) {
 	user, err := models.Users(models.UserWhere.ID.EQ(id.String())).One(ctx, p.db)
 	if err != nil {
 		return domain.Profile{}, errors.Wrap(err, "Failed to get user")
@@ -30,7 +30,7 @@ func (p *Portal) GetProfile(ctx context.Context, id domain.UserID) (domain.Profi
 	}, nil
 }
 
-func (p *Portal) GetEmail(ctx context.Context, id domain.UserID) (domain.Email, error) {
+func (p *Portal) GetEmail(ctx context.Context, id domain.TrapID) (domain.Email, error) {
 	user, err := models.Users(models.UserWhere.ID.EQ(id.String())).One(ctx, p.db)
 	if err != nil {
 		return domain.Email{}, errors.Wrap(err, "Failed to get user")
@@ -43,12 +43,12 @@ func (p *Portal) GetEmail(ctx context.Context, id domain.UserID) (domain.Email, 
 	}, nil
 }
 
-func (p *Portal) GetAddress(ctx context.Context, id domain.UserID) (domain.Address, error) {
+func (p *Portal) GetAddress(ctx context.Context, id domain.TrapID) (domain.Address, error) {
 	// 一般ユーザーには非公開
 	return domain.Address{}, nil
 }
 
-func (p *Portal) GetPhone(ctx context.Context, id domain.UserID) (domain.Phone, error) {
+func (p *Portal) GetPhone(ctx context.Context, id domain.TrapID) (domain.Phone, error) {
 	// 一般ユーザーには非公開
 	return domain.Phone{}, nil
 }

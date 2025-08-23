@@ -5,10 +5,11 @@ import (
 	"strconv"
 
 	"github.com/go-sql-driver/mysql"
+	mariadb "github.com/traPtitech/portal-oidc/pkg/infrastructure/mariadb/v1/gen"
 )
 
 type MariaDBRepository struct {
-	db *sql.DB
+	q *mariadb.Queries
 }
 
 func NewRepository(conf Config) (*MariaDBRepository, error) {
@@ -28,6 +29,6 @@ func NewRepository(conf Config) (*MariaDBRepository, error) {
 	}
 
 	return &MariaDBRepository{
-		db: db,
+		q: mariadb.New(db),
 	}, nil
 }

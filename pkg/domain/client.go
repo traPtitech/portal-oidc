@@ -39,7 +39,7 @@ const (
 
 type Client struct {
 	ID           ClientID
-	UserID       UserID
+	UserID       TrapID
 	Type         ClientType
 	Name         string
 	Secret       string

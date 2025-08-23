@@ -5,8 +5,11 @@ package models
 
 // Client defines model for Client.
 type Client struct {
-	ClientId     string `json:"client_id"`
-	ClientSecret string `json:"client_secret"`
+	ClientId     string   `json:"client_id"`
+	ClientName   string   `json:"client_name"`
+	ClientType   string   `json:"client_type"`
+	Description  string   `json:"description"`
+	RedirectUris []string `json:"redirect_uris"`
 }
 
 // CreateClientRequest defines model for CreateClientRequest.
@@ -25,13 +28,24 @@ type UpdateClientRequest struct {
 	RedirectUris []string `json:"redirect_uris"`
 }
 
+// UpdateClientSecretRequest defines model for UpdateClientSecretRequest.
+type UpdateClientSecretRequest struct {
+	ClientId string `json:"client_id"`
+}
+
 // UpdateClientSecretResponse defines model for UpdateClientSecretResponse.
 type UpdateClientSecretResponse struct {
 	ClientSecret string `json:"client_secret"`
 }
 
+// ClientId defines model for clientId.
+type ClientId = string
+
 // CreateOIDCClientJSONRequestBody defines body for CreateOIDCClient for application/json ContentType.
 type CreateOIDCClientJSONRequestBody = CreateClientRequest
+
+// UpdateOIDCClientSecretJSONRequestBody defines body for UpdateOIDCClientSecret for application/json ContentType.
+type UpdateOIDCClientSecretJSONRequestBody = UpdateClientSecretRequest
 
 // UpdateOIDCClientJSONRequestBody defines body for UpdateOIDCClient for application/json ContentType.
 type UpdateOIDCClientJSONRequestBody = UpdateClientRequest

@@ -1,9 +1,9 @@
 package v1
 
 import (
-	"encoding/json"
 	"net/http"
 
+	"github.com/labstack/echo/v4"
 	"github.com/traPtitech/portal-oidc/pkg/domain"
 )
 
@@ -24,8 +24,8 @@ type discoveryResponse struct {
 	TokenEndpointAuthMethodsSupported []string `json:"token_endpoint_auth_methods_supported"`
 }
 
-func (h *Handler) SetupOIDCDiscoveryHandler(host string) http.HandlerFunc {
-	return func(rw http.ResponseWriter, req *http.Request) {
+func (h *Handler) SetupOIDCDiscoveryHandler(host string) echo.HandlerFunc {
+	return func(c echo.Context) error {
 		resp := discoveryResponse{
 			Issuer:                            formatURL(host, ""),
 			AuthEndpoint:                      formatURL(host, "/oauth2/auth"),
@@ -42,14 +42,7 @@ func (h *Handler) SetupOIDCDiscoveryHandler(host string) http.HandlerFunc {
 			TokenEndpointAuthMethodsSupported: domain.SupportedTokenEndpointAuthMethods,
 		}
 
-		rw.Header().Set("Content-Type", "application/json; charset=utf-8")
-		rw.WriteHeader(http.StatusOK)
-		err := json.NewEncoder(rw).Encode(resp)
-		if err != nil {
-			rw.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		return
+		return c.JSON(http.StatusOK, resp)
 	}
 }
 

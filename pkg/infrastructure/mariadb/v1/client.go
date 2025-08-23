@@ -2,20 +2,19 @@ package v1
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
 	"github.com/traPtitech/portal-oidc/pkg/domain"
-	"github.com/traPtitech/portal-oidc/pkg/domain/portal"
-	models "github.com/traPtitech/portal-oidc/pkg/infrastructure/mariadb/v1/gen"
-	"github.com/volatiletech/sqlboiler/v4/boil"
-	"github.com/volatiletech/sqlboiler/v4/queries/qm"
+	mariadb "github.com/traPtitech/portal-oidc/pkg/infrastructure/mariadb/v1/gen"
 )
 
-func convertToDomainClient(client *models.Client) (domain.Client, error) {
-	redirectURIs := make([]string, len(client.R.RedirectUris))
-	for i, uri := range client.R.RedirectUris {
-		redirectURIs[i] = uri.URI
+func convertToDomainClient(client *mariadb.Client) (domain.Client, error) {
+	redirectURIs := []string{}
+	err := json.Unmarshal(client.RedirectUris, &redirectURIs)
+	if err != nil {
+		return domain.Client{}, errors.Wrap(err, "Failed to unmarshal redirect uris")
 	}
 
 	clientID, err := uuid.Parse(client.ID)
@@ -25,7 +24,7 @@ func convertToDomainClient(client *models.Client) (domain.Client, error) {
 
 	return domain.Client{
 		ID:           domain.ClientID(clientID),
-		UserID:       domain.UserID(portal.PortalUserID(client.UserID)), // TODO: ここどうしよう（ちゃんとインターフェース切れてない）
+		UserID:       domain.TrapID(client.UserID),
 		Type:         domain.ClientType(client.Type),
 		Name:         client.Name,
 		Description:  client.Description,
@@ -34,80 +33,47 @@ func convertToDomainClient(client *models.Client) (domain.Client, error) {
 	}, nil
 }
 
-func (r *MariaDBRepository) CreateOIDCClient(ctx context.Context, id uuid.UUID, userID domain.UserID, typ domain.ClientType, name string, desc string, secret string, redirectURIs []string) (domain.Client, error) {
-	tx, err := r.db.BeginTx(ctx, nil)
-
+func (r *MariaDBRepository) CreateOIDCClient(ctx context.Context, id uuid.UUID, userID domain.TrapID, typ domain.ClientType, name string, desc string, secret string, redirectURIs []string) (domain.Client, error) {
+	encURLs, err := json.Marshal(redirectURIs)
 	if err != nil {
-		return domain.Client{}, errors.Wrap(err, "Failed to begin transaction")
+		return domain.Client{}, errors.Wrap(err, "Failed to marshal redirect uris")
 	}
 
-	client := models.Client{
-		ID:          id.String(),
-		UserID:      userID.String(),
-		Type:        typ.String(),
-		Name:        name,
-		SecretKey:   secret,
-		Description: desc,
-	}
-
-	err = client.Insert(ctx, tx, boil.Infer())
-
-	if err != nil {
-		tx.Rollback()
-		return domain.Client{}, errors.Wrap(err, "Failed to insert client")
-	}
-
-	uris := models.RedirectURISlice{}
-	for _, uri := range redirectURIs {
-		uris = append(uris, &models.RedirectURI{
-			ClientID: id.String(),
-			URI:      uri,
-		})
-	}
-
-	_, err = uris.InsertAll(ctx, tx, boil.Infer())
-
-	if err != nil {
-		tx.Rollback()
-		return domain.Client{}, errors.Wrap(err, "Failed to insert redirect uris")
-	}
-
-	err = tx.Commit()
-
-	if err != nil {
-		return domain.Client{}, errors.Wrap(err, "Failed to commit transaction")
-	}
-
-	return domain.Client{
-		ID:           domain.ClientID(id),
-		UserID:       userID,
-		Type:         typ,
+	err = r.q.CreateClient(ctx, mariadb.CreateClientParams{
+		ID:           id.String(),
+		UserID:       userID.String(),
+		Type:         typ.String(),
 		Name:         name,
 		Description:  desc,
-		Secret:       secret,
-		RedirectURIs: redirectURIs,
-	}, nil
+		SecretKey:    secret,
+		RedirectUris: encURLs,
+	})
+
+	if err != nil {
+		return domain.Client{}, errors.Wrap(err, "Failed to create client")
+	}
+
+	client, err := r.q.GetClient(ctx, id.String())
+	if err != nil {
+		return domain.Client{}, errors.Wrap(err, "Failed to get client")
+	}
+
+	return convertToDomainClient(&client)
 }
 
 func (r *MariaDBRepository) GetOIDCClient(ctx context.Context, id domain.ClientID) (domain.Client, error) {
-	client, err := models.Clients(
-		models.ClientWhere.ID.EQ(id.String()),
-		qm.Load("redirect_uri"),
-	).One(ctx, r.db)
+	client, err := r.q.GetClient(ctx, id.String())
 
 	if err != nil {
 		return domain.Client{}, errors.Wrap(err, "Failed to get client")
 	}
 
-	return convertToDomainClient(client)
+	return convertToDomainClient(&client)
 }
 
-func (r *MariaDBRepository) ListOIDCClientsByUser(ctx context.Context, userID domain.UserID) ([]domain.Client, error) {
+func (r *MariaDBRepository) ListOIDCClientsByUser(ctx context.Context, userID domain.TrapID) ([]domain.Client, error) {
 
-	clients, err := models.Clients(
-		models.ClientWhere.UserID.EQ(userID.String()),
-		qm.Load("redirect_uri"),
-	).All(ctx, r.db)
+	clients, err := r.q.ListClientsByUserID(ctx, userID.String())
 
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to get clients")
@@ -116,7 +82,7 @@ func (r *MariaDBRepository) ListOIDCClientsByUser(ctx context.Context, userID do
 	clientList := make([]domain.Client, len(clients))
 	for i, client := range clients {
 
-		c, err := convertToDomainClient(client)
+		c, err := convertToDomainClient(&client)
 		if err != nil {
 			return nil, errors.Wrap(err, "Failed to convert client")
 		}
@@ -127,140 +93,60 @@ func (r *MariaDBRepository) ListOIDCClientsByUser(ctx context.Context, userID do
 	return clientList, nil
 }
 
-func (r *MariaDBRepository) UpdateOIDCClient(ctx context.Context, id domain.ClientID, userID domain.UserID, typ domain.ClientType, name string, desc string, redirectURIs []string) (domain.Client, error) {
-	tx, err := r.db.BeginTx(ctx, nil)
-
+func (r *MariaDBRepository) UpdateOIDCClient(ctx context.Context, id domain.ClientID, userID domain.TrapID, typ domain.ClientType, name string, desc string, redirectURIs []string) (domain.Client, error) {
+	encURLs, err := json.Marshal(redirectURIs)
 	if err != nil {
-		return domain.Client{}, errors.Wrap(err, "Failed to begin transaction")
+		return domain.Client{}, errors.Wrap(err, "Failed to marshal redirect uris")
 	}
 
-	client := models.Client{
-		ID:          id.String(),
-		UserID:      userID.String(),
-		Type:        typ.String(),
-		Name:        name,
-		Description: desc,
-	}
-
-	_, err = client.Update(ctx, tx, boil.Infer())
+	err = r.q.UpdateClient(ctx, mariadb.UpdateClientParams{
+		ID:           id.String(),
+		Type:         typ.String(),
+		Name:         name,
+		Description:  desc,
+		RedirectUris: encURLs,
+	})
 
 	if err != nil {
-		tx.Rollback()
 		return domain.Client{}, errors.Wrap(err, "Failed to update client")
 	}
 
-	_, err = models.RedirectUris(
-		models.RedirectURIWhere.ClientID.EQ(id.String()),
-	).DeleteAll(ctx, tx)
+	newclient, err := r.q.GetClient(ctx, id.String())
 
 	if err != nil {
-		tx.Rollback()
-		return domain.Client{}, errors.Wrap(err, "Failed to delete redirect uris")
-	}
-
-	uris := models.RedirectURISlice{}
-	for _, uri := range redirectURIs {
-		uris = append(uris, &models.RedirectURI{
-			ClientID: id.String(),
-			URI:      uri,
-		})
-	}
-
-	_, err = uris.InsertAll(ctx, tx, boil.Infer())
-
-	if err != nil {
-		tx.Rollback()
-		return domain.Client{}, errors.Wrap(err, "Failed to insert redirect uris")
-	}
-
-	newclient, err := models.Clients(
-		models.ClientWhere.ID.EQ(id.String()),
-		models.ClientWhere.UserID.EQ(userID.String()),
-		qm.Load("redirect_uri"),
-	).One(ctx, tx)
-
-	if err != nil {
-		tx.Rollback()
 		return domain.Client{}, errors.Wrap(err, "Failed to get client")
 	}
 
-	err = tx.Commit()
-
-	if err != nil {
-		return domain.Client{}, errors.Wrap(err, "Failed to commit transaction")
-	}
-
-	return convertToDomainClient(newclient)
+	return convertToDomainClient(&newclient)
 }
 
 func (r *MariaDBRepository) UpdateOIDCClientSecret(ctx context.Context, id domain.ClientID, secret string) (domain.Client, error) {
-	tx, err := r.db.BeginTx(ctx, nil)
-
-	if err != nil {
-		return domain.Client{}, errors.Wrap(err, "Failed to begin transaction")
-	}
-
-	client := models.Client{
+	err := r.q.UpdateClientSecret(ctx, mariadb.UpdateClientSecretParams{
 		ID:        id.String(),
 		SecretKey: secret,
-	}
-
-	_, err = client.Update(ctx, tx, boil.Infer())
+	})
 
 	if err != nil {
-		tx.Rollback()
-		return domain.Client{}, errors.Wrap(err, "Failed to update client")
+		return domain.Client{}, errors.Wrap(err, "Failed to update client secret")
 	}
 
-	newclient, err := models.Clients(
-		models.ClientWhere.ID.EQ(id.String()),
-		qm.Load("redirect_uri"),
-	).One(ctx, tx)
+	newclient, err := r.q.GetClient(ctx, id.String())
 
 	if err != nil {
-		tx.Rollback()
 		return domain.Client{}, errors.Wrap(err, "Failed to get client")
 	}
 
-	err = tx.Commit()
+	return convertToDomainClient(&newclient)
 
-	if err != nil {
-		return domain.Client{}, errors.Wrap(err, "Failed to commit transaction")
-	}
-
-	return convertToDomainClient(newclient)
 }
 
 func (r *MariaDBRepository) DeleteOIDCClient(ctx context.Context, id domain.ClientID) error {
-	tx, err := r.db.BeginTx(ctx, nil)
+	err := r.q.DeleteClient(ctx, id.String())
 
 	if err != nil {
-		return errors.Wrap(err, "Failed to begin transaction")
-	}
-
-	_, err = models.Clients(
-		models.ClientWhere.ID.EQ(id.String()),
-	).DeleteAll(ctx, tx)
-
-	if err != nil {
-		tx.Rollback()
 		return errors.Wrap(err, "Failed to delete client")
 	}
 
-	_, err = models.RedirectUris(
-		models.RedirectURIWhere.ClientID.EQ(id.String()),
-	).DeleteAll(ctx, tx)
-
-	if err != nil {
-		tx.Rollback()
-		return errors.Wrap(err, "Failed to delete redirect uris")
-	}
-
-	err = tx.Commit()
-
-	if err != nil {
-		return errors.Wrap(err, "Failed to commit transaction")
-	}
-
 	return nil
+
 }

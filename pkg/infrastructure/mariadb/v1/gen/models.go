@@ -5,6 +5,7 @@
 package mariadb
 
 import (
+	"encoding/json"
 	"time"
 )
 
@@ -27,20 +28,13 @@ type AuthorizationSession struct {
 }
 
 type Client struct {
-	ID          string
-	UserID      string
-	Name        string
-	Type        string
-	Description string
-	SecretKey   string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-}
-
-type RedirectUri struct {
-	ID        int32
-	ClientID  string
-	Uri       string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID           string
+	UserID       string
+	Name         string
+	Type         string
+	Description  string
+	SecretKey    string
+	RedirectUris json.RawMessage
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
