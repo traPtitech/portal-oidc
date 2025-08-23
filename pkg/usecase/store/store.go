@@ -38,8 +38,8 @@ func (s *Store) GetClient(ctx context.Context, id string) (fosite.Client, error)
 		ID:            client_id.String(),
 		Secret:        []byte(client.Secret),
 		RedirectURIs:  client.RedirectURIs,
-		GrantTypes:    []string{}, // refresh_token, authorization_code
-		ResponseTypes: []string{}, // code, code id_token
+		GrantTypes:    []string{"refresh_token", "authorization_code"},
+		ResponseTypes: []string{"code", "code id_token"},
 	}
 	return fositeClient, nil
 
