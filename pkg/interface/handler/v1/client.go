@@ -33,14 +33,13 @@ func (h *Handler) CreateClientHandler(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, "Internal Server Error")
 	}
 
-	res := createClientResponse{
-		ClientID:     client.ID.String(),
-		Typ:          client.Type.String(),
-		Name:         client.Name,
+	res := models.Client{
+		ClientId:     client.ID.String(),
+		ClientType:   client.Type.String(),
+		ClientName:   client.Name,
 		Description:  client.Description,
-		RedirectURIs: client.RedirectURIs,
-		Secret:       client.Secret,
-		Expires:      0, // Never
+		RedirectUris: client.RedirectURIs,
+		ClientSecret: &client.Secret,
 	}
 
 	return c.JSON(http.StatusCreated, res)

@@ -142,6 +142,8 @@ components:
           type: string
         client_name:
           type: string
+        client_secret:
+          type: string
         description:
           type: string
         redirect_uris:

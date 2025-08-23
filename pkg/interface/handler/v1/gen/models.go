@@ -7,6 +7,7 @@ package models
 type Client struct {
 	ClientId     string   `json:"client_id"`
 	ClientName   string   `json:"client_name"`
+	ClientSecret *string  `json:"client_secret,omitempty"`
 	ClientType   string   `json:"client_type"`
 	Description  string   `json:"description"`
 	RedirectUris []string `json:"redirect_uris"`
@@ -37,9 +38,6 @@ type UpdateClientSecretRequest struct {
 type UpdateClientSecretResponse struct {
 	ClientSecret string `json:"client_secret"`
 }
-
-// ClientId defines model for clientId.
-type ClientId = string
 
 // CreateOIDCClientJSONRequestBody defines body for CreateOIDCClient for application/json ContentType.
 type CreateOIDCClientJSONRequestBody = CreateClientRequest
