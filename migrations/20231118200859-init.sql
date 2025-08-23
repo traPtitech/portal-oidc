@@ -37,6 +37,16 @@ CREATE TABLE `authorization_sessions` (
   COLLATE = utf8mb4_general_ci;
 CREATE INDEX `authorization_sessions_type_and_signature_idx` ON `authorization_sessions` (`type`, `signature`);
 
+
+CREATE TABLE `blacklisted_jtis` (
+    `jti` CHAR(36) NOT NULL,
+    `after` DATETIME(6) NOT NULL,
+    `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`jti`)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_general_ci;
+
 -- +migrate Down
 SELECT 'down SQL query';
 DROP TABLE `authorization_sessions`;

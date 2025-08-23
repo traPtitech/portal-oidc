@@ -8,7 +8,22 @@ package mariadb
 import (
 	"context"
 	"encoding/json"
+	"time"
 )
+
+const addBlacklistJTI = `-- name: AddBlacklistJTI :exec
+INSERT INTO blacklisted_jtis (jti, after) VALUES (?, ?)
+`
+
+type AddBlacklistJTIParams struct {
+	Jti   string
+	After time.Time
+}
+
+func (q *Queries) AddBlacklistJTI(ctx context.Context, arg AddBlacklistJTIParams) error {
+	_, err := q.db.ExecContext(ctx, addBlacklistJTI, arg.Jti, arg.After)
+	return err
+}
 
 const createClient = `-- name: CreateClient :exec
 INSERT INTO clients (
@@ -52,6 +67,22 @@ DELETE FROM clients WHERE id = ?
 func (q *Queries) DeleteClient(ctx context.Context, id string) error {
 	_, err := q.db.ExecContext(ctx, deleteClient, id)
 	return err
+}
+
+const getBlacklistJTI = `-- name: GetBlacklistJTI :one
+SELECT jti, after FROM blacklisted_jtis WHERE jti = ?
+`
+
+type GetBlacklistJTIRow struct {
+	Jti   string
+	After time.Time
+}
+
+func (q *Queries) GetBlacklistJTI(ctx context.Context, jti string) (GetBlacklistJTIRow, error) {
+	row := q.db.QueryRowContext(ctx, getBlacklistJTI, jti)
+	var i GetBlacklistJTIRow
+	err := row.Scan(&i.Jti, &i.After)
+	return i, err
 }
 
 const getClient = `-- name: GetClient :one

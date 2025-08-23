@@ -49,3 +49,8 @@ type Client struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
+
+type BlacklistedJTI struct {
+	JTI   string
+	After time.Time
+}

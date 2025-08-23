@@ -14,4 +14,5 @@ type OIDCClientRepository interface {
 	UpdateOIDCClient(ctx context.Context, id domain.ClientID, userID domain.TrapID, typ domain.ClientType, name string, desc string, redirectURIs []string) (domain.Client, error)
 	UpdateOIDCClientSecret(ctx context.Context, id domain.ClientID, secret string) (domain.Client, error)
 	DeleteOIDCClient(ctx context.Context, id domain.ClientID) error
+	GetBlacklistJTI(ctx context.Context, jti string) (domain.BlacklistedJTI, error)
 }

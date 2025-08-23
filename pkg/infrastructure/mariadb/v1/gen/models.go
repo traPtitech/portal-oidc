@@ -27,6 +27,12 @@ type AuthorizationSession struct {
 	UpdatedAt         time.Time
 }
 
+type BlacklistedJti struct {
+	Jti       string
+	After     time.Time
+	CreatedAt time.Time
+}
+
 type Client struct {
 	ID           string
 	UserID       string

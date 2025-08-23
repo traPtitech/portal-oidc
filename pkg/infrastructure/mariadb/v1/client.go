@@ -150,3 +150,26 @@ func (r *MariaDBRepository) DeleteOIDCClient(ctx context.Context, id domain.Clie
 	return nil
 
 }
+
+func (r *MariaDBRepository) GetBlacklistJTI(ctx context.Context, jti string) (domain.BlacklistedJTI, error) {
+	blacklistedJTI, err := r.q.GetBlacklistJTI(ctx, jti)
+	if err != nil {
+		return domain.BlacklistedJTI{}, errors.Wrap(err, "Failed to get blacklisted JTI")
+	}
+
+	return domain.BlacklistedJTI{
+		JTI:   blacklistedJTI.Jti,
+		After: blacklistedJTI.After,
+	}, nil
+}
+
+func (r *MariaDBRepository) AddBlacklistJTI(ctx context.Context, blacklistedJTI domain.BlacklistedJTI) error {
+	if err := r.q.AddBlacklistJTI(ctx, mariadb.AddBlacklistJTIParams{
+		Jti:   blacklistedJTI.JTI,
+		After: blacklistedJTI.After,
+	}); err != nil {
+		return errors.Wrap(err, "Failed to add blacklisted JTI")
+	}
+
+	return nil
+}
