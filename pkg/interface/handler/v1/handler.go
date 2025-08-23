@@ -13,29 +13,35 @@ import (
 	"github.com/ory/fosite/token/jwt"
 )
 
+type Config struct {
+	Issuer          string
+	SessionLifespan time.Duration
+}
+
 type Handler struct {
 	oauth2  fosite.OAuth2Provider
 	usecase usecase.UseCase
+	conf    Config
 }
 
-func NewHandler(u usecase.UseCase, st store.Store, signer jwt.Signer, globalSecret []byte) *Handler {
-	conf := &fosite.Config{
+func NewHandler(u usecase.UseCase, st store.Store, signer jwt.Signer, globalSecret []byte, conf Config) *Handler {
+	fconf := &fosite.Config{
 		AccessTokenLifespan: time.Minute * 30,
 		GlobalSecret:        globalSecret,
 	}
 
 	provider := compose.Compose(
-		conf,
+		fconf,
 		st,
 		&compose.CommonStrategy{
 			CoreStrategy: &oauth2.DefaultJWTStrategy{
 				Signer:          signer,
-				HMACSHAStrategy: compose.NewOAuth2HMACStrategy(conf),
-				Config:          conf,
+				HMACSHAStrategy: compose.NewOAuth2HMACStrategy(fconf),
+				Config:          fconf,
 			},
 			OpenIDConnectTokenStrategy: &openid.DefaultStrategy{
 				Signer: signer,
-				Config: conf,
+				Config: fconf,
 			},
 			Signer: signer,
 		},
@@ -56,5 +62,6 @@ func NewHandler(u usecase.UseCase, st store.Store, signer jwt.Signer, globalSecr
 	return &Handler{
 		oauth2:  provider,
 		usecase: u,
+		conf:    conf,
 	}
 }
