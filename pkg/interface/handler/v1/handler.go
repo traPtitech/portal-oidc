@@ -4,13 +4,12 @@ import (
 	"time"
 
 	"github.com/traPtitech/portal-oidc/pkg/domain/store"
+	es256jwt "github.com/traPtitech/portal-oidc/pkg/infrastructure/jwt"
 	"github.com/traPtitech/portal-oidc/pkg/usecase"
 
 	"github.com/ory/fosite"
 	"github.com/ory/fosite/compose"
-	"github.com/ory/fosite/handler/oauth2"
 	"github.com/ory/fosite/handler/openid"
-	"github.com/ory/fosite/token/jwt"
 )
 
 type Config struct {
@@ -24,21 +23,19 @@ type Handler struct {
 	conf    Config
 }
 
-func NewHandler(u usecase.UseCase, st store.Store, signer jwt.Signer, globalSecret []byte, conf Config) *Handler {
+func NewHandler(u usecase.UseCase, st store.Store, signer *es256jwt.RotatingSigner, globalSecret []byte, conf Config) *Handler {
 	fconf := &fosite.Config{
 		AccessTokenLifespan: time.Minute * 30,
 		GlobalSecret:        globalSecret,
 	}
 
+	es256Strategy := es256jwt.NewES256JWTStrategy(signer, fconf)
+
 	provider := compose.Compose(
 		fconf,
 		st,
 		&compose.CommonStrategy{
-			CoreStrategy: &oauth2.DefaultJWTStrategy{
-				Signer:          signer,
-				HMACSHAStrategy: compose.NewOAuth2HMACStrategy(fconf),
-				Config:          fconf,
-			},
+			CoreStrategy: es256Strategy,
 			OpenIDConnectTokenStrategy: &openid.DefaultStrategy{
 				Signer: signer,
 				Config: fconf,

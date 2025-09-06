@@ -7,6 +7,6 @@ var (
 	SupportedACRValues                = []string{"urn:oasis:names:tc:SAML:2.0:ac:classes:Password"}
 	SupportedTokenEndpointAuthMethods = []string{"client_secret_basic", "client_secret_post"}
 	SupportedSubjectTypes             = []string{"public"}
-	SupportedIDTokenSigningAlgs       = []string{"RS256"}
+	SupportedIDTokenSigningAlgs       = []string{"RS256", "ES256"}
 	SupportedClaims                   = []string{"aud", "exp", "iat", "iss", "sub"}
 )
