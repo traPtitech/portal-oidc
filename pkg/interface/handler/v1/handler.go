@@ -23,22 +23,22 @@ type Handler struct {
 	conf    Config
 }
 
-func NewHandler(u usecase.UseCase, st store.Store, signer *es256jwt.RotatingSigner, globalSecret []byte, issuerURL string) *Handler {
-	conf := &fosite.Config{
+func NewHandler(u usecase.UseCase, st store.Store, signer *es256jwt.RotatingSigner, globalSecret []byte, conf Config) *Handler {
+	fconf := &fosite.Config{
 		AccessTokenLifespan: time.Minute * 30,
 		GlobalSecret:        globalSecret,
 	}
 
-	es256Strategy := es256jwt.NewES256JWTStrategy(signer, conf, issuerURL)
+	es256Strategy := es256jwt.NewES256JWTStrategy(signer, fconf)
 
 	provider := compose.Compose(
-		conf,
+		fconf,
 		st,
 		&compose.CommonStrategy{
 			CoreStrategy: es256Strategy,
 			OpenIDConnectTokenStrategy: &openid.DefaultStrategy{
 				Signer: signer,
-				Config: conf,
+				Config: fconf,
 			},
 			Signer: signer,
 		},
@@ -59,9 +59,6 @@ func NewHandler(u usecase.UseCase, st store.Store, signer *es256jwt.RotatingSign
 	return &Handler{
 		oauth2:  provider,
 		usecase: u,
-		conf:    Config{
-			Issuer:          issuerURL,
-			SessionLifespan: time.Minute * 30,
-		},
+		conf:    conf,
 	}
 }

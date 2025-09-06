@@ -44,8 +44,10 @@ func NewServer(config Config) http.Handler {
 
 	usecase := usecase.NewUseCase(repo, po, po)
 
-	issuerURL := "https://" + config.Host
-	handler := v1.NewHandler(usecase, store, signer, []byte(config.OIDCSecret), issuerURL)
+	handler := v1.NewHandler(usecase, store, signer, []byte(config.OIDCSecret), v1.Config{
+		Issuer:          config.Host,
+		SessionLifespan: config.SessionLifespan,
+	})
 
 	e := echo.New()
 	e.Any("/oauth2/auth", handler.AuthEndpoint)

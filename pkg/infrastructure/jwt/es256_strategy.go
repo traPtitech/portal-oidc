@@ -15,11 +15,10 @@ type ES256JWTStrategy struct {
 	IssuerURL string
 }
 
-func NewES256JWTStrategy(signer *RotatingSigner, config fosite.Configurator, issuerURL string) *ES256JWTStrategy {
+func NewES256JWTStrategy(signer *RotatingSigner, config fosite.Configurator) *ES256JWTStrategy {
 	return &ES256JWTStrategy{
 		Signer:    signer,
 		Config:    config,
-		IssuerURL: issuerURL,
 	}
 }
 
