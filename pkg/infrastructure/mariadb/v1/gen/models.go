@@ -10,19 +10,20 @@ import (
 )
 
 type AuthorizationSession struct {
-	ID   string
-	Type string
+	ID string
 	// SHA384
 	Signature         string
 	ClientID          string
 	UserID            string
-	Scope             string
-	GrantedScope      string
-	FormData          string
-	Session           string
+	RequestedScope    json.RawMessage
+	GrantedScope      json.RawMessage
+	FormData          json.RawMessage
+	ExpiredAt         time.Time
+	Username          string
+	Subject           string
 	Active            bool
-	RequestedAudience string
-	GrantedAudience   string
+	RequestedAudience json.RawMessage
+	GrantedAudience   json.RawMessage
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 }
@@ -31,6 +32,7 @@ type BlacklistedJti struct {
 	Jti       string
 	After     time.Time
 	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 type Client struct {

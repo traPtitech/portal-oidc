@@ -18,17 +18,18 @@ CREATE TABLE `clients` (
 
 CREATE TABLE `authorization_sessions` (
     `id` CHAR(36) NOT NULL,
-    `type` VARCHAR(255) NOT NULL,
     `signature` VARCHAR(48) NOT NULL COMMENT 'SHA384',
     `client_id` CHAR(36) NOT NULL,
     `user_id` VARCHAR(32) NOT NULL,
-    `scope` TEXT NOT NULL,
-    `granted_scope` TEXT NOT NULL,
-    `form_data` LONGTEXT NOT NULL,
-    `session` LONGTEXT NOT NULL,
+    `requested_scope` JSON NOT NULL,
+    `granted_scope` JSON NOT NULL,
+    `form_data` JSON NOT NULL,
+    `expired_at` DATETIME(6) NOT NULL,
+    `username` VARCHAR(255) NOT NULL,
+    `subject` VARCHAR(255) NOT NULL,
     `active` TINYINT(1) NOT NULL DEFAULT 1,
-    `requested_audience` TEXT NOT NULL,
-    `granted_audience` TEXT NOT NULL,
+    `requested_audience` JSON NOT NULL,
+    `granted_audience` JSON NOT NULL,
     `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`)
@@ -42,6 +43,7 @@ CREATE TABLE `blacklisted_jtis` (
     `jti` CHAR(36) NOT NULL,
     `after` DATETIME(6) NOT NULL,
     `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`jti`)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
@@ -52,4 +54,6 @@ SELECT 'down SQL query';
 DROP TABLE `authorization_sessions`;
 DROP TABLE `redirect_uri`;
 DROP TABLE `clients`;
+DROP TABLE `blacklisted_jtis`;
+DROP TABLE `access_token`;
 

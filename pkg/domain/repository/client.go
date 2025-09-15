@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/ory/fosite"
 	"github.com/traPtitech/portal-oidc/pkg/domain"
 )
 
@@ -18,4 +19,5 @@ type OIDCClientRepository interface {
 	GetBlacklistJTI(ctx context.Context, jti string) (domain.BlacklistedJTI, error)
 	DeleteOldBlacklistJTI(ctx context.Context) error
 	CreateBlacklistJTI(ctx context.Context, jti string, after time.Time) error
+	CreateAccessTokenSession(ctx context.Context, req *fosite.Request) error
 }

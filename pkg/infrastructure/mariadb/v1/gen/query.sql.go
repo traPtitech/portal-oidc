@@ -25,6 +25,59 @@ func (q *Queries) AddBlacklistJTI(ctx context.Context, arg AddBlacklistJTIParams
 	return err
 }
 
+const createAccessToken = `-- name: CreateAccessToken :exec
+INSERT INTO authorization_sessions (
+    id,
+    signature,
+    client_id,
+    user_id,
+    requested_scope,
+    granted_scope,
+    form_data,
+    expired_at,
+    username,
+    subject,
+    active,
+    requested_audience,
+    granted_audience
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateAccessTokenParams struct {
+	ID                string
+	Signature         string
+	ClientID          string
+	UserID            string
+	RequestedScope    json.RawMessage
+	GrantedScope      json.RawMessage
+	FormData          json.RawMessage
+	ExpiredAt         time.Time
+	Username          string
+	Subject           string
+	Active            bool
+	RequestedAudience json.RawMessage
+	GrantedAudience   json.RawMessage
+}
+
+func (q *Queries) CreateAccessToken(ctx context.Context, arg CreateAccessTokenParams) error {
+	_, err := q.db.ExecContext(ctx, createAccessToken,
+		arg.ID,
+		arg.Signature,
+		arg.ClientID,
+		arg.UserID,
+		arg.RequestedScope,
+		arg.GrantedScope,
+		arg.FormData,
+		arg.ExpiredAt,
+		arg.Username,
+		arg.Subject,
+		arg.Active,
+		arg.RequestedAudience,
+		arg.GrantedAudience,
+	)
+	return err
+}
+
 const createBlacklistJTI = `-- name: CreateBlacklistJTI :exec
 INSERT INTO blacklisted_jtis (jti, after) VALUES (?, ?)
 `

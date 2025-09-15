@@ -7,6 +7,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
+	"github.com/ory/fosite"
 	"github.com/traPtitech/portal-oidc/pkg/domain"
 	mariadb "github.com/traPtitech/portal-oidc/pkg/infrastructure/mariadb/v1/gen"
 )
@@ -189,6 +190,49 @@ func (r *MariaDBRepository) CreateBlacklistJTI(ctx context.Context, jti string, 
 		After: after,
 	}); err != nil {
 		return errors.Wrap(err, "Failed to create blacklisted JTI")
+	}
+
+	return nil
+}
+
+func (r *MariaDBRepository) CreateAccessTokenSession(ctx context.Context, req *fosite.Request) error {
+	encRequestedScopes, err := json.Marshal(req.GetRequestedScopes())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal requested scopes")
+	}
+	encGrantedScopes, err := json.Marshal(req.GetGrantedScopes())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal granted scopes")
+	}
+	encForm, err := json.Marshal(req.GetRequestForm())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal form data")
+	}
+	encRequestedAudience, err := json.Marshal(req.GetRequestedAudience())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal requested audience")
+	}
+	encGrantedAudience, err := json.Marshal(req.GetGrantedAudience())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal granted audience")
+	}
+
+	if err := r.q.CreateAccessToken(ctx, mariadb.CreateAccessTokenParams{
+		ID:                req.GetID(),
+		Signature:         req.ID,
+		ClientID:          req.GetClient().GetID(),
+		UserID:            req.GetSession().GetSubject(),
+		RequestedScope:    encRequestedScopes,
+		GrantedScope:      encGrantedScopes,
+		FormData:          encForm,
+		ExpiredAt:         req.GetSession().GetExpiresAt(fosite.AccessToken),
+		Username:          req.GetSession().GetUsername(),
+		Subject:           req.GetSession().GetSubject(),
+		Active:            true,
+		RequestedAudience: encRequestedAudience,
+		GrantedAudience:   encGrantedAudience,
+	}); err != nil {
+		return errors.Wrap(err, "Failed to create access token")
 	}
 
 	return nil

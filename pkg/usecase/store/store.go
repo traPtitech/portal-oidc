@@ -77,3 +77,23 @@ func (s *Store) SetClientAssertionJWT(ctx context.Context, jti string, after tim
 
 	return nil
 }
+
+func (s *Store) CreateAccessTokenSession(ctx context.Context, signature string, request fosite.Requester) error {
+
+	req := &fosite.Request{
+		ID:                request.GetID(),
+		RequestedAt:       request.GetRequestedAt(),
+		Client:            request.GetClient(),
+		RequestedScope:    request.GetRequestedScopes(),
+		GrantedScope:      request.GetGrantedScopes(),
+		Form:              request.GetRequestForm(),
+		Session:           request.GetSession(),
+		RequestedAudience: request.GetRequestedAudience(),
+		GrantedAudience:   request.GetGrantedAudience(),
+	}
+	if err := s.repo.CreateAccessTokenSession(ctx, req); err != nil {
+		return errors.Wrap(err, "Failed to create access token session")
+	}
+
+	return nil
+}
