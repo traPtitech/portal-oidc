@@ -66,5 +66,8 @@ INSERT INTO authorization_sessions (
 -- name: GetToken :one
 SELECT * FROM authorization_sessions WHERE signature = ? AND token_type = ? AND active = 1 LIMIT 1;
 
--- name: RevokeToken :exec
+-- name: RevokeTokenWithSignature :exec
 UPDATE authorization_sessions SET active = 0 WHERE signature = ? AND token_type = ?;
+
+-- name: RevokeTokenByClientID :exec
+UPDATE authorization_sessions SET active = 0 WHERE client_id = ? AND token_type = ?;

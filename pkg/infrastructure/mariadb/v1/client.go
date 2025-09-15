@@ -294,12 +294,24 @@ func (r *MariaDBRepository) GetTokenSession(ctx context.Context, signature strin
 }
 
 func (r *MariaDBRepository) DeleteTokenSession(ctx context.Context, signature string, tokenType domain.TokenType) error {
-	revokeTokenParams := mariadb.RevokeTokenParams{
+	revokeTokenParams := mariadb.RevokeTokenWithSignatureParams{
 		Signature: signature,
 		TokenType: uint8(tokenType),
 	}
-	if err := r.q.RevokeToken(ctx, revokeTokenParams); err != nil {
-		return errors.Wrap(err, "Failed to revoke access token")
+	if err := r.q.RevokeTokenWithSignature(ctx, revokeTokenParams); err != nil {
+		return errors.Wrap(err, "Failed to revoke token")
+	}
+
+	return nil
+}
+
+func (r *MariaDBRepository) RevokeTokenSession(ctx context.Context, requestID string, tokenType domain.TokenType) error {
+	revokeTokenParams := mariadb.RevokeTokenByClientIDParams{
+		ClientID:  requestID,
+		TokenType: uint8(tokenType),
+	}
+	if err := r.q.RevokeTokenByClientID(ctx, revokeTokenParams); err != nil {
+		return errors.Wrap(err, "Failed to revoke token")
 	}
 
 	return nil

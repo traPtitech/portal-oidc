@@ -22,4 +22,5 @@ type OIDCClientRepository interface {
 	CreateTokenSession(ctx context.Context, req *fosite.Request, tokenType domain.TokenType) error
 	GetTokenSession(ctx context.Context, signature string, tokenType domain.TokenType) (*fosite.Request, error)
 	DeleteTokenSession(ctx context.Context, signature string, tokenType domain.TokenType) error
+	RevokeTokenSession(ctx context.Context, requestID string, tokenType domain.TokenType) error
 }

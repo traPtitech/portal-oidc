@@ -255,17 +255,31 @@ func (q *Queries) ListClientsByUserID(ctx context.Context, userID string) ([]Cli
 	return items, nil
 }
 
-const revokeToken = `-- name: RevokeToken :exec
+const revokeTokenByClientID = `-- name: RevokeTokenByClientID :exec
+UPDATE authorization_sessions SET active = 0 WHERE client_id = ? AND token_type = ?
+`
+
+type RevokeTokenByClientIDParams struct {
+	ClientID  string
+	TokenType uint8
+}
+
+func (q *Queries) RevokeTokenByClientID(ctx context.Context, arg RevokeTokenByClientIDParams) error {
+	_, err := q.db.ExecContext(ctx, revokeTokenByClientID, arg.ClientID, arg.TokenType)
+	return err
+}
+
+const revokeTokenWithSignature = `-- name: RevokeTokenWithSignature :exec
 UPDATE authorization_sessions SET active = 0 WHERE signature = ? AND token_type = ?
 `
 
-type RevokeTokenParams struct {
+type RevokeTokenWithSignatureParams struct {
 	Signature string
 	TokenType uint8
 }
 
-func (q *Queries) RevokeToken(ctx context.Context, arg RevokeTokenParams) error {
-	_, err := q.db.ExecContext(ctx, revokeToken, arg.Signature, arg.TokenType)
+func (q *Queries) RevokeTokenWithSignature(ctx context.Context, arg RevokeTokenWithSignatureParams) error {
+	_, err := q.db.ExecContext(ctx, revokeTokenWithSignature, arg.Signature, arg.TokenType)
 	return err
 }
 

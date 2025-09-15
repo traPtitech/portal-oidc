@@ -150,3 +150,19 @@ func (s *Store) DeleteRefreshTokenSession(ctx context.Context, signature string)
 	}
 	return nil
 }
+
+func (s *Store) RevokeAccessToken(ctx context.Context, requestID string) error {
+	err := s.repo.RevokeTokenSession(ctx, requestID, domain.TokenTypeAccessToken)
+	if err != nil {
+		return errors.Wrap(err, "Failed to revoke access token")
+	}
+	return nil
+}
+
+func (s *Store) RevokeRefreshToken(ctx context.Context, requestID string) error {
+	err := s.repo.RevokeTokenSession(ctx, requestID, domain.TokenTypeRefreshToken)
+	if err != nil {
+		return errors.Wrap(err, "Failed to revoke refresh token")
+	}
+	return nil
+}
