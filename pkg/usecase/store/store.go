@@ -115,3 +115,38 @@ func (s *Store) DeleteAccessTokenSession(ctx context.Context, signature string) 
 	}
 	return nil
 }
+
+func (s *Store) CreateRefreshTokenSession(_ context.Context, signature, accessTokenSignature string, request fosite.Requester) error {
+	req := &fosite.Request{
+		ID:                request.GetID(),
+		RequestedAt:       request.GetRequestedAt(),
+		Client:            request.GetClient(),
+		RequestedScope:    request.GetRequestedScopes(),
+		GrantedScope:      request.GetGrantedScopes(),
+		Form:              request.GetRequestForm(),
+		Session:           request.GetSession(),
+		RequestedAudience: request.GetRequestedAudience(),
+		GrantedAudience:   request.GetGrantedAudience(),
+	}
+	if err := s.repo.CreateTokenSession(context.Background(), req, domain.TokenTypeRefreshToken); err != nil {
+		return errors.Wrap(err, "Failed to create refresh token session")
+	}
+	return nil
+}
+
+func (s *Store) GetRefreshTokenSession(ctx context.Context, signature string, _ fosite.Session) (fosite.Requester, error) {
+	request, err := s.repo.GetTokenSession(ctx, signature, domain.TokenTypeRefreshToken)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to get refresh token session")
+	}
+
+	return request, nil
+}
+
+func (s *Store) DeleteRefreshTokenSession(ctx context.Context, signature string) error {
+	err := s.repo.DeleteTokenSession(ctx, signature, domain.TokenTypeRefreshToken)
+	if err != nil {
+		return errors.Wrap(err, "Failed to delete refresh token session")
+	}
+	return nil
+}
