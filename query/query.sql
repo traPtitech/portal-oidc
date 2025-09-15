@@ -63,8 +63,8 @@ INSERT INTO authorization_sessions (
     granted_audience
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
--- name: GetAccessToken :one
-SELECT * FROM authorization_sessions WHERE signature = ? AND active = 1 LIMIT 1;
+-- name: GetToken :one
+SELECT * FROM authorization_sessions WHERE signature = ? AND token_type = ? AND active = 1 LIMIT 1;
 
--- name: RevokeAccessToken :exec
-UPDATE authorization_sessions SET active = 0 WHERE signature = ?;
+-- name: RevokeToken :exec
+UPDATE authorization_sessions SET active = 0 WHERE signature = ? AND token_type = ?;

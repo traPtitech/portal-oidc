@@ -242,8 +242,13 @@ func (r *MariaDBRepository) CreateTokenSession(ctx context.Context, req *fosite.
 	return nil
 }
 
-func (r *MariaDBRepository) GetAccessTokenSession(ctx context.Context, signature string) (*fosite.Request, error) {
-	accessToken, err := r.q.GetAccessToken(ctx, signature)
+func (r *MariaDBRepository) GetTokenSession(ctx context.Context, signature string, tokenType domain.TokenType) (*fosite.Request, error) {
+
+	getTokenParams := mariadb.GetTokenParams{
+		Signature: signature,
+		TokenType: uint8(tokenType),
+	}
+	accessToken, err := r.q.GetToken(ctx, getTokenParams)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to get access token")
 	}
@@ -288,8 +293,12 @@ func (r *MariaDBRepository) GetAccessTokenSession(ctx context.Context, signature
 	return req, nil
 }
 
-func (r *MariaDBRepository) DeleteAccessTokenSession(ctx context.Context, signature string) error {
-	if err := r.q.RevokeAccessToken(ctx, signature); err != nil {
+func (r *MariaDBRepository) DeleteTokenSession(ctx context.Context, signature string, tokenType domain.TokenType) error {
+	revokeTokenParams := mariadb.RevokeTokenParams{
+		Signature: signature,
+		TokenType: uint8(tokenType),
+	}
+	if err := r.q.RevokeToken(ctx, revokeTokenParams); err != nil {
 		return errors.Wrap(err, "Failed to revoke access token")
 	}
 

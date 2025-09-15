@@ -20,6 +20,6 @@ type OIDCClientRepository interface {
 	DeleteOldBlacklistJTI(ctx context.Context) error
 	CreateBlacklistJTI(ctx context.Context, jti string, after time.Time) error
 	CreateTokenSession(ctx context.Context, req *fosite.Request, tokenType domain.TokenType) error
-	GetAccessTokenSession(ctx context.Context, signature string) (*fosite.Request, error)
-	DeleteAccessTokenSession(ctx context.Context, signature string) error
+	GetTokenSession(ctx context.Context, signature string, tokenType domain.TokenType) (*fosite.Request, error)
+	DeleteTokenSession(ctx context.Context, signature string, tokenType domain.TokenType) error
 }

@@ -100,7 +100,7 @@ func (s *Store) CreateAccessTokenSession(ctx context.Context, signature string, 
 
 // https://github.com/ory/fosite/issues/256
 func (s *Store) GetAccessTokenSession(ctx context.Context, signature string, _ fosite.Session) (fosite.Requester, error) {
-	request, err := s.repo.GetAccessTokenSession(ctx, signature)
+	request, err := s.repo.GetTokenSession(ctx, signature, domain.TokenTypeAccessToken)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to get access token session")
 	}
@@ -109,7 +109,7 @@ func (s *Store) GetAccessTokenSession(ctx context.Context, signature string, _ f
 }
 
 func (s *Store) DeleteAccessTokenSession(ctx context.Context, signature string) error {
-	err := s.repo.DeleteAccessTokenSession(ctx, signature)
+	err := s.repo.DeleteTokenSession(ctx, signature, domain.TokenTypeAccessToken)
 	if err != nil {
 		return errors.Wrap(err, "Failed to delete access token session")
 	}
