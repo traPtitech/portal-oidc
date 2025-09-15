@@ -14,6 +14,7 @@ type AuthorizationSession struct {
 	// SHA384
 	Signature         string
 	ClientID          string
+	TokenType         uint8
 	UserID            string
 	RequestedScope    json.RawMessage
 	GrantedScope      json.RawMessage

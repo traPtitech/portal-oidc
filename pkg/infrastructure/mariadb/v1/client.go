@@ -195,7 +195,7 @@ func (r *MariaDBRepository) CreateBlacklistJTI(ctx context.Context, jti string, 
 	return nil
 }
 
-func (r *MariaDBRepository) CreateAccessTokenSession(ctx context.Context, req *fosite.Request) error {
+func (r *MariaDBRepository) CreateTokenSession(ctx context.Context, req *fosite.Request, tokenType domain.TokenType) error {
 	encRequestedScopes, err := json.Marshal(req.GetRequestedScopes())
 	if err != nil {
 		return errors.Wrap(err, "Failed to marshal requested scopes")
@@ -216,10 +216,14 @@ func (r *MariaDBRepository) CreateAccessTokenSession(ctx context.Context, req *f
 	if err != nil {
 		return errors.Wrap(err, "Failed to marshal granted audience")
 	}
+	if !tokenType.Valid() {
+		return errors.New("Invalid token type")
+	}
 
-	if err := r.q.CreateAccessToken(ctx, mariadb.CreateAccessTokenParams{
+	if err := r.q.CreateToken(ctx, mariadb.CreateTokenParams{
 		ID:                req.GetID(),
 		Signature:         req.ID,
+		TokenType:         uint8(tokenType),
 		ClientID:          req.GetClient().GetID(),
 		UserID:            req.GetSession().GetSubject(),
 		RequestedScope:    encRequestedScopes,
@@ -232,7 +236,7 @@ func (r *MariaDBRepository) CreateAccessTokenSession(ctx context.Context, req *f
 		RequestedAudience: encRequestedAudience,
 		GrantedAudience:   encGrantedAudience,
 	}); err != nil {
-		return errors.Wrap(err, "Failed to create access token")
+		return errors.Wrap(err, "Failed to create token")
 	}
 
 	return nil

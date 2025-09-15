@@ -20,6 +20,7 @@ CREATE TABLE `authorization_sessions` (
     `id` CHAR(36) NOT NULL,
     `signature` VARCHAR(48) NOT NULL COMMENT 'SHA384',
     `client_id` CHAR(36) NOT NULL,
+    `token_type` TINYINT UNSIGNED NOT NULL,
     `user_id` VARCHAR(32) NOT NULL,
     `requested_scope` JSON NOT NULL,
     `granted_scope` JSON NOT NULL,

@@ -91,7 +91,7 @@ func (s *Store) CreateAccessTokenSession(ctx context.Context, signature string, 
 		RequestedAudience: request.GetRequestedAudience(),
 		GrantedAudience:   request.GetGrantedAudience(),
 	}
-	if err := s.repo.CreateAccessTokenSession(ctx, req); err != nil {
+	if err := s.repo.CreateTokenSession(ctx, req, domain.TokenTypeAccessToken); err != nil {
 		return errors.Wrap(err, "Failed to create access token session")
 	}
 

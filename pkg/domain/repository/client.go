@@ -19,7 +19,7 @@ type OIDCClientRepository interface {
 	GetBlacklistJTI(ctx context.Context, jti string) (domain.BlacklistedJTI, error)
 	DeleteOldBlacklistJTI(ctx context.Context) error
 	CreateBlacklistJTI(ctx context.Context, jti string, after time.Time) error
-	CreateAccessTokenSession(ctx context.Context, req *fosite.Request) error
+	CreateTokenSession(ctx context.Context, req *fosite.Request, tokenType domain.TokenType) error
 	GetAccessTokenSession(ctx context.Context, signature string) (*fosite.Request, error)
 	DeleteAccessTokenSession(ctx context.Context, signature string) error
 }

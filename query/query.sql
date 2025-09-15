@@ -45,10 +45,11 @@ DELETE FROM blacklisted_jtis WHERE after < NOW();
 -- name: CreateBlacklistJTI :exec
 INSERT INTO blacklisted_jtis (jti, after) VALUES (?, ?);
 
--- name: CreateAccessToken :exec
+-- name: CreateToken :exec
 INSERT INTO authorization_sessions (
     id,
     signature,
+    token_type,
     client_id,
     user_id,
     requested_scope,
@@ -60,7 +61,7 @@ INSERT INTO authorization_sessions (
     active,
     requested_audience,
     granted_audience
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: GetAccessToken :one
 SELECT * FROM authorization_sessions WHERE signature = ? AND active = 1 LIMIT 1;
