@@ -145,6 +145,33 @@ func (q *Queries) DeleteOldBlacklistJTI(ctx context.Context) error {
 	return err
 }
 
+const getAccessToken = `-- name: GetAccessToken :one
+SELECT id, signature, client_id, user_id, requested_scope, granted_scope, form_data, expired_at, username, subject, active, requested_audience, granted_audience, created_at, updated_at FROM authorization_sessions WHERE signature = ? AND active = 1 LIMIT 1
+`
+
+func (q *Queries) GetAccessToken(ctx context.Context, signature string) (AuthorizationSession, error) {
+	row := q.db.QueryRowContext(ctx, getAccessToken, signature)
+	var i AuthorizationSession
+	err := row.Scan(
+		&i.ID,
+		&i.Signature,
+		&i.ClientID,
+		&i.UserID,
+		&i.RequestedScope,
+		&i.GrantedScope,
+		&i.FormData,
+		&i.ExpiredAt,
+		&i.Username,
+		&i.Subject,
+		&i.Active,
+		&i.RequestedAudience,
+		&i.GrantedAudience,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getBlacklistJTI = `-- name: GetBlacklistJTI :one
 SELECT jti, after FROM blacklisted_jtis WHERE jti = ?
 `

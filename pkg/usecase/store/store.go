@@ -97,3 +97,13 @@ func (s *Store) CreateAccessTokenSession(ctx context.Context, signature string, 
 
 	return nil
 }
+
+// https://github.com/ory/fosite/issues/256
+func (s *Store) GetAccessTokenSession(ctx context.Context, signature string, _ fosite.Session) (fosite.Requester, error) {
+	request, err := s.repo.GetAccessTokenSession(ctx, signature)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to get access token session")
+	}
+
+	return request, nil
+}

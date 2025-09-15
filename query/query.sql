@@ -61,3 +61,6 @@ INSERT INTO authorization_sessions (
     requested_audience,
     granted_audience
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: GetAccessToken :one
+SELECT * FROM authorization_sessions WHERE signature = ? AND active = 1 LIMIT 1;

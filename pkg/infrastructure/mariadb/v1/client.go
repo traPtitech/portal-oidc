@@ -237,3 +237,49 @@ func (r *MariaDBRepository) CreateAccessTokenSession(ctx context.Context, req *f
 
 	return nil
 }
+
+func (r *MariaDBRepository) GetAccessTokenSession(ctx context.Context, signature string) (*fosite.Request, error) {
+	accessToken, err := r.q.GetAccessToken(ctx, signature)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to get access token")
+	}
+
+	requestedScopes := []string{}
+	if err := json.Unmarshal(accessToken.RequestedScope, &requestedScopes); err != nil {
+		return nil, errors.Wrap(err, "Failed to unmarshal requested scopes")
+	}
+	grantedScopes := []string{}
+	if err := json.Unmarshal(accessToken.GrantedScope, &grantedScopes); err != nil {
+		return nil, errors.Wrap(err, "Failed to unmarshal granted scopes")
+	}
+	form := map[string][]string{}
+	if err := json.Unmarshal(accessToken.FormData, &form); err != nil {
+		return nil, errors.Wrap(err, "Failed to unmarshal form data")
+	}
+	requestedAudience := []string{}
+	if err := json.Unmarshal(accessToken.RequestedAudience, &requestedAudience); err != nil {
+		return nil, errors.Wrap(err, "Failed to unmarshal requested audience")
+	}
+	grantedAudience := []string{}
+	if err := json.Unmarshal(accessToken.GrantedAudience, &grantedAudience); err != nil {
+		return nil, errors.Wrap(err, "Failed to unmarshal granted audience")
+	}
+
+	req := &fosite.Request{
+		ID:             accessToken.ID,
+		RequestedAt:    accessToken.CreatedAt,
+		Client:         &fosite.DefaultClient{ID: accessToken.ClientID},
+		RequestedScope: requestedScopes,
+		GrantedScope:   grantedScopes,
+		Form:           form,
+		Session: &fosite.DefaultSession{
+			Subject:   accessToken.Subject,
+			Username:  accessToken.Username,
+			ExpiresAt: map[fosite.TokenType]time.Time{fosite.AccessToken: accessToken.ExpiredAt},
+		},
+		RequestedAudience: requestedAudience,
+		GrantedAudience:   grantedAudience,
+	}
+
+	return req, nil
+}
