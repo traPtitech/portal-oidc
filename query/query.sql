@@ -64,3 +64,6 @@ INSERT INTO authorization_sessions (
 
 -- name: GetAccessToken :one
 SELECT * FROM authorization_sessions WHERE signature = ? AND active = 1 LIMIT 1;
+
+-- name: RevokeAccessToken :exec
+UPDATE authorization_sessions SET active = 0 WHERE signature = ?;

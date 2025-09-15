@@ -107,3 +107,11 @@ func (s *Store) GetAccessTokenSession(ctx context.Context, signature string, _ f
 
 	return request, nil
 }
+
+func (s *Store) DeleteAccessTokenSession(ctx context.Context, signature string) error {
+	err := s.repo.DeleteAccessTokenSession(ctx, signature)
+	if err != nil {
+		return errors.Wrap(err, "Failed to delete access token session")
+	}
+	return nil
+}

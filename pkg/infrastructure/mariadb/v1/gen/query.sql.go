@@ -246,6 +246,15 @@ func (q *Queries) ListClientsByUserID(ctx context.Context, userID string) ([]Cli
 	return items, nil
 }
 
+const revokeAccessToken = `-- name: RevokeAccessToken :exec
+UPDATE authorization_sessions SET active = 0 WHERE signature = ?
+`
+
+func (q *Queries) RevokeAccessToken(ctx context.Context, signature string) error {
+	_, err := q.db.ExecContext(ctx, revokeAccessToken, signature)
+	return err
+}
+
 const updateClient = `-- name: UpdateClient :exec
 UPDATE clients SET
     type = ?,

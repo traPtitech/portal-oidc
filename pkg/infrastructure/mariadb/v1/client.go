@@ -283,3 +283,11 @@ func (r *MariaDBRepository) GetAccessTokenSession(ctx context.Context, signature
 
 	return req, nil
 }
+
+func (r *MariaDBRepository) DeleteAccessTokenSession(ctx context.Context, signature string) error {
+	if err := r.q.RevokeAccessToken(ctx, signature); err != nil {
+		return errors.Wrap(err, "Failed to revoke access token")
+	}
+
+	return nil
+}
