@@ -7,6 +7,7 @@ const (
 	TokenTypeRefreshToken
 	TokenTypeAuthorizeCode
 	TokenTypeOpenIDConnectSession
+	TokenTypePKCERequestSession
 )
 
 // String method for better debugging
@@ -20,6 +21,8 @@ func (t TokenType) String() string {
 		return "authorize_code"
 	case TokenTypeOpenIDConnectSession:
 		return "openid_connect_session"
+	case TokenTypePKCERequestSession:
+		return "pkce_request_session"
 	default:
 		return "unknown"
 	}
@@ -36,11 +39,13 @@ func TokenTypeFromString(s string) TokenType {
 		return TokenTypeAuthorizeCode
 	case "openid_connect_session":
 		return TokenTypeOpenIDConnectSession
+	case "pkce_request_session":
+		return TokenTypePKCERequestSession
 	default:
 		return -1
 	}
 }
 
 func (t TokenType) Valid() bool {
-	return t == TokenTypeAccessToken || t == TokenTypeRefreshToken || t == TokenTypeAuthorizeCode || t == TokenTypeOpenIDConnectSession
+	return t == TokenTypeAccessToken || t == TokenTypeRefreshToken || t == TokenTypeAuthorizeCode || t == TokenTypeOpenIDConnectSession || t == TokenTypePKCERequestSession
 }

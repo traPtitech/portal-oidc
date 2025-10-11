@@ -238,3 +238,39 @@ func (s *Store) DeleteOpenIDConnectSession(ctx context.Context, authorizeCode st
 	}
 	return nil
 }
+
+func (s *Store) CreatePKCERequestSession(ctx context.Context, signature string, request fosite.Requester) error {
+	req := &fosite.Request{
+		ID:                request.GetID(),
+		RequestedAt:       request.GetRequestedAt(),
+		Client:            request.GetClient(),
+		RequestedScope:    request.GetRequestedScopes(),
+		GrantedScope:      request.GetGrantedScopes(),
+		Form:              request.GetRequestForm(),
+		Session:           request.GetSession(),
+		RequestedAudience: request.GetRequestedAudience(),
+		GrantedAudience:   request.GetGrantedAudience(),
+	}
+	if err := s.repo.CreateTokenSession(ctx, req, domain.TokenTypePKCERequestSession); err != nil {
+		return errors.Wrap(err, "Failed to create PKCE request session")
+	}
+
+	return nil
+}
+
+func (s *Store) GetPKCERequestSession(ctx context.Context, signature string, _ fosite.Session) (fosite.Requester, error) {
+	request, err := s.repo.GetTokenSession(ctx, signature, domain.TokenTypePKCERequestSession)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to get PKCE request session")
+	}
+
+	return request, nil
+}
+
+func (s *Store) DeletePKCERequestSession(ctx context.Context, signature string) error {
+	err := s.repo.DeleteTokenSession(ctx, signature, domain.TokenTypePKCERequestSession)
+	if err != nil {
+		return errors.Wrap(err, "Failed to delete PKCE request session")
+	}
+	return nil
+}
