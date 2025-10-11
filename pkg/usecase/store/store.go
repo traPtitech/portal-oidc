@@ -168,6 +168,15 @@ func (s *Store) RevokeRefreshToken(ctx context.Context, requestID string) error 
 	return nil
 }
 
+func (s *Store) RotateRefreshToken(ctx context.Context, requestID string, refreshTokenSignature string) (err error) {
+	// Graceful token rotation can be implemented here but it's beyond the scope of this example. Check
+	// the Ory Hydra implementation for reference.
+	if err := s.RevokeRefreshToken(ctx, requestID); err != nil {
+		return err
+	}
+	return s.RevokeAccessToken(ctx, requestID)
+}
+
 func (s *Store) CreateAuthorizeCodeSession(ctx context.Context, signature string, request fosite.Requester) error {
 	req := &fosite.Request{
 		ID:                request.GetID(),
@@ -286,4 +295,17 @@ func (s *Store) GetPublicKeys(ctx context.Context, issuer string, subject string
 
 func (s *Store) GetPublicKeyScopes(ctx context.Context, issuer string, subject string, keyId string) ([]string, error) {
 	return nil, fosite.ErrNotFound
+}
+
+func (s *Store) IsJWTUsed(ctx context.Context, jti string) (bool, error) {
+	err := s.ClientAssertionJWTValid(ctx, jti)
+	if err != nil {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func (s *Store) MarkJWTUsedForTime(ctx context.Context, jti string, exp time.Time) error {
+	return s.SetClientAssertionJWT(ctx, jti, exp)
 }
