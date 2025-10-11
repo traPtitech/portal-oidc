@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/go-jose/go-jose/v3"
 	"github.com/google/uuid"
 	"github.com/ory/fosite"
 	"github.com/traPtitech/portal-oidc/pkg/domain"
@@ -273,4 +274,16 @@ func (s *Store) DeletePKCERequestSession(ctx context.Context, signature string) 
 		return errors.Wrap(err, "Failed to delete PKCE request session")
 	}
 	return nil
+}
+
+func (s *Store) GetPublicKey(ctx context.Context, issuer string, subject string, keyId string) (*jose.JSONWebKey, error) {
+	return nil, fosite.ErrNotFound
+}
+
+func (s *Store) GetPublicKeys(ctx context.Context, issuer string, subject string) (*jose.JSONWebKeySet, error) {
+	return nil, fosite.ErrNotFound
+}
+
+func (s *Store) GetPublicKeyScopes(ctx context.Context, issuer string, subject string, keyId string) ([]string, error) {
+	return nil, fosite.ErrNotFound
 }
