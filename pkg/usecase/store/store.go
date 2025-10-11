@@ -202,3 +202,39 @@ func (s *Store) InvalidateAuthorizeCodeSession(ctx context.Context, requestID st
 	}
 	return nil
 }
+
+func (s *Store) CreateOpenIDConnectSession(ctx context.Context, authorizeCode string, requester fosite.Requester) error {
+	req := &fosite.Request{
+		ID:                requester.GetID(),
+		RequestedAt:       requester.GetRequestedAt(),
+		Client:            requester.GetClient(),
+		RequestedScope:    requester.GetRequestedScopes(),
+		GrantedScope:      requester.GetGrantedScopes(),
+		Form:              requester.GetRequestForm(),
+		Session:           requester.GetSession(),
+		RequestedAudience: requester.GetRequestedAudience(),
+		GrantedAudience:   requester.GetGrantedAudience(),
+	}
+	if err := s.repo.CreateTokenSession(ctx, req, domain.TokenTypeOpenIDConnectSession); err != nil {
+		return errors.Wrap(err, "Failed to create OpenID Connect session")
+	}
+
+	return nil
+}
+
+func (s *Store) GetOpenIDConnectSession(ctx context.Context, authorizeCode string, _ fosite.Session) (fosite.Requester, error) {
+	request, err := s.repo.GetTokenSession(ctx, authorizeCode, domain.TokenTypeOpenIDConnectSession)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to get OpenID Connect session")
+	}
+
+	return request, nil
+}
+
+func (s *Store) DeleteOpenIDConnectSession(ctx context.Context, authorizeCode string) error {
+	err := s.repo.DeleteTokenSession(ctx, authorizeCode, domain.TokenTypeOpenIDConnectSession)
+	if err != nil {
+		return errors.Wrap(err, "Failed to delete OpenID Connect session")
+	}
+	return nil
+}
