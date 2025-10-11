@@ -232,7 +232,7 @@ func (s *Store) CreateOpenIDConnectSession(ctx context.Context, authorizeCode st
 	return nil
 }
 
-func (s *Store) GetOpenIDConnectSession(ctx context.Context, authorizeCode string, _ fosite.Session) (fosite.Requester, error) {
+func (s *Store) GetOpenIDConnectSession(ctx context.Context, authorizeCode string, _ fosite.Requester) (fosite.Requester, error) {
 	request, err := s.repo.GetTokenSession(ctx, authorizeCode, domain.TokenTypeOpenIDConnectSession)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to get OpenID Connect session")
