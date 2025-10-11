@@ -116,7 +116,7 @@ func (s *Store) DeleteAccessTokenSession(ctx context.Context, signature string) 
 	return nil
 }
 
-func (s *Store) CreateRefreshTokenSession(_ context.Context, signature, accessTokenSignature string, request fosite.Requester) error {
+func (s *Store) CreateRefreshTokenSession(ctx context.Context, signature, accessTokenSignature string, request fosite.Requester) error {
 	req := &fosite.Request{
 		ID:                request.GetID(),
 		RequestedAt:       request.GetRequestedAt(),
@@ -128,7 +128,7 @@ func (s *Store) CreateRefreshTokenSession(_ context.Context, signature, accessTo
 		RequestedAudience: request.GetRequestedAudience(),
 		GrantedAudience:   request.GetGrantedAudience(),
 	}
-	if err := s.repo.CreateTokenSession(context.Background(), req, domain.TokenTypeRefreshToken); err != nil {
+	if err := s.repo.CreateTokenSession(ctx, req, domain.TokenTypeRefreshToken); err != nil {
 		return errors.Wrap(err, "Failed to create refresh token session")
 	}
 	return nil
@@ -163,6 +163,42 @@ func (s *Store) RevokeRefreshToken(ctx context.Context, requestID string) error 
 	err := s.repo.RevokeTokenSession(ctx, requestID, domain.TokenTypeRefreshToken)
 	if err != nil {
 		return errors.Wrap(err, "Failed to revoke refresh token")
+	}
+	return nil
+}
+
+func (s *Store) CreateAuthorizeCodeSession(ctx context.Context, signature string, request fosite.Requester) error {
+	req := &fosite.Request{
+		ID:                request.GetID(),
+		RequestedAt:       request.GetRequestedAt(),
+		Client:            request.GetClient(),
+		RequestedScope:    request.GetRequestedScopes(),
+		GrantedScope:      request.GetGrantedScopes(),
+		Form:              request.GetRequestForm(),
+		Session:           request.GetSession(),
+		RequestedAudience: request.GetRequestedAudience(),
+		GrantedAudience:   request.GetGrantedAudience(),
+	}
+	if err := s.repo.CreateTokenSession(ctx, req, domain.TokenTypeAuthorizeCode); err != nil {
+		return errors.Wrap(err, "Failed to create authorize code session")
+	}
+
+	return nil
+}
+
+func (s *Store) GetAuthorizeCodeSession(ctx context.Context, signature string, _ fosite.Session) (fosite.Requester, error) {
+	request, err := s.repo.GetTokenSession(ctx, signature, domain.TokenTypeAuthorizeCode)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to get authorize code session")
+	}
+
+	return request, nil
+}
+
+func (s *Store) InvalidateAuthorizeCodeSession(ctx context.Context, requestID string) error {
+	err := s.repo.RevokeTokenSession(ctx, requestID, domain.TokenTypeAuthorizeCode)
+	if err != nil {
+		return errors.Wrap(err, "Failed to invalidate authorize code")
 	}
 	return nil
 }

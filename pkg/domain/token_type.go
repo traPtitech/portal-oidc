@@ -5,6 +5,7 @@ type TokenType int
 const (
 	TokenTypeAccessToken TokenType = iota
 	TokenTypeRefreshToken
+	TokenTypeAuthorizeCode
 )
 
 // String method for better debugging
@@ -14,6 +15,8 @@ func (t TokenType) String() string {
 		return "access_token"
 	case TokenTypeRefreshToken:
 		return "refresh_token"
+	case TokenTypeAuthorizeCode:
+		return "authorize_code"
 	default:
 		return "unknown"
 	}
@@ -26,11 +29,13 @@ func TokenTypeFromString(s string) TokenType {
 		return TokenTypeAccessToken
 	case "refresh_token":
 		return TokenTypeRefreshToken
+	case "authorize_code":
+		return TokenTypeAuthorizeCode
 	default:
 		return -1
 	}
 }
 
 func (t TokenType) Valid() bool {
-	return t == TokenTypeAccessToken || t == TokenTypeRefreshToken
+	return t == TokenTypeAccessToken || t == TokenTypeRefreshToken || t == TokenTypeAuthorizeCode
 }
