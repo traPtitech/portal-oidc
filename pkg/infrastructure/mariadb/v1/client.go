@@ -274,10 +274,26 @@ func (r *MariaDBRepository) GetTokenSession(ctx context.Context, signature strin
 		return nil, errors.Wrap(err, "Failed to unmarshal granted audience")
 	}
 
+	clientID, err := domain.ParseClientID(accessToken.ClientID)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to parse client id")
+	}
+
+	client, err := r.GetOIDCClient(ctx, clientID)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to get client")
+	}
+
 	req := &fosite.Request{
-		ID:             accessToken.ID,
-		RequestedAt:    accessToken.CreatedAt,
-		Client:         &fosite.DefaultClient{ID: accessToken.ClientID},
+		ID:          accessToken.ID,
+		RequestedAt: accessToken.CreatedAt,
+		Client: &fosite.DefaultClient{
+			ID:            client.ID.String(),
+			Secret:        []byte(client.Secret),
+			RedirectURIs:  client.RedirectURIs,
+			GrantTypes:    []string{"refresh_token", "authorization_code"},
+			ResponseTypes: []string{"code", "code id_token"},
+		},
 		RequestedScope: requestedScopes,
 		GrantedScope:   grantedScopes,
 		Form:           form,
