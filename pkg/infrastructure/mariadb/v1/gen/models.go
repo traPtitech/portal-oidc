@@ -9,6 +9,46 @@ import (
 	"time"
 )
 
+type AccessTokenSession struct {
+	ID string
+	// SHA384
+	Signature         string
+	ClientID          string
+	TokenType         uint8
+	UserID            string
+	RequestedScope    json.RawMessage
+	GrantedScope      json.RawMessage
+	FormData          json.RawMessage
+	ExpiredAt         time.Time
+	Username          string
+	Subject           string
+	Active            bool
+	RequestedAudience json.RawMessage
+	GrantedAudience   json.RawMessage
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+}
+
+type AuthorizationCodeSession struct {
+	ID string
+	// SHA384
+	Signature         string
+	ClientID          string
+	TokenType         uint8
+	UserID            string
+	RequestedScope    json.RawMessage
+	GrantedScope      json.RawMessage
+	FormData          json.RawMessage
+	ExpiredAt         time.Time
+	Username          string
+	Subject           string
+	Active            bool
+	RequestedAudience json.RawMessage
+	GrantedAudience   json.RawMessage
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+}
+
 type AuthorizationSession struct {
 	ID string
 	// SHA384
@@ -46,4 +86,64 @@ type Client struct {
 	RedirectUris json.RawMessage
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
+}
+
+type OpenIDConnectSession struct {
+	ID string
+	// SHA384
+	Signature         string
+	ClientID          string
+	TokenType         uint8
+	UserID            string
+	RequestedScope    json.RawMessage
+	GrantedScope      json.RawMessage
+	FormData          json.RawMessage
+	ExpiredAt         time.Time
+	Username          string
+	Subject           string
+	Active            bool
+	RequestedAudience json.RawMessage
+	GrantedAudience   json.RawMessage
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+}
+
+type PkceRequestSession struct {
+	ID string
+	// SHA384
+	Signature         string
+	ClientID          string
+	TokenType         uint8
+	UserID            string
+	RequestedScope    json.RawMessage
+	GrantedScope      json.RawMessage
+	FormData          json.RawMessage
+	ExpiredAt         time.Time
+	Username          string
+	Subject           string
+	Active            bool
+	RequestedAudience json.RawMessage
+	GrantedAudience   json.RawMessage
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+}
+
+type RefreshTokenSession struct {
+	ID string
+	// SHA384
+	Signature         string
+	ClientID          string
+	TokenType         uint8
+	UserID            string
+	RequestedScope    json.RawMessage
+	GrantedScope      json.RawMessage
+	FormData          json.RawMessage
+	ExpiredAt         time.Time
+	Username          string
+	Subject           string
+	Active            bool
+	RequestedAudience json.RawMessage
+	GrantedAudience   json.RawMessage
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
