@@ -92,7 +92,7 @@ func (s *Store) CreateAccessTokenSession(ctx context.Context, signature string, 
 		RequestedAudience: request.GetRequestedAudience(),
 		GrantedAudience:   request.GetGrantedAudience(),
 	}
-	if err := s.repo.CreateTokenSession(ctx, req, domain.TokenTypeAccessToken); err != nil {
+	if err := s.repo.CreateAccessTokenSession(ctx, req); err != nil {
 		return errors.Wrap(err, "Failed to create access token session")
 	}
 
@@ -101,7 +101,7 @@ func (s *Store) CreateAccessTokenSession(ctx context.Context, signature string, 
 
 // https://github.com/ory/fosite/issues/256
 func (s *Store) GetAccessTokenSession(ctx context.Context, signature string, _ fosite.Session) (fosite.Requester, error) {
-	request, err := s.repo.GetTokenSession(ctx, signature, domain.TokenTypeAccessToken)
+	request, err := s.repo.GetAccessTokenSession(ctx, signature)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to get access token session")
 	}
@@ -129,14 +129,14 @@ func (s *Store) CreateRefreshTokenSession(ctx context.Context, signature, access
 		RequestedAudience: request.GetRequestedAudience(),
 		GrantedAudience:   request.GetGrantedAudience(),
 	}
-	if err := s.repo.CreateTokenSession(ctx, req, domain.TokenTypeRefreshToken); err != nil {
+	if err := s.repo.CreateRefreshTokenSession(ctx, req); err != nil {
 		return errors.Wrap(err, "Failed to create refresh token session")
 	}
 	return nil
 }
 
 func (s *Store) GetRefreshTokenSession(ctx context.Context, signature string, _ fosite.Session) (fosite.Requester, error) {
-	request, err := s.repo.GetTokenSession(ctx, signature, domain.TokenTypeRefreshToken)
+	request, err := s.repo.GetRefreshTokenSession(ctx, signature)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to get refresh token session")
 	}
@@ -153,7 +153,7 @@ func (s *Store) DeleteRefreshTokenSession(ctx context.Context, signature string)
 }
 
 func (s *Store) RevokeAccessToken(ctx context.Context, requestID string) error {
-	err := s.repo.RevokeTokenSession(ctx, requestID, domain.TokenTypeAccessToken)
+	err := s.repo.RevokeAccessTokenSession(ctx, requestID)
 	if err != nil {
 		return errors.Wrap(err, "Failed to revoke access token")
 	}
@@ -161,7 +161,7 @@ func (s *Store) RevokeAccessToken(ctx context.Context, requestID string) error {
 }
 
 func (s *Store) RevokeRefreshToken(ctx context.Context, requestID string) error {
-	err := s.repo.RevokeTokenSession(ctx, requestID, domain.TokenTypeRefreshToken)
+	err := s.repo.RevokeRefreshTokenSession(ctx, requestID)
 	if err != nil {
 		return errors.Wrap(err, "Failed to revoke refresh token")
 	}
@@ -189,7 +189,7 @@ func (s *Store) CreateAuthorizeCodeSession(ctx context.Context, signature string
 		RequestedAudience: request.GetRequestedAudience(),
 		GrantedAudience:   request.GetGrantedAudience(),
 	}
-	if err := s.repo.CreateTokenSession(ctx, req, domain.TokenTypeAuthorizeCode); err != nil {
+	if err := s.repo.CreateAuthorizeCodeSession(ctx, req); err != nil {
 		return errors.Wrap(err, "Failed to create authorize code session")
 	}
 
@@ -197,7 +197,7 @@ func (s *Store) CreateAuthorizeCodeSession(ctx context.Context, signature string
 }
 
 func (s *Store) GetAuthorizeCodeSession(ctx context.Context, signature string, _ fosite.Session) (fosite.Requester, error) {
-	request, err := s.repo.GetTokenSession(ctx, signature, domain.TokenTypeAuthorizeCode)
+	request, err := s.repo.GetAuthorizeCodeSession(ctx, signature)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to get authorize code session")
 	}
@@ -206,7 +206,7 @@ func (s *Store) GetAuthorizeCodeSession(ctx context.Context, signature string, _
 }
 
 func (s *Store) InvalidateAuthorizeCodeSession(ctx context.Context, requestID string) error {
-	err := s.repo.RevokeTokenSession(ctx, requestID, domain.TokenTypeAuthorizeCode)
+	err := s.repo.RevokeAuthorizationCodeSession(ctx, requestID)
 	if err != nil {
 		return errors.Wrap(err, "Failed to invalidate authorize code")
 	}
@@ -225,7 +225,7 @@ func (s *Store) CreateOpenIDConnectSession(ctx context.Context, authorizeCode st
 		RequestedAudience: requester.GetRequestedAudience(),
 		GrantedAudience:   requester.GetGrantedAudience(),
 	}
-	if err := s.repo.CreateTokenSession(ctx, req, domain.TokenTypeOpenIDConnectSession); err != nil {
+	if err := s.repo.CreateOpenIDConnectSession(ctx, req); err != nil {
 		return errors.Wrap(err, "Failed to create OpenID Connect session")
 	}
 
@@ -233,7 +233,7 @@ func (s *Store) CreateOpenIDConnectSession(ctx context.Context, authorizeCode st
 }
 
 func (s *Store) GetOpenIDConnectSession(ctx context.Context, authorizeCode string, _ fosite.Requester) (fosite.Requester, error) {
-	request, err := s.repo.GetTokenSession(ctx, authorizeCode, domain.TokenTypeOpenIDConnectSession)
+	request, err := s.repo.GetOpenIDConnectSession(ctx, authorizeCode)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to get OpenID Connect session")
 	}
@@ -261,7 +261,7 @@ func (s *Store) CreatePKCERequestSession(ctx context.Context, signature string, 
 		RequestedAudience: request.GetRequestedAudience(),
 		GrantedAudience:   request.GetGrantedAudience(),
 	}
-	if err := s.repo.CreateTokenSession(ctx, req, domain.TokenTypePKCERequestSession); err != nil {
+	if err := s.repo.CreatePKCERequestSession(ctx, req); err != nil {
 		return errors.Wrap(err, "Failed to create PKCE request session")
 	}
 
@@ -269,7 +269,7 @@ func (s *Store) CreatePKCERequestSession(ctx context.Context, signature string, 
 }
 
 func (s *Store) GetPKCERequestSession(ctx context.Context, signature string, _ fosite.Session) (fosite.Requester, error) {
-	request, err := s.repo.GetTokenSession(ctx, signature, domain.TokenTypePKCERequestSession)
+	request, err := s.repo.GetPKCERequestSession(ctx, signature)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to get PKCE request session")
 	}

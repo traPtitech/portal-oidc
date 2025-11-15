@@ -242,39 +242,268 @@ func (r *MariaDBRepository) CreateTokenSession(ctx context.Context, req *fosite.
 	return nil
 }
 
-func (r *MariaDBRepository) GetTokenSession(ctx context.Context, signature string, tokenType domain.TokenType) (*fosite.Request, error) {
-
-	getTokenParams := mariadb.GetTokenParams{
-		Signature: signature,
-		TokenType: uint8(tokenType),
-	}
-	accessToken, err := r.q.GetToken(ctx, getTokenParams)
+func (r *MariaDBRepository) CreateAccessTokenSession(ctx context.Context, req *fosite.Request) error {
+	encRequestedScopes, err := json.Marshal(req.GetRequestedScopes())
 	if err != nil {
-		return nil, errors.Wrap(err, "Failed to get access token")
+		return errors.Wrap(err, "Failed to marshal requested scopes")
+	}
+	encGrantedScopes, err := json.Marshal(req.GetGrantedScopes())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal granted scopes")
+	}
+	encForm, err := json.Marshal(req.GetRequestForm())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal form data")
+	}
+	encRequestedAudience, err := json.Marshal(req.GetRequestedAudience())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal requested audience")
+	}
+	encGrantedAudience, err := json.Marshal(req.GetGrantedAudience())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal granted audience")
 	}
 
+	if err := r.q.CreateAccessTokenSession(ctx, mariadb.CreateAccessTokenSessionParams{
+		ID:                req.GetID(),
+		Signature:         req.ID,
+		TokenType:         uint8(domain.TokenTypeAccessToken),
+		ClientID:          req.GetClient().GetID(),
+		UserID:            req.GetSession().GetSubject(),
+		RequestedScope:    encRequestedScopes,
+		GrantedScope:      encGrantedScopes,
+		FormData:          encForm,
+		ExpiredAt:         req.GetSession().GetExpiresAt(fosite.AccessToken),
+		Username:          req.GetSession().GetUsername(),
+		Subject:           req.GetSession().GetSubject(),
+		Active:            true,
+		RequestedAudience: encRequestedAudience,
+		GrantedAudience:   encGrantedAudience,
+	}); err != nil {
+		return errors.Wrap(err, "Failed to create access token session")
+	}
+	return nil
+}
+
+func (r *MariaDBRepository) CreateRefreshTokenSession(ctx context.Context, req *fosite.Request) error {
+	encRequestedScopes, err := json.Marshal(req.GetRequestedScopes())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal requested scopes")
+	}
+	encGrantedScopes, err := json.Marshal(req.GetGrantedScopes())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal granted scopes")
+	}
+	encForm, err := json.Marshal(req.GetRequestForm())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal form data")
+	}
+	encRequestedAudience, err := json.Marshal(req.GetRequestedAudience())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal requested audience")
+	}
+	encGrantedAudience, err := json.Marshal(req.GetGrantedAudience())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal granted audience")
+	}
+
+	if err := r.q.CreateRefreshTokenSession(ctx, mariadb.CreateRefreshTokenSessionParams{
+		ID:                req.GetID(),
+		Signature:         req.ID,
+		TokenType:         uint8(domain.TokenTypeRefreshToken),
+		ClientID:          req.GetClient().GetID(),
+		UserID:            req.GetSession().GetSubject(),
+		RequestedScope:    encRequestedScopes,
+		GrantedScope:      encGrantedScopes,
+		FormData:          encForm,
+		ExpiredAt:         req.GetSession().GetExpiresAt(fosite.RefreshToken),
+		Username:          req.GetSession().GetUsername(),
+		Subject:           req.GetSession().GetSubject(),
+		Active:            true,
+		RequestedAudience: encRequestedAudience,
+		GrantedAudience:   encGrantedAudience,
+	}); err != nil {
+		return errors.Wrap(err, "Failed to create refresh token session")
+	}
+	return nil
+}
+
+func (r *MariaDBRepository) CreateAuthorizeCodeSession(ctx context.Context, req *fosite.Request) error {
+	encRequestedScopes, err := json.Marshal(req.GetRequestedScopes())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal requested scopes")
+	}
+	encGrantedScopes, err := json.Marshal(req.GetGrantedScopes())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal granted scopes")
+	}
+	encForm, err := json.Marshal(req.GetRequestForm())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal form data")
+	}
+	encRequestedAudience, err := json.Marshal(req.GetRequestedAudience())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal requested audience")
+	}
+	encGrantedAudience, err := json.Marshal(req.GetGrantedAudience())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal granted audience")
+	}
+
+	if err := r.q.CreateAuthorizationCodeSession(ctx, mariadb.CreateAuthorizationCodeSessionParams{
+		ID:                req.GetID(),
+		Signature:         req.ID,
+		TokenType:         uint8(domain.TokenTypeAuthorizeCode),
+		ClientID:          req.GetClient().GetID(),
+		UserID:            req.GetSession().GetSubject(),
+		RequestedScope:    encRequestedScopes,
+		GrantedScope:      encGrantedScopes,
+		FormData:          encForm,
+		ExpiredAt:         req.GetSession().GetExpiresAt(fosite.AuthorizeCode),
+		Username:          req.GetSession().GetUsername(),
+		Subject:           req.GetSession().GetSubject(),
+		Active:            true,
+		RequestedAudience: encRequestedAudience,
+		GrantedAudience:   encGrantedAudience,
+	}); err != nil {
+		return errors.Wrap(err, "Failed to create authorization code session")
+	}
+	return nil
+}
+
+func (r *MariaDBRepository) CreateOpenIDConnectSession(ctx context.Context, req *fosite.Request) error {
+	encRequestedScopes, err := json.Marshal(req.GetRequestedScopes())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal requested scopes")
+	}
+	encGrantedScopes, err := json.Marshal(req.GetGrantedScopes())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal granted scopes")
+	}
+	encForm, err := json.Marshal(req.GetRequestForm())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal form data")
+	}
+	encRequestedAudience, err := json.Marshal(req.GetRequestedAudience())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal requested audience")
+	}
+	encGrantedAudience, err := json.Marshal(req.GetGrantedAudience())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal granted audience")
+	}
+
+	if err := r.q.CreateOpenIDConnectSession(ctx, mariadb.CreateOpenIDConnectSessionParams{
+		ID:                req.GetID(),
+		Signature:         req.ID,
+		TokenType:         uint8(domain.TokenTypeOpenIDConnectSession),
+		ClientID:          req.GetClient().GetID(),
+		UserID:            req.GetSession().GetSubject(),
+		RequestedScope:    encRequestedScopes,
+		GrantedScope:      encGrantedScopes,
+		FormData:          encForm,
+		ExpiredAt:         req.GetSession().GetExpiresAt(fosite.IDToken),
+		Username:          req.GetSession().GetUsername(),
+		Subject:           req.GetSession().GetSubject(),
+		Active:            true,
+		RequestedAudience: encRequestedAudience,
+		GrantedAudience:   encGrantedAudience,
+	}); err != nil {
+		return errors.Wrap(err, "Failed to create OpenID Connect session")
+	}
+	return nil
+}
+
+func (r *MariaDBRepository) CreatePKCERequestSession(ctx context.Context, req *fosite.Request) error {
+	encRequestedScopes, err := json.Marshal(req.GetRequestedScopes())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal requested scopes")
+	}
+	encGrantedScopes, err := json.Marshal(req.GetGrantedScopes())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal granted scopes")
+	}
+	encForm, err := json.Marshal(req.GetRequestForm())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal form data")
+	}
+	encRequestedAudience, err := json.Marshal(req.GetRequestedAudience())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal requested audience")
+	}
+	encGrantedAudience, err := json.Marshal(req.GetGrantedAudience())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal granted audience")
+	}
+
+	if err := r.q.CreatePKCERequestSession(ctx, mariadb.CreatePKCERequestSessionParams{
+		ID:                req.GetID(),
+		Signature:         req.ID,
+		TokenType:         uint8(domain.TokenTypePKCERequestSession),
+		ClientID:          req.GetClient().GetID(),
+		UserID:            req.GetSession().GetSubject(),
+		RequestedScope:    encRequestedScopes,
+		GrantedScope:      encGrantedScopes,
+		FormData:          encForm,
+		ExpiredAt:         req.GetSession().GetExpiresAt(fosite.AccessToken),
+		Username:          req.GetSession().GetUsername(),
+		Subject:           req.GetSession().GetSubject(),
+		Active:            true,
+		RequestedAudience: encRequestedAudience,
+		GrantedAudience:   encGrantedAudience,
+	}); err != nil {
+		return errors.Wrap(err, "Failed to create PKCE request session")
+	}
+	return nil
+}
+
+type sessionRecord struct {
+	ID                string
+	ClientID          string
+	RequestedScope    json.RawMessage
+	GrantedScope      json.RawMessage
+	FormData          json.RawMessage
+	RequestedAudience json.RawMessage
+	GrantedAudience   json.RawMessage
+	Username          string
+	Subject           string
+	ExpiredAt         time.Time
+	CreatedAt         time.Time
+}
+
+func (r *MariaDBRepository) buildFositeRequestFromRecord(ctx context.Context, record sessionRecord, tokenType domain.TokenType) (*fosite.Request, error) {
 	requestedScopes := []string{}
-	if err := json.Unmarshal(accessToken.RequestedScope, &requestedScopes); err != nil {
-		return nil, errors.Wrap(err, "Failed to unmarshal requested scopes")
+	if len(record.RequestedScope) != 0 {
+		if err := json.Unmarshal(record.RequestedScope, &requestedScopes); err != nil {
+			return nil, errors.Wrap(err, "Failed to unmarshal requested scopes")
+		}
 	}
 	grantedScopes := []string{}
-	if err := json.Unmarshal(accessToken.GrantedScope, &grantedScopes); err != nil {
-		return nil, errors.Wrap(err, "Failed to unmarshal granted scopes")
+	if len(record.GrantedScope) != 0 {
+		if err := json.Unmarshal(record.GrantedScope, &grantedScopes); err != nil {
+			return nil, errors.Wrap(err, "Failed to unmarshal granted scopes")
+		}
 	}
 	form := map[string][]string{}
-	if err := json.Unmarshal(accessToken.FormData, &form); err != nil {
-		return nil, errors.Wrap(err, "Failed to unmarshal form data")
+	if len(record.FormData) != 0 {
+		if err := json.Unmarshal(record.FormData, &form); err != nil {
+			return nil, errors.Wrap(err, "Failed to unmarshal form data")
+		}
 	}
 	requestedAudience := []string{}
-	if err := json.Unmarshal(accessToken.RequestedAudience, &requestedAudience); err != nil {
-		return nil, errors.Wrap(err, "Failed to unmarshal requested audience")
+	if len(record.RequestedAudience) != 0 {
+		if err := json.Unmarshal(record.RequestedAudience, &requestedAudience); err != nil {
+			return nil, errors.Wrap(err, "Failed to unmarshal requested audience")
+		}
 	}
 	grantedAudience := []string{}
-	if err := json.Unmarshal(accessToken.GrantedAudience, &grantedAudience); err != nil {
-		return nil, errors.Wrap(err, "Failed to unmarshal granted audience")
+	if len(record.GrantedAudience) != 0 {
+		if err := json.Unmarshal(record.GrantedAudience, &grantedAudience); err != nil {
+			return nil, errors.Wrap(err, "Failed to unmarshal granted audience")
+		}
 	}
 
-	clientID, err := domain.ParseClientID(accessToken.ClientID)
+	clientID, err := domain.ParseClientID(record.ClientID)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to parse client id")
 	}
@@ -284,9 +513,9 @@ func (r *MariaDBRepository) GetTokenSession(ctx context.Context, signature strin
 		return nil, errors.Wrap(err, "Failed to get client")
 	}
 
-	req := &fosite.Request{
-		ID:          accessToken.ID,
-		RequestedAt: accessToken.CreatedAt,
+	return &fosite.Request{
+		ID:          record.ID,
+		RequestedAt: record.CreatedAt,
 		Client: &fosite.DefaultClient{
 			ID:            client.ID.String(),
 			Secret:        []byte(client.Secret),
@@ -298,15 +527,161 @@ func (r *MariaDBRepository) GetTokenSession(ctx context.Context, signature strin
 		GrantedScope:   grantedScopes,
 		Form:           form,
 		Session: &fosite.DefaultSession{
-			Subject:   accessToken.Subject,
-			Username:  accessToken.Username,
-			ExpiresAt: map[fosite.TokenType]time.Time{fosite.AccessToken: accessToken.ExpiredAt},
+			Subject:   record.Subject,
+			Username:  record.Username,
+			ExpiresAt: map[fosite.TokenType]time.Time{fositeTokenType(tokenType): record.ExpiredAt},
 		},
 		RequestedAudience: requestedAudience,
 		GrantedAudience:   grantedAudience,
+	}, nil
+}
+
+func fositeTokenType(tokenType domain.TokenType) fosite.TokenType {
+	switch tokenType {
+	case domain.TokenTypeAccessToken:
+		return fosite.AccessToken
+	case domain.TokenTypeRefreshToken:
+		return fosite.RefreshToken
+	case domain.TokenTypeAuthorizeCode:
+		return fosite.AuthorizeCode
+	case domain.TokenTypeOpenIDConnectSession:
+		return fosite.IDToken
+	case domain.TokenTypePKCERequestSession:
+		return fosite.AccessToken
+	default:
+		return fosite.AccessToken
+	}
+}
+
+func (r *MariaDBRepository) GetTokenSession(ctx context.Context, signature string, tokenType domain.TokenType) (*fosite.Request, error) {
+
+	getTokenParams := mariadb.GetTokenParams{
+		Signature: signature,
+		TokenType: uint8(tokenType),
+	}
+	session, err := r.q.GetToken(ctx, getTokenParams)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to get access token")
 	}
 
-	return req, nil
+	return r.buildFositeRequestFromRecord(ctx, sessionRecord{
+		ID:                session.ID,
+		ClientID:          session.ClientID,
+		RequestedScope:    session.RequestedScope,
+		GrantedScope:      session.GrantedScope,
+		FormData:          session.FormData,
+		RequestedAudience: session.RequestedAudience,
+		GrantedAudience:   session.GrantedAudience,
+		Username:          session.Username,
+		Subject:           session.Subject,
+		ExpiredAt:         session.ExpiredAt,
+		CreatedAt:         session.CreatedAt,
+	}, tokenType)
+}
+
+func (r *MariaDBRepository) GetAccessTokenSession(ctx context.Context, signature string) (*fosite.Request, error) {
+	session, err := r.q.GetAccessTokenSession(ctx, signature)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to get access token session")
+	}
+
+	return r.buildFositeRequestFromRecord(ctx, sessionRecord{
+		ID:                session.ID,
+		ClientID:          session.ClientID,
+		RequestedScope:    session.RequestedScope,
+		GrantedScope:      session.GrantedScope,
+		FormData:          session.FormData,
+		RequestedAudience: session.RequestedAudience,
+		GrantedAudience:   session.GrantedAudience,
+		Username:          session.Username,
+		Subject:           session.Subject,
+		ExpiredAt:         session.ExpiredAt,
+		CreatedAt:         session.CreatedAt,
+	}, domain.TokenTypeAccessToken)
+}
+
+func (r *MariaDBRepository) GetRefreshTokenSession(ctx context.Context, signature string) (*fosite.Request, error) {
+	session, err := r.q.GetRefreshTokenSession(ctx, signature)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to get refresh token session")
+	}
+
+	return r.buildFositeRequestFromRecord(ctx, sessionRecord{
+		ID:                session.ID,
+		ClientID:          session.ClientID,
+		RequestedScope:    session.RequestedScope,
+		GrantedScope:      session.GrantedScope,
+		FormData:          session.FormData,
+		RequestedAudience: session.RequestedAudience,
+		GrantedAudience:   session.GrantedAudience,
+		Username:          session.Username,
+		Subject:           session.Subject,
+		ExpiredAt:         session.ExpiredAt,
+		CreatedAt:         session.CreatedAt,
+	}, domain.TokenTypeRefreshToken)
+}
+
+func (r *MariaDBRepository) GetAuthorizationCodeSession(ctx context.Context, signature string) (*fosite.Request, error) {
+	session, err := r.q.GetAuthorizationCodeSession(ctx, signature)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to get authorization code session")
+	}
+
+	return r.buildFositeRequestFromRecord(ctx, sessionRecord{
+		ID:                session.ID,
+		ClientID:          session.ClientID,
+		RequestedScope:    session.RequestedScope,
+		GrantedScope:      session.GrantedScope,
+		FormData:          session.FormData,
+		RequestedAudience: session.RequestedAudience,
+		GrantedAudience:   session.GrantedAudience,
+		Username:          session.Username,
+		Subject:           session.Subject,
+		ExpiredAt:         session.ExpiredAt,
+		CreatedAt:         session.CreatedAt,
+	}, domain.TokenTypeAuthorizeCode)
+}
+
+func (r *MariaDBRepository) GetOpenIDConnectSession(ctx context.Context, signature string) (*fosite.Request, error) {
+	session, err := r.q.GetOpenIDConnectSession(ctx, signature)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to get OpenID Connect session")
+	}
+
+	return r.buildFositeRequestFromRecord(ctx, sessionRecord{
+		ID:                session.ID,
+		ClientID:          session.ClientID,
+		RequestedScope:    session.RequestedScope,
+		GrantedScope:      session.GrantedScope,
+		FormData:          session.FormData,
+		RequestedAudience: session.RequestedAudience,
+		GrantedAudience:   session.GrantedAudience,
+		Username:          session.Username,
+		Subject:           session.Subject,
+		ExpiredAt:         session.ExpiredAt,
+		CreatedAt:         session.CreatedAt,
+	}, domain.TokenTypeOpenIDConnectSession)
+}
+
+func (r *MariaDBRepository) GetPKCERequestSession(ctx context.Context, signature string) (*fosite.Request, error) {
+	session, err := r.q.GetPKCERequestSession(ctx, signature)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to get PKCE request session")
+	}
+
+	return r.buildFositeRequestFromRecord(ctx, sessionRecord{
+		ID:                session.ID,
+		ClientID:          session.ClientID,
+		RequestedScope:    session.RequestedScope,
+		GrantedScope:      session.GrantedScope,
+		FormData:          session.FormData,
+		RequestedAudience: session.RequestedAudience,
+		GrantedAudience:   session.GrantedAudience,
+		Username:          session.Username,
+		Subject:           session.Subject,
+		ExpiredAt:         session.ExpiredAt,
+		CreatedAt:         session.CreatedAt,
+	}, domain.TokenTypePKCERequestSession)
 }
 
 func (r *MariaDBRepository) DeleteTokenSession(ctx context.Context, signature string, tokenType domain.TokenType) error {
@@ -330,5 +705,40 @@ func (r *MariaDBRepository) RevokeTokenSession(ctx context.Context, requestID st
 		return errors.Wrap(err, "Failed to revoke token")
 	}
 
+	return nil
+}
+
+func (r *MariaDBRepository) RevokeAccessTokenSession(ctx context.Context, signature string) error {
+	if err := r.q.RevokeAccessTokenSessionWithSignature(ctx, signature); err != nil {
+		return errors.Wrap(err, "Failed to revoke access token session")
+	}
+	return nil
+}
+
+func (r *MariaDBRepository) RevokeRefreshTokenSession(ctx context.Context, signature string) error {
+	if err := r.q.RevokeRefreshTokenSessionWithSignature(ctx, signature); err != nil {
+		return errors.Wrap(err, "Failed to revoke refresh token session")
+	}
+	return nil
+}
+
+func (r *MariaDBRepository) RevokeAuthorizationCodeSession(ctx context.Context, signature string) error {
+	if err := r.q.RevokeAuthorizationCodeSessionWithSignature(ctx, signature); err != nil {
+		return errors.Wrap(err, "Failed to revoke authorization code session")
+	}
+	return nil
+}
+
+func (r *MariaDBRepository) RevokeOpenIDConnectSession(ctx context.Context, signature string) error {
+	if err := r.q.RevokeOpenIDConnectSessionWithSignature(ctx, signature); err != nil {
+		return errors.Wrap(err, "Failed to revoke OpenID Connect session")
+	}
+	return nil
+}
+
+func (r *MariaDBRepository) RevokePKCERequestSession(ctx context.Context, signature string) error {
+	if err := r.q.RevokePKCERequestSessionWithSignature(ctx, signature); err != nil {
+		return errors.Wrap(err, "Failed to revoke PKCE request session")
+	}
 	return nil
 }
