@@ -15,6 +15,18 @@ import (
 	mariadb "github.com/traPtitech/portal-oidc/pkg/infrastructure/mariadb/v1/gen"
 )
 
+type sessionRecord struct {
+	ID                string
+	ClientID          string
+	RequestedAt       time.Time
+	RequestedScope    string
+	GrantedScope      string
+	FormData          string
+	RequestedAudience string
+	GrantedAudience   string
+	SessionData       json.RawMessage
+}
+
 func convertToDomainClient(client *mariadb.Client) (domain.Client, error) {
 	redirectURIs := []string{}
 	err := json.Unmarshal(client.RedirectUris, &redirectURIs)
@@ -35,6 +47,48 @@ func convertToDomainClient(client *mariadb.Client) (domain.Client, error) {
 		Description:  client.Description,
 		Secret:       client.SecretKey,
 		RedirectURIs: redirectURIs,
+	}, nil
+}
+
+func (r *MariaDBRepository) buildFositeRequestFromRecord(ctx context.Context, record sessionRecord, session fosite.Session) (*fosite.Request, error) {
+
+	clientID, err := domain.ParseClientID(record.ClientID)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to parse client id")
+	}
+
+	client, err := r.GetOIDCClient(ctx, clientID)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to get client")
+	}
+
+	if session != nil {
+		if err := json.Unmarshal(record.SessionData, session); err != nil {
+			return nil, errors.WithStack(err)
+		}
+	}
+
+	form, err := url.ParseQuery(record.FormData)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to parse form data")
+	}
+
+	return &fosite.Request{
+		ID:          record.ID,
+		RequestedAt: record.RequestedAt,
+		Client: &fosite.DefaultClient{
+			ID:            client.ID.String(),
+			Secret:        []byte(client.Secret),
+			RedirectURIs:  client.RedirectURIs,
+			GrantTypes:    []string{"refresh_token", "authorization_code"},
+			ResponseTypes: []string{"code", "code id_token"},
+		},
+		RequestedScope:    stringsx.Splitx(record.RequestedScope, "|"),
+		GrantedScope:      stringsx.Splitx(record.GrantedScope, "|"),
+		Form:              form,
+		Session:           session,
+		RequestedAudience: stringsx.Splitx(record.RequestedAudience, "|"),
+		GrantedAudience:   stringsx.Splitx(record.GrantedAudience, "|"),
 	}, nil
 }
 
@@ -376,60 +430,6 @@ func (r *MariaDBRepository) CreatePKCERequestSession(ctx context.Context, code s
 		return errors.Wrap(err, "Failed to create PKCE request session")
 	}
 	return nil
-}
-
-type sessionRecord struct {
-	ID                string
-	ClientID          string
-	RequestedAt       time.Time
-	RequestedScope    string
-	GrantedScope      string
-	FormData          string
-	RequestedAudience string
-	GrantedAudience   string
-	SessionData       json.RawMessage
-}
-
-func (r *MariaDBRepository) buildFositeRequestFromRecord(ctx context.Context, record sessionRecord, session fosite.Session) (*fosite.Request, error) {
-
-	clientID, err := domain.ParseClientID(record.ClientID)
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed to parse client id")
-	}
-
-	client, err := r.GetOIDCClient(ctx, clientID)
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed to get client")
-	}
-
-	if session != nil {
-		if err := json.Unmarshal(record.SessionData, session); err != nil {
-			return nil, errors.WithStack(err)
-		}
-	}
-
-	form, err := url.ParseQuery(record.FormData)
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed to parse form data")
-	}
-
-	return &fosite.Request{
-		ID:          record.ID,
-		RequestedAt: record.RequestedAt,
-		Client: &fosite.DefaultClient{
-			ID:            client.ID.String(),
-			Secret:        []byte(client.Secret),
-			RedirectURIs:  client.RedirectURIs,
-			GrantTypes:    []string{"refresh_token", "authorization_code"},
-			ResponseTypes: []string{"code", "code id_token"},
-		},
-		RequestedScope:    stringsx.Splitx(record.RequestedScope, "|"),
-		GrantedScope:      stringsx.Splitx(record.GrantedScope, "|"),
-		Form:              form,
-		Session:           session,
-		RequestedAudience: stringsx.Splitx(record.RequestedAudience, "|"),
-		GrantedAudience:   stringsx.Splitx(record.GrantedAudience, "|"),
-	}, nil
 }
 
 func (r *MariaDBRepository) GetAccessToken(ctx context.Context, signature string, session fosite.Session) (*fosite.Request, error) {
