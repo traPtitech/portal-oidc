@@ -195,7 +195,7 @@ func (r *MariaDBRepository) CreateBlacklistJTI(ctx context.Context, jti string, 
 	return nil
 }
 
-func (r *MariaDBRepository) CreateAccessTokenSession(ctx context.Context, req *fosite.Request) error {
+func (r *MariaDBRepository) CreateAccessTokenSession(ctx context.Context, signature string, req *fosite.Request) error {
 	encRequestedScopes, err := json.Marshal(req.GetRequestedScopes())
 	if err != nil {
 		return errors.Wrap(err, "Failed to marshal requested scopes")
@@ -216,19 +216,21 @@ func (r *MariaDBRepository) CreateAccessTokenSession(ctx context.Context, req *f
 	if err != nil {
 		return errors.Wrap(err, "Failed to marshal granted audience")
 	}
+	encSession, err := json.Marshal(req.GetSession())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal session data")
+	}
 
 	if err := r.q.CreateAccessTokenSession(ctx, mariadb.CreateAccessTokenSessionParams{
 		ID:                req.GetID(),
-		Signature:         req.ID,
+		Signature:         signature,
 		TokenType:         uint8(domain.TokenTypeAccessToken),
 		ClientID:          req.GetClient().GetID(),
 		UserID:            req.GetSession().GetSubject(),
 		RequestedScope:    encRequestedScopes,
 		GrantedScope:      encGrantedScopes,
 		FormData:          encForm,
-		ExpiredAt:         req.GetSession().GetExpiresAt(fosite.AccessToken),
-		Username:          req.GetSession().GetUsername(),
-		Subject:           req.GetSession().GetSubject(),
+		Session:           encSession,
 		Active:            true,
 		RequestedAudience: encRequestedAudience,
 		GrantedAudience:   encGrantedAudience,
@@ -238,7 +240,7 @@ func (r *MariaDBRepository) CreateAccessTokenSession(ctx context.Context, req *f
 	return nil
 }
 
-func (r *MariaDBRepository) CreateRefreshTokenSession(ctx context.Context, req *fosite.Request) error {
+func (r *MariaDBRepository) CreateRefreshTokenSession(ctx context.Context, signature string, req *fosite.Request) error {
 	encRequestedScopes, err := json.Marshal(req.GetRequestedScopes())
 	if err != nil {
 		return errors.Wrap(err, "Failed to marshal requested scopes")
@@ -259,19 +261,21 @@ func (r *MariaDBRepository) CreateRefreshTokenSession(ctx context.Context, req *
 	if err != nil {
 		return errors.Wrap(err, "Failed to marshal granted audience")
 	}
+	encSession, err := json.Marshal(req.GetSession())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal session data")
+	}
 
 	if err := r.q.CreateRefreshTokenSession(ctx, mariadb.CreateRefreshTokenSessionParams{
 		ID:                req.GetID(),
-		Signature:         req.ID,
+		Signature:         signature,
 		TokenType:         uint8(domain.TokenTypeRefreshToken),
 		ClientID:          req.GetClient().GetID(),
 		UserID:            req.GetSession().GetSubject(),
 		RequestedScope:    encRequestedScopes,
 		GrantedScope:      encGrantedScopes,
 		FormData:          encForm,
-		ExpiredAt:         req.GetSession().GetExpiresAt(fosite.RefreshToken),
-		Username:          req.GetSession().GetUsername(),
-		Subject:           req.GetSession().GetSubject(),
+		Session:           encSession,
 		Active:            true,
 		RequestedAudience: encRequestedAudience,
 		GrantedAudience:   encGrantedAudience,
@@ -303,6 +307,11 @@ func (r *MariaDBRepository) CreateAuthorizeCodeSession(ctx context.Context, code
 		return errors.Wrap(err, "Failed to marshal granted audience")
 	}
 
+	encSession, err := json.Marshal(req.GetSession())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal session data")
+	}
+
 	if err := r.q.CreateAuthorizeCodeSession(ctx, mariadb.CreateAuthorizeCodeSessionParams{
 		ID:                req.GetID(),
 		Code:              code,
@@ -312,9 +321,7 @@ func (r *MariaDBRepository) CreateAuthorizeCodeSession(ctx context.Context, code
 		RequestedScope:    encRequestedScopes,
 		GrantedScope:      encGrantedScopes,
 		FormData:          encForm,
-		ExpiredAt:         req.GetSession().GetExpiresAt(fosite.AuthorizeCode),
-		Username:          req.GetSession().GetUsername(),
-		Subject:           req.GetSession().GetSubject(),
+		Session:           encSession,
 		Active:            true,
 		RequestedAudience: encRequestedAudience,
 		GrantedAudience:   encGrantedAudience,
@@ -345,19 +352,21 @@ func (r *MariaDBRepository) CreateOpenIDConnectSession(ctx context.Context, auth
 	if err != nil {
 		return errors.Wrap(err, "Failed to marshal granted audience")
 	}
+	encSession, err := json.Marshal(req.GetSession())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal session data")
+	}
 
 	if err := r.q.CreateOpenIDConnectSession(ctx, mariadb.CreateOpenIDConnectSessionParams{
 		ID:                req.GetID(),
-		AuthorizeCode:     req.ID,
+		AuthorizeCode:     authorizeCode,
 		TokenType:         uint8(domain.TokenTypeOpenIDConnectSession),
 		ClientID:          req.GetClient().GetID(),
 		UserID:            req.GetSession().GetSubject(),
 		RequestedScope:    encRequestedScopes,
 		GrantedScope:      encGrantedScopes,
 		FormData:          encForm,
-		ExpiredAt:         req.GetSession().GetExpiresAt(fosite.IDToken),
-		Username:          req.GetSession().GetUsername(),
-		Subject:           req.GetSession().GetSubject(),
+		Session:           encSession,
 		Active:            true,
 		RequestedAudience: encRequestedAudience,
 		GrantedAudience:   encGrantedAudience,
@@ -388,6 +397,10 @@ func (r *MariaDBRepository) CreatePKCERequestSession(ctx context.Context, code s
 	if err != nil {
 		return errors.Wrap(err, "Failed to marshal granted audience")
 	}
+	encSession, err := json.Marshal(req.GetSession())
+	if err != nil {
+		return errors.Wrap(err, "Failed to marshal session data")
+	}
 
 	if err := r.q.CreatePKCERequestSession(ctx, mariadb.CreatePKCERequestSessionParams{
 		ID:                req.GetID(),
@@ -398,9 +411,7 @@ func (r *MariaDBRepository) CreatePKCERequestSession(ctx context.Context, code s
 		RequestedScope:    encRequestedScopes,
 		GrantedScope:      encGrantedScopes,
 		FormData:          encForm,
-		ExpiredAt:         req.GetSession().GetExpiresAt(fosite.AccessToken),
-		Username:          req.GetSession().GetUsername(),
-		Subject:           req.GetSession().GetSubject(),
+		Session:           encSession,
 		Active:            true,
 		RequestedAudience: encRequestedAudience,
 		GrantedAudience:   encGrantedAudience,

@@ -19,8 +19,8 @@ type OIDCClientRepository interface {
 	GetBlacklistJTI(ctx context.Context, jti string) (domain.BlacklistedJTI, error)
 	DeleteOldBlacklistJTI(ctx context.Context) error
 	CreateBlacklistJTI(ctx context.Context, jti string, after time.Time) error
-	CreateAccessTokenSession(ctx context.Context, req *fosite.Request) error
-	CreateRefreshTokenSession(ctx context.Context, req *fosite.Request) error
+	CreateAccessTokenSession(ctx context.Context, signature string, req *fosite.Request) error
+	CreateRefreshTokenSession(ctx context.Context, signature string, req *fosite.Request) error
 	CreateAuthorizeCodeSession(ctx context.Context, code string, req *fosite.Request) error
 	CreateOpenIDConnectSession(ctx context.Context, authorizeCode string, req *fosite.Request) error
 	CreatePKCERequestSession(ctx context.Context, code string, req *fosite.Request) error
