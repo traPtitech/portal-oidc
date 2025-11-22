@@ -13,18 +13,17 @@ type AccessToken struct {
 	ID string
 	// SHA384
 	Signature         string
+	RequestedAt       time.Time
 	ClientID          string
 	TokenType         uint8
 	UserID            string
-	RequestedScope    json.RawMessage
-	GrantedScope      json.RawMessage
-	FormData          json.RawMessage
-	ExpiredAt         time.Time
-	Username          string
-	Subject           string
+	RequestedScope    string
+	GrantedScope      string
+	FormData          string
+	SessionData       json.RawMessage
 	Active            bool
-	RequestedAudience json.RawMessage
-	GrantedAudience   json.RawMessage
+	RequestedAudience string
+	GrantedAudience   string
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 }
@@ -33,18 +32,17 @@ type AuthorizationSession struct {
 	ID string
 	// SHA384
 	Signature         string
+	RequestedAt       time.Time
 	ClientID          string
 	TokenType         uint8
 	UserID            string
-	RequestedScope    json.RawMessage
-	GrantedScope      json.RawMessage
-	FormData          json.RawMessage
-	ExpiredAt         time.Time
-	Username          string
-	Subject           string
+	RequestedScope    string
+	GrantedScope      string
+	FormData          string
+	SessionData       json.RawMessage
 	Active            bool
-	RequestedAudience json.RawMessage
-	GrantedAudience   json.RawMessage
+	RequestedAudience string
+	GrantedAudience   string
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 }
@@ -53,18 +51,17 @@ type AuthorizeCodeSession struct {
 	ID string
 	// SHA384
 	Code              string
+	RequestedAt       time.Time
 	ClientID          string
 	TokenType         uint8
 	UserID            string
-	RequestedScope    json.RawMessage
-	GrantedScope      json.RawMessage
-	FormData          json.RawMessage
-	ExpiredAt         time.Time
-	Username          string
-	Subject           string
+	RequestedScope    string
+	GrantedScope      string
+	FormData          string
+	SessionData       json.RawMessage
 	Active            bool
-	RequestedAudience json.RawMessage
-	GrantedAudience   json.RawMessage
+	RequestedAudience string
+	GrantedAudience   string
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 }
@@ -92,18 +89,17 @@ type OpenIDConnectSession struct {
 	ID string
 	// SHA384
 	AuthorizeCode     string
+	RequestedAt       time.Time
 	ClientID          string
 	TokenType         uint8
 	UserID            string
-	RequestedScope    json.RawMessage
-	GrantedScope      json.RawMessage
-	FormData          json.RawMessage
-	ExpiredAt         time.Time
-	Username          string
-	Subject           string
+	RequestedScope    string
+	GrantedScope      string
+	FormData          string
+	SessionData       json.RawMessage
 	Active            bool
-	RequestedAudience json.RawMessage
-	GrantedAudience   json.RawMessage
+	RequestedAudience string
+	GrantedAudience   string
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 }
@@ -112,18 +108,17 @@ type PkceRequestSession struct {
 	ID string
 	// SHA384
 	Code              string
+	RequestedAt       time.Time
 	ClientID          string
 	TokenType         uint8
 	UserID            string
-	RequestedScope    json.RawMessage
-	GrantedScope      json.RawMessage
-	FormData          json.RawMessage
-	ExpiredAt         time.Time
-	Username          string
-	Subject           string
+	RequestedScope    string
+	GrantedScope      string
+	FormData          string
+	SessionData       json.RawMessage
 	Active            bool
-	RequestedAudience json.RawMessage
-	GrantedAudience   json.RawMessage
+	RequestedAudience string
+	GrantedAudience   string
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 }
@@ -132,18 +127,17 @@ type RefreshToken struct {
 	ID string
 	// SHA384
 	Signature         string
+	RequestedAt       time.Time
 	ClientID          string
 	TokenType         uint8
 	UserID            string
-	RequestedScope    json.RawMessage
-	GrantedScope      json.RawMessage
-	FormData          json.RawMessage
-	ExpiredAt         time.Time
-	Username          string
-	Subject           string
+	RequestedScope    string
+	GrantedScope      string
+	FormData          string
+	SessionData       json.RawMessage
 	Active            bool
-	RequestedAudience json.RawMessage
-	GrantedAudience   json.RawMessage
+	RequestedAudience string
+	GrantedAudience   string
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 }

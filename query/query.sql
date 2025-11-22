@@ -49,91 +49,86 @@ INSERT INTO blacklisted_jtis (jti, after) VALUES (?, ?);
 INSERT INTO access_tokens (
     id,
     signature,
+    requested_at,
     token_type,
     client_id,
     user_id,
     requested_scope,
     granted_scope,
     form_data,
-    expired_at,
-    username,
-    subject,
+    session_data,
     active,
     requested_audience,
     granted_audience
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateRefreshTokenSession :exec
 INSERT INTO refresh_tokens (
     id,
     signature,
+    requested_at,
     token_type,
     client_id,
     user_id,
     requested_scope,
     granted_scope,
     form_data,
-    expired_at,
-    username,
-    subject,
+    session_data,
     active,
     requested_audience,
     granted_audience
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateAuthorizeCodeSession :exec
 INSERT INTO authorize_code_sessions (
     id,
     code,
+    requested_at,
     token_type,
     client_id,
     user_id,
     requested_scope,
     granted_scope,
     form_data,
-    expired_at,
-    username,
-    subject,
+    session_data,
     active,
     requested_audience,
     granted_audience
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateOpenIDConnectSession :exec
 INSERT INTO open_id_connect_sessions (
     id,
     authorize_code,
+    requested_at,
     token_type,
     client_id,
     user_id,
     requested_scope,
     granted_scope,
     form_data,
-    expired_at,
-    username,
-    subject,
+    session_data,
     active,
     requested_audience,
     granted_audience
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreatePKCERequestSession :exec
 INSERT INTO pkce_request_sessions (
     id,
     code,
+    requested_at,
     token_type,
     client_id,
     user_id,
     requested_scope,
     granted_scope,
     form_data,
-    expired_at,
-    username,
-    subject,
+    session_data,
     active,
     requested_audience,
     granted_audience
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 
 -- name: GetAccessToken :one

@@ -24,11 +24,11 @@ type OIDCClientRepository interface {
 	CreateAuthorizeCodeSession(ctx context.Context, code string, req *fosite.Request) error
 	CreateOpenIDConnectSession(ctx context.Context, authorizeCode string, req *fosite.Request) error
 	CreatePKCERequestSession(ctx context.Context, code string, req *fosite.Request) error
-	GetAccessToken(ctx context.Context, signature string) (*fosite.Request, error)
-	GetRefreshToken(ctx context.Context, signature string) (*fosite.Request, error)
-	GetAuthorizeCodeSession(ctx context.Context, signature string) (*fosite.Request, error)
-	GetOpenIDConnectSession(ctx context.Context, signature string) (*fosite.Request, error)
-	GetPKCERequestSession(ctx context.Context, signature string) (*fosite.Request, error)
+	GetAccessToken(ctx context.Context, signature string, session fosite.Session) (*fosite.Request, error)
+	GetRefreshToken(ctx context.Context, signature string, session fosite.Session) (*fosite.Request, error)
+	GetAuthorizeCodeSession(ctx context.Context, signature string, session fosite.Session) (*fosite.Request, error)
+	GetOpenIDConnectSession(ctx context.Context, signature string, session fosite.Session) (*fosite.Request, error)
+	GetPKCERequestSession(ctx context.Context, signature string, session fosite.Session) (*fosite.Request, error)
 	RevokeAccessTokenBySignature(ctx context.Context, signature string) error
 	RevokeAccessTokenByID(ctx context.Context, requestID string) error
 	RevokeRefreshTokenBySignature(ctx context.Context, signature string) error
