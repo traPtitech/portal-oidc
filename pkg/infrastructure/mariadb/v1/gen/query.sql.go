@@ -26,7 +26,7 @@ func (q *Queries) AddBlacklistJTI(ctx context.Context, arg AddBlacklistJTIParams
 }
 
 const createAccessTokenSession = `-- name: CreateAccessTokenSession :exec
-INSERT INTO access_token_sessions (
+INSERT INTO access_tokens (
     id,
     signature,
     token_type,
@@ -81,10 +81,10 @@ func (q *Queries) CreateAccessTokenSession(ctx context.Context, arg CreateAccess
 	return err
 }
 
-const createAuthorizationCodeSession = `-- name: CreateAuthorizationCodeSession :exec
-INSERT INTO authorization_code_sessions (
+const createAuthorizeCodeSession = `-- name: CreateAuthorizeCodeSession :exec
+INSERT INTO authorize_code_sessions (
     id,
-    signature,
+    code,
     token_type,
     client_id,
     user_id,
@@ -100,9 +100,9 @@ INSERT INTO authorization_code_sessions (
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
-type CreateAuthorizationCodeSessionParams struct {
+type CreateAuthorizeCodeSessionParams struct {
 	ID                string
-	Signature         string
+	Code              string
 	TokenType         uint8
 	ClientID          string
 	UserID            string
@@ -117,10 +117,10 @@ type CreateAuthorizationCodeSessionParams struct {
 	GrantedAudience   json.RawMessage
 }
 
-func (q *Queries) CreateAuthorizationCodeSession(ctx context.Context, arg CreateAuthorizationCodeSessionParams) error {
-	_, err := q.db.ExecContext(ctx, createAuthorizationCodeSession,
+func (q *Queries) CreateAuthorizeCodeSession(ctx context.Context, arg CreateAuthorizeCodeSessionParams) error {
+	_, err := q.db.ExecContext(ctx, createAuthorizeCodeSession,
 		arg.ID,
-		arg.Signature,
+		arg.Code,
 		arg.TokenType,
 		arg.ClientID,
 		arg.UserID,
@@ -189,7 +189,7 @@ func (q *Queries) CreateClient(ctx context.Context, arg CreateClientParams) erro
 const createOpenIDConnectSession = `-- name: CreateOpenIDConnectSession :exec
 INSERT INTO open_id_connect_sessions (
     id,
-    signature,
+    authorize_code,
     token_type,
     client_id,
     user_id,
@@ -207,7 +207,7 @@ INSERT INTO open_id_connect_sessions (
 
 type CreateOpenIDConnectSessionParams struct {
 	ID                string
-	Signature         string
+	AuthorizeCode     string
 	TokenType         uint8
 	ClientID          string
 	UserID            string
@@ -225,7 +225,7 @@ type CreateOpenIDConnectSessionParams struct {
 func (q *Queries) CreateOpenIDConnectSession(ctx context.Context, arg CreateOpenIDConnectSessionParams) error {
 	_, err := q.db.ExecContext(ctx, createOpenIDConnectSession,
 		arg.ID,
-		arg.Signature,
+		arg.AuthorizeCode,
 		arg.TokenType,
 		arg.ClientID,
 		arg.UserID,
@@ -245,7 +245,7 @@ func (q *Queries) CreateOpenIDConnectSession(ctx context.Context, arg CreateOpen
 const createPKCERequestSession = `-- name: CreatePKCERequestSession :exec
 INSERT INTO pkce_request_sessions (
     id,
-    signature,
+    code,
     token_type,
     client_id,
     user_id,
@@ -263,7 +263,7 @@ INSERT INTO pkce_request_sessions (
 
 type CreatePKCERequestSessionParams struct {
 	ID                string
-	Signature         string
+	Code              string
 	TokenType         uint8
 	ClientID          string
 	UserID            string
@@ -281,7 +281,7 @@ type CreatePKCERequestSessionParams struct {
 func (q *Queries) CreatePKCERequestSession(ctx context.Context, arg CreatePKCERequestSessionParams) error {
 	_, err := q.db.ExecContext(ctx, createPKCERequestSession,
 		arg.ID,
-		arg.Signature,
+		arg.Code,
 		arg.TokenType,
 		arg.ClientID,
 		arg.UserID,
@@ -299,7 +299,7 @@ func (q *Queries) CreatePKCERequestSession(ctx context.Context, arg CreatePKCERe
 }
 
 const createRefreshTokenSession = `-- name: CreateRefreshTokenSession :exec
-INSERT INTO refresh_token_sessions (
+INSERT INTO refresh_tokens (
     id,
     signature,
     token_type,
@@ -354,62 +354,6 @@ func (q *Queries) CreateRefreshTokenSession(ctx context.Context, arg CreateRefre
 	return err
 }
 
-const createToken = `-- name: CreateToken :exec
-INSERT INTO authorization_sessions (
-    id,
-    signature,
-    token_type,
-    client_id,
-    user_id,
-    requested_scope,
-    granted_scope,
-    form_data,
-    expired_at,
-    username,
-    subject,
-    active,
-    requested_audience,
-    granted_audience
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-`
-
-type CreateTokenParams struct {
-	ID                string
-	Signature         string
-	TokenType         uint8
-	ClientID          string
-	UserID            string
-	RequestedScope    json.RawMessage
-	GrantedScope      json.RawMessage
-	FormData          json.RawMessage
-	ExpiredAt         time.Time
-	Username          string
-	Subject           string
-	Active            bool
-	RequestedAudience json.RawMessage
-	GrantedAudience   json.RawMessage
-}
-
-func (q *Queries) CreateToken(ctx context.Context, arg CreateTokenParams) error {
-	_, err := q.db.ExecContext(ctx, createToken,
-		arg.ID,
-		arg.Signature,
-		arg.TokenType,
-		arg.ClientID,
-		arg.UserID,
-		arg.RequestedScope,
-		arg.GrantedScope,
-		arg.FormData,
-		arg.ExpiredAt,
-		arg.Username,
-		arg.Subject,
-		arg.Active,
-		arg.RequestedAudience,
-		arg.GrantedAudience,
-	)
-	return err
-}
-
 const deleteClient = `-- name: DeleteClient :exec
 DELETE FROM clients WHERE id = ?
 `
@@ -428,13 +372,13 @@ func (q *Queries) DeleteOldBlacklistJTI(ctx context.Context) error {
 	return err
 }
 
-const getAccessTokenSession = `-- name: GetAccessTokenSession :one
-SELECT id, signature, client_id, token_type, user_id, requested_scope, granted_scope, form_data, expired_at, username, subject, active, requested_audience, granted_audience, created_at, updated_at FROM access_token_sessions WHERE signature = ? AND active = 1 LIMIT 1
+const getAccessToken = `-- name: GetAccessToken :one
+SELECT id, signature, client_id, token_type, user_id, requested_scope, granted_scope, form_data, expired_at, username, subject, active, requested_audience, granted_audience, created_at, updated_at FROM access_tokens WHERE signature = ? AND active = 1 LIMIT 1
 `
 
-func (q *Queries) GetAccessTokenSession(ctx context.Context, signature string) (AccessTokenSession, error) {
-	row := q.db.QueryRowContext(ctx, getAccessTokenSession, signature)
-	var i AccessTokenSession
+func (q *Queries) GetAccessToken(ctx context.Context, signature string) (AccessToken, error) {
+	row := q.db.QueryRowContext(ctx, getAccessToken, signature)
+	var i AccessToken
 	err := row.Scan(
 		&i.ID,
 		&i.Signature,
@@ -456,16 +400,16 @@ func (q *Queries) GetAccessTokenSession(ctx context.Context, signature string) (
 	return i, err
 }
 
-const getAuthorizationCodeSession = `-- name: GetAuthorizationCodeSession :one
-SELECT id, signature, client_id, token_type, user_id, requested_scope, granted_scope, form_data, expired_at, username, subject, active, requested_audience, granted_audience, created_at, updated_at FROM authorization_code_sessions WHERE signature = ? AND active = 1 LIMIT 1
+const getAuthorizeCodeSession = `-- name: GetAuthorizeCodeSession :one
+SELECT id, code, client_id, token_type, user_id, requested_scope, granted_scope, form_data, expired_at, username, subject, active, requested_audience, granted_audience, created_at, updated_at FROM authorize_code_sessions WHERE code = ? AND active = 1 LIMIT 1
 `
 
-func (q *Queries) GetAuthorizationCodeSession(ctx context.Context, signature string) (AuthorizationCodeSession, error) {
-	row := q.db.QueryRowContext(ctx, getAuthorizationCodeSession, signature)
-	var i AuthorizationCodeSession
+func (q *Queries) GetAuthorizeCodeSession(ctx context.Context, code string) (AuthorizeCodeSession, error) {
+	row := q.db.QueryRowContext(ctx, getAuthorizeCodeSession, code)
+	var i AuthorizeCodeSession
 	err := row.Scan(
 		&i.ID,
-		&i.Signature,
+		&i.Code,
 		&i.ClientID,
 		&i.TokenType,
 		&i.UserID,
@@ -522,15 +466,15 @@ func (q *Queries) GetClient(ctx context.Context, id string) (Client, error) {
 }
 
 const getOpenIDConnectSession = `-- name: GetOpenIDConnectSession :one
-SELECT id, signature, client_id, token_type, user_id, requested_scope, granted_scope, form_data, expired_at, username, subject, active, requested_audience, granted_audience, created_at, updated_at FROM open_id_connect_sessions WHERE signature = ? AND active = 1 LIMIT 1
+SELECT id, authorize_code, client_id, token_type, user_id, requested_scope, granted_scope, form_data, expired_at, username, subject, active, requested_audience, granted_audience, created_at, updated_at FROM open_id_connect_sessions WHERE authorize_code = ? AND active = 1 LIMIT 1
 `
 
-func (q *Queries) GetOpenIDConnectSession(ctx context.Context, signature string) (OpenIDConnectSession, error) {
-	row := q.db.QueryRowContext(ctx, getOpenIDConnectSession, signature)
+func (q *Queries) GetOpenIDConnectSession(ctx context.Context, authorizeCode string) (OpenIDConnectSession, error) {
+	row := q.db.QueryRowContext(ctx, getOpenIDConnectSession, authorizeCode)
 	var i OpenIDConnectSession
 	err := row.Scan(
 		&i.ID,
-		&i.Signature,
+		&i.AuthorizeCode,
 		&i.ClientID,
 		&i.TokenType,
 		&i.UserID,
@@ -550,15 +494,15 @@ func (q *Queries) GetOpenIDConnectSession(ctx context.Context, signature string)
 }
 
 const getPKCERequestSession = `-- name: GetPKCERequestSession :one
-SELECT id, signature, client_id, token_type, user_id, requested_scope, granted_scope, form_data, expired_at, username, subject, active, requested_audience, granted_audience, created_at, updated_at FROM pkce_request_sessions WHERE signature = ? AND active = 1 LIMIT 1
+SELECT id, code, client_id, token_type, user_id, requested_scope, granted_scope, form_data, expired_at, username, subject, active, requested_audience, granted_audience, created_at, updated_at FROM pkce_request_sessions WHERE code = ? AND active = 1 LIMIT 1
 `
 
-func (q *Queries) GetPKCERequestSession(ctx context.Context, signature string) (PkceRequestSession, error) {
-	row := q.db.QueryRowContext(ctx, getPKCERequestSession, signature)
+func (q *Queries) GetPKCERequestSession(ctx context.Context, code string) (PkceRequestSession, error) {
+	row := q.db.QueryRowContext(ctx, getPKCERequestSession, code)
 	var i PkceRequestSession
 	err := row.Scan(
 		&i.ID,
-		&i.Signature,
+		&i.Code,
 		&i.ClientID,
 		&i.TokenType,
 		&i.UserID,
@@ -577,46 +521,13 @@ func (q *Queries) GetPKCERequestSession(ctx context.Context, signature string) (
 	return i, err
 }
 
-const getRefreshTokenSession = `-- name: GetRefreshTokenSession :one
-SELECT id, signature, client_id, token_type, user_id, requested_scope, granted_scope, form_data, expired_at, username, subject, active, requested_audience, granted_audience, created_at, updated_at FROM refresh_token_sessions WHERE signature = ? AND active = 1 LIMIT 1
+const getRefreshToken = `-- name: GetRefreshToken :one
+SELECT id, signature, client_id, token_type, user_id, requested_scope, granted_scope, form_data, expired_at, username, subject, active, requested_audience, granted_audience, created_at, updated_at FROM refresh_tokens WHERE signature = ? AND active = 1 LIMIT 1
 `
 
-func (q *Queries) GetRefreshTokenSession(ctx context.Context, signature string) (RefreshTokenSession, error) {
-	row := q.db.QueryRowContext(ctx, getRefreshTokenSession, signature)
-	var i RefreshTokenSession
-	err := row.Scan(
-		&i.ID,
-		&i.Signature,
-		&i.ClientID,
-		&i.TokenType,
-		&i.UserID,
-		&i.RequestedScope,
-		&i.GrantedScope,
-		&i.FormData,
-		&i.ExpiredAt,
-		&i.Username,
-		&i.Subject,
-		&i.Active,
-		&i.RequestedAudience,
-		&i.GrantedAudience,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const getToken = `-- name: GetToken :one
-SELECT id, signature, client_id, token_type, user_id, requested_scope, granted_scope, form_data, expired_at, username, subject, active, requested_audience, granted_audience, created_at, updated_at FROM authorization_sessions WHERE signature = ? AND token_type = ? AND active = 1 LIMIT 1
-`
-
-type GetTokenParams struct {
-	Signature string
-	TokenType uint8
-}
-
-func (q *Queries) GetToken(ctx context.Context, arg GetTokenParams) (AuthorizationSession, error) {
-	row := q.db.QueryRowContext(ctx, getToken, arg.Signature, arg.TokenType)
-	var i AuthorizationSession
+func (q *Queries) GetRefreshToken(ctx context.Context, signature string) (RefreshToken, error) {
+	row := q.db.QueryRowContext(ctx, getRefreshToken, signature)
+	var i RefreshToken
 	err := row.Scan(
 		&i.ID,
 		&i.Signature,
@@ -675,93 +586,66 @@ func (q *Queries) ListClientsByUserID(ctx context.Context, userID string) ([]Cli
 	return items, nil
 }
 
-const revokeAccessTokenSessionByClientID = `-- name: RevokeAccessTokenSessionByClientID :exec
-UPDATE access_token_sessions SET active = 0 WHERE client_id = ?
+const revokeAccessTokenByID = `-- name: RevokeAccessTokenByID :exec
+UPDATE access_tokens SET active = 0 WHERE id = ?
 `
 
-func (q *Queries) RevokeAccessTokenSessionByClientID(ctx context.Context, clientID string) error {
-	_, err := q.db.ExecContext(ctx, revokeAccessTokenSessionByClientID, clientID)
+func (q *Queries) RevokeAccessTokenByID(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, revokeAccessTokenByID, id)
 	return err
 }
 
-const revokeAccessTokenSessionWithSignature = `-- name: RevokeAccessTokenSessionWithSignature :exec
-UPDATE access_token_sessions SET active = 0 WHERE signature = ?
+const revokeAccessTokenBySignature = `-- name: RevokeAccessTokenBySignature :exec
+UPDATE access_tokens SET active = 0 WHERE signature = ?
 `
 
-func (q *Queries) RevokeAccessTokenSessionWithSignature(ctx context.Context, signature string) error {
-	_, err := q.db.ExecContext(ctx, revokeAccessTokenSessionWithSignature, signature)
+func (q *Queries) RevokeAccessTokenBySignature(ctx context.Context, signature string) error {
+	_, err := q.db.ExecContext(ctx, revokeAccessTokenBySignature, signature)
 	return err
 }
 
-const revokeAuthorizationCodeSessionByClientID = `-- name: RevokeAuthorizationCodeSessionByClientID :exec
-UPDATE authorization_code_sessions SET active = 0 WHERE client_id = ?
+const revokeAuthorizeCodeSession = `-- name: RevokeAuthorizeCodeSession :exec
+UPDATE authorize_code_sessions SET active = 0 WHERE code = ?
 `
 
-func (q *Queries) RevokeAuthorizationCodeSessionByClientID(ctx context.Context, clientID string) error {
-	_, err := q.db.ExecContext(ctx, revokeAuthorizationCodeSessionByClientID, clientID)
+func (q *Queries) RevokeAuthorizeCodeSession(ctx context.Context, code string) error {
+	_, err := q.db.ExecContext(ctx, revokeAuthorizeCodeSession, code)
 	return err
 }
 
-const revokeAuthorizationCodeSessionWithSignature = `-- name: RevokeAuthorizationCodeSessionWithSignature :exec
-UPDATE authorization_code_sessions SET active = 0 WHERE signature = ?
+const revokeOpenIDConnectSession = `-- name: RevokeOpenIDConnectSession :exec
+UPDATE open_id_connect_sessions SET active = 0 WHERE authorize_code = ?
 `
 
-func (q *Queries) RevokeAuthorizationCodeSessionWithSignature(ctx context.Context, signature string) error {
-	_, err := q.db.ExecContext(ctx, revokeAuthorizationCodeSessionWithSignature, signature)
+func (q *Queries) RevokeOpenIDConnectSession(ctx context.Context, authorizeCode string) error {
+	_, err := q.db.ExecContext(ctx, revokeOpenIDConnectSession, authorizeCode)
 	return err
 }
 
-const revokeOpenIDConnectSessionByClientID = `-- name: RevokeOpenIDConnectSessionByClientID :exec
-UPDATE open_id_connect_sessions SET active = 0 WHERE client_id = ?
+const revokePKCERequestSession = `-- name: RevokePKCERequestSession :exec
+UPDATE pkce_request_sessions SET active = 0 WHERE code = ?
 `
 
-func (q *Queries) RevokeOpenIDConnectSessionByClientID(ctx context.Context, clientID string) error {
-	_, err := q.db.ExecContext(ctx, revokeOpenIDConnectSessionByClientID, clientID)
+func (q *Queries) RevokePKCERequestSession(ctx context.Context, code string) error {
+	_, err := q.db.ExecContext(ctx, revokePKCERequestSession, code)
 	return err
 }
 
-const revokeOpenIDConnectSessionWithSignature = `-- name: RevokeOpenIDConnectSessionWithSignature :exec
-UPDATE open_id_connect_sessions SET active = 0 WHERE signature = ?
+const revokeRefreshTokenByID = `-- name: RevokeRefreshTokenByID :exec
+UPDATE refresh_tokens SET active = 0 WHERE id = ?
 `
 
-func (q *Queries) RevokeOpenIDConnectSessionWithSignature(ctx context.Context, signature string) error {
-	_, err := q.db.ExecContext(ctx, revokeOpenIDConnectSessionWithSignature, signature)
+func (q *Queries) RevokeRefreshTokenByID(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, revokeRefreshTokenByID, id)
 	return err
 }
 
-const revokePKCERequestSessionByClientID = `-- name: RevokePKCERequestSessionByClientID :exec
-UPDATE pkce_request_sessions SET active = 0 WHERE client_id = ?
+const revokeRefreshTokenBySignature = `-- name: RevokeRefreshTokenBySignature :exec
+UPDATE refresh_tokens SET active = 0 WHERE signature = ?
 `
 
-func (q *Queries) RevokePKCERequestSessionByClientID(ctx context.Context, clientID string) error {
-	_, err := q.db.ExecContext(ctx, revokePKCERequestSessionByClientID, clientID)
-	return err
-}
-
-const revokePKCERequestSessionWithSignature = `-- name: RevokePKCERequestSessionWithSignature :exec
-UPDATE pkce_request_sessions SET active = 0 WHERE signature = ?
-`
-
-func (q *Queries) RevokePKCERequestSessionWithSignature(ctx context.Context, signature string) error {
-	_, err := q.db.ExecContext(ctx, revokePKCERequestSessionWithSignature, signature)
-	return err
-}
-
-const revokeRefreshTokenSessionByClientID = `-- name: RevokeRefreshTokenSessionByClientID :exec
-UPDATE refresh_token_sessions SET active = 0 WHERE client_id = ?
-`
-
-func (q *Queries) RevokeRefreshTokenSessionByClientID(ctx context.Context, clientID string) error {
-	_, err := q.db.ExecContext(ctx, revokeRefreshTokenSessionByClientID, clientID)
-	return err
-}
-
-const revokeRefreshTokenSessionWithSignature = `-- name: RevokeRefreshTokenSessionWithSignature :exec
-UPDATE refresh_token_sessions SET active = 0 WHERE signature = ?
-`
-
-func (q *Queries) RevokeRefreshTokenSessionWithSignature(ctx context.Context, signature string) error {
-	_, err := q.db.ExecContext(ctx, revokeRefreshTokenSessionWithSignature, signature)
+func (q *Queries) RevokeRefreshTokenBySignature(ctx context.Context, signature string) error {
+	_, err := q.db.ExecContext(ctx, revokeRefreshTokenBySignature, signature)
 	return err
 }
 

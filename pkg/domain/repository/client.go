@@ -19,23 +19,21 @@ type OIDCClientRepository interface {
 	GetBlacklistJTI(ctx context.Context, jti string) (domain.BlacklistedJTI, error)
 	DeleteOldBlacklistJTI(ctx context.Context) error
 	CreateBlacklistJTI(ctx context.Context, jti string, after time.Time) error
-	CreateTokenSession(ctx context.Context, req *fosite.Request, tokenType domain.TokenType) error
 	CreateAccessTokenSession(ctx context.Context, req *fosite.Request) error
 	CreateRefreshTokenSession(ctx context.Context, req *fosite.Request) error
-	CreateAuthorizeCodeSession(ctx context.Context, req *fosite.Request) error
-	CreateOpenIDConnectSession(ctx context.Context, req *fosite.Request) error
-	CreatePKCERequestSession(ctx context.Context, req *fosite.Request) error
-	GetTokenSession(ctx context.Context, signature string, tokenType domain.TokenType) (*fosite.Request, error)
-	GetAccessTokenSession(ctx context.Context, signature string) (*fosite.Request, error)
-	GetRefreshTokenSession(ctx context.Context, signature string) (*fosite.Request, error)
+	CreateAuthorizeCodeSession(ctx context.Context, code string, req *fosite.Request) error
+	CreateOpenIDConnectSession(ctx context.Context, authorizeCode string, req *fosite.Request) error
+	CreatePKCERequestSession(ctx context.Context, code string, req *fosite.Request) error
+	GetAccessToken(ctx context.Context, signature string) (*fosite.Request, error)
+	GetRefreshToken(ctx context.Context, signature string) (*fosite.Request, error)
 	GetAuthorizeCodeSession(ctx context.Context, signature string) (*fosite.Request, error)
 	GetOpenIDConnectSession(ctx context.Context, signature string) (*fosite.Request, error)
 	GetPKCERequestSession(ctx context.Context, signature string) (*fosite.Request, error)
-	DeleteTokenSession(ctx context.Context, signature string, tokenType domain.TokenType) error
-	RevokeTokenSession(ctx context.Context, requestID string, tokenType domain.TokenType) error
-	RevokeAccessTokenSession(ctx context.Context, signature string) error
-	RevokeRefreshTokenSession(ctx context.Context, signature string) error
-	RevokeAuthorizationCodeSession(ctx context.Context, signature string) error
+	RevokeAccessTokenBySignature(ctx context.Context, signature string) error
+	RevokeAccessTokenByID(ctx context.Context, requestID string) error
+	RevokeRefreshTokenBySignature(ctx context.Context, signature string) error
+	RevokeRefreshTokenByID(ctx context.Context, requestID string) error
+	RevokeAuthorizeCodeSession(ctx context.Context, code string) error
 	RevokeOpenIDConnectSession(ctx context.Context, signature string) error
 	RevokePKCERequestSession(ctx context.Context, signature string) error
 }

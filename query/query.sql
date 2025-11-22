@@ -45,26 +45,8 @@ DELETE FROM blacklisted_jtis WHERE after < NOW();
 -- name: CreateBlacklistJTI :exec
 INSERT INTO blacklisted_jtis (jti, after) VALUES (?, ?);
 
--- name: CreateToken :exec
-INSERT INTO authorization_sessions (
-    id,
-    signature,
-    token_type,
-    client_id,
-    user_id,
-    requested_scope,
-    granted_scope,
-    form_data,
-    expired_at,
-    username,
-    subject,
-    active,
-    requested_audience,
-    granted_audience
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-
 -- name: CreateAccessTokenSession :exec
-INSERT INTO access_token_sessions (
+INSERT INTO access_tokens (
     id,
     signature,
     token_type,
@@ -82,7 +64,7 @@ INSERT INTO access_token_sessions (
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateRefreshTokenSession :exec
-INSERT INTO refresh_token_sessions (
+INSERT INTO refresh_tokens (
     id,
     signature,
     token_type,
@@ -99,10 +81,10 @@ INSERT INTO refresh_token_sessions (
     granted_audience
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
--- name: CreateAuthorizationCodeSession :exec
-INSERT INTO authorization_code_sessions (
+-- name: CreateAuthorizeCodeSession :exec
+INSERT INTO authorize_code_sessions (
     id,
-    signature,
+    code,
     token_type,
     client_id,
     user_id,
@@ -120,7 +102,7 @@ INSERT INTO authorization_code_sessions (
 -- name: CreateOpenIDConnectSession :exec
 INSERT INTO open_id_connect_sessions (
     id,
-    signature,
+    authorize_code,
     token_type,
     client_id,
     user_id,
@@ -138,7 +120,7 @@ INSERT INTO open_id_connect_sessions (
 -- name: CreatePKCERequestSession :exec
 INSERT INTO pkce_request_sessions (
     id,
-    signature,
+    code,
     token_type,
     client_id,
     user_id,
@@ -153,56 +135,43 @@ INSERT INTO pkce_request_sessions (
     granted_audience
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
--- name: GetToken :one
-SELECT * FROM authorization_sessions WHERE signature = ? AND token_type = ? AND active = 1 LIMIT 1;
 
--- name: RevokeTokenWithSignature :exec
-UPDATE authorization_sessions SET active = 0 WHERE signature = ? AND token_type = ?;
+-- name: GetAccessToken :one
+SELECT * FROM access_tokens WHERE signature = ? AND active = 1 LIMIT 1;
 
--- name: RevokeTokenByClientID :exec
-UPDATE authorization_sessions SET active = 0 WHERE client_id = ? AND token_type = ?;
+-- name: RevokeAccessTokenBySignature :exec
+UPDATE access_tokens SET active = 0 WHERE signature = ?;
 
--- name: GetAccessTokenSession :one
-SELECT * FROM access_token_sessions WHERE signature = ? AND active = 1 LIMIT 1;
+-- name: GetRefreshToken :one
+SELECT * FROM refresh_tokens WHERE signature = ? AND active = 1 LIMIT 1;
 
--- name: RevokeAccessTokenSessionWithSignature :exec
-UPDATE access_token_sessions SET active = 0 WHERE signature = ?;
+-- name: RevokeRefreshTokenBySignature :exec
+UPDATE refresh_tokens SET active = 0 WHERE signature = ?;
 
--- name: RevokeAccessTokenSessionByClientID :exec
-UPDATE access_token_sessions SET active = 0 WHERE client_id = ?;
+-- name: GetAuthorizeCodeSession :one
+SELECT * FROM authorize_code_sessions WHERE code = ? AND active = 1 LIMIT 1;
 
--- name: GetRefreshTokenSession :one
-SELECT * FROM refresh_token_sessions WHERE signature = ? AND active = 1 LIMIT 1;
-
--- name: RevokeRefreshTokenSessionWithSignature :exec
-UPDATE refresh_token_sessions SET active = 0 WHERE signature = ?;
-
--- name: RevokeRefreshTokenSessionByClientID :exec
-UPDATE refresh_token_sessions SET active = 0 WHERE client_id = ?;
-
--- name: GetAuthorizationCodeSession :one
-SELECT * FROM authorization_code_sessions WHERE signature = ? AND active = 1 LIMIT 1;
-
--- name: RevokeAuthorizationCodeSessionWithSignature :exec
-UPDATE authorization_code_sessions SET active = 0 WHERE signature = ?;
-
--- name: RevokeAuthorizationCodeSessionByClientID :exec
-UPDATE authorization_code_sessions SET active = 0 WHERE client_id = ?;
+-- name: RevokeAuthorizeCodeSession :exec
+UPDATE authorize_code_sessions SET active = 0 WHERE code = ?;
 
 -- name: GetOpenIDConnectSession :one
-SELECT * FROM open_id_connect_sessions WHERE signature = ? AND active = 1 LIMIT 1;
+SELECT * FROM open_id_connect_sessions WHERE authorize_code = ? AND active = 1 LIMIT 1;
 
--- name: RevokeOpenIDConnectSessionWithSignature :exec
-UPDATE open_id_connect_sessions SET active = 0 WHERE signature = ?;
-
--- name: RevokeOpenIDConnectSessionByClientID :exec
-UPDATE open_id_connect_sessions SET active = 0 WHERE client_id = ?;
+-- name: RevokeOpenIDConnectSession :exec
+UPDATE open_id_connect_sessions SET active = 0 WHERE authorize_code = ?;
 
 -- name: GetPKCERequestSession :one
-SELECT * FROM pkce_request_sessions WHERE signature = ? AND active = 1 LIMIT 1;
+SELECT * FROM pkce_request_sessions WHERE code = ? AND active = 1 LIMIT 1;
 
--- name: RevokePKCERequestSessionWithSignature :exec
-UPDATE pkce_request_sessions SET active = 0 WHERE signature = ?;
+-- name: RevokePKCERequestSession :exec
+UPDATE pkce_request_sessions SET active = 0 WHERE code = ?;
 
--- name: RevokePKCERequestSessionByClientID :exec
-UPDATE pkce_request_sessions SET active = 0 WHERE client_id = ?;
+-- name: RevokeAccessTokenByID :exec
+UPDATE access_tokens SET active = 0 WHERE id = ?;
+
+-- name: RevokeRefreshTokenByID :exec
+UPDATE refresh_tokens SET active = 0 WHERE id = ?;
+
+
+
+

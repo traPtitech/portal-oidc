@@ -40,7 +40,7 @@ CREATE TABLE `authorization_sessions` (
 CREATE INDEX `authorization_sessions_type_and_signature_idx` ON `authorization_sessions` (`type`, `signature`);
 
 
-CREATE TABLE `access_token_sessions` (
+CREATE TABLE `access_tokens` (
     `id` CHAR(36) NOT NULL,
     `signature` VARCHAR(48) NOT NULL COMMENT 'SHA384',
     `client_id` CHAR(36) NOT NULL,
@@ -63,7 +63,7 @@ CREATE TABLE `access_token_sessions` (
   COLLATE = utf8mb4_general_ci;
 
 
-CREATE TABLE `refresh_token_sessions` (
+CREATE TABLE `refresh_tokens` (
     `id` CHAR(36) NOT NULL,
     `signature` VARCHAR(48) NOT NULL COMMENT 'SHA384',
     `client_id` CHAR(36) NOT NULL,
@@ -86,9 +86,9 @@ CREATE TABLE `refresh_token_sessions` (
   COLLATE = utf8mb4_general_ci;
 
 
-CREATE TABLE `authorization_code_sessions` (
+CREATE TABLE `authorize_code_sessions` (
     `id` CHAR(36) NOT NULL,
-    `signature` VARCHAR(48) NOT NULL COMMENT 'SHA384',
+    `code` VARCHAR(48) NOT NULL COMMENT 'SHA384',
     `client_id` CHAR(36) NOT NULL,
     `token_type` TINYINT UNSIGNED NOT NULL,
     `user_id` VARCHAR(32) NOT NULL,
@@ -112,7 +112,7 @@ CREATE TABLE `authorization_code_sessions` (
 
 CREATE TABLE `open_id_connect_sessions` (
     `id` CHAR(36) NOT NULL,
-    `signature` VARCHAR(48) NOT NULL COMMENT 'SHA384',
+    `authorize_code` VARCHAR(48) NOT NULL COMMENT 'SHA384',
     `client_id` CHAR(36) NOT NULL,
     `token_type` TINYINT UNSIGNED NOT NULL,
     `user_id` VARCHAR(32) NOT NULL,
@@ -134,7 +134,7 @@ CREATE TABLE `open_id_connect_sessions` (
 
 CREATE TABLE `pkce_request_sessions` (
     `id` CHAR(36) NOT NULL,
-    `signature` VARCHAR(48) NOT NULL COMMENT 'SHA384',
+    `code` VARCHAR(48) NOT NULL COMMENT 'SHA384',
     `client_id` CHAR(36) NOT NULL,
     `token_type` TINYINT UNSIGNED NOT NULL,
     `user_id` VARCHAR(32) NOT NULL,

@@ -9,27 +9,7 @@ import (
 	"time"
 )
 
-type AccessTokenSession struct {
-	ID string
-	// SHA384
-	Signature         string
-	ClientID          string
-	TokenType         uint8
-	UserID            string
-	RequestedScope    json.RawMessage
-	GrantedScope      json.RawMessage
-	FormData          json.RawMessage
-	ExpiredAt         time.Time
-	Username          string
-	Subject           string
-	Active            bool
-	RequestedAudience json.RawMessage
-	GrantedAudience   json.RawMessage
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
-}
-
-type AuthorizationCodeSession struct {
+type AccessToken struct {
 	ID string
 	// SHA384
 	Signature         string
@@ -69,6 +49,26 @@ type AuthorizationSession struct {
 	UpdatedAt         time.Time
 }
 
+type AuthorizeCodeSession struct {
+	ID string
+	// SHA384
+	Code              string
+	ClientID          string
+	TokenType         uint8
+	UserID            string
+	RequestedScope    json.RawMessage
+	GrantedScope      json.RawMessage
+	FormData          json.RawMessage
+	ExpiredAt         time.Time
+	Username          string
+	Subject           string
+	Active            bool
+	RequestedAudience json.RawMessage
+	GrantedAudience   json.RawMessage
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+}
+
 type BlacklistedJti struct {
 	Jti       string
 	After     time.Time
@@ -91,7 +91,7 @@ type Client struct {
 type OpenIDConnectSession struct {
 	ID string
 	// SHA384
-	Signature         string
+	AuthorizeCode     string
 	ClientID          string
 	TokenType         uint8
 	UserID            string
@@ -111,7 +111,7 @@ type OpenIDConnectSession struct {
 type PkceRequestSession struct {
 	ID string
 	// SHA384
-	Signature         string
+	Code              string
 	ClientID          string
 	TokenType         uint8
 	UserID            string
@@ -128,7 +128,7 @@ type PkceRequestSession struct {
 	UpdatedAt         time.Time
 }
 
-type RefreshTokenSession struct {
+type RefreshToken struct {
 	ID string
 	// SHA384
 	Signature         string
