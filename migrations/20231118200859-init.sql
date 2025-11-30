@@ -143,5 +143,10 @@ DROP TABLE `authorization_sessions`;
 DROP TABLE `redirect_uri`;
 DROP TABLE `clients`;
 DROP TABLE `blacklisted_jtis`;
-DROP TABLE `access_token`;
+DROP TABLE `access_tokens`;
+DROP TABLE `refresh_tokens`;
+DROP TABLE `authorize_code_sessions`;
+DROP TABLE `open_id_connect_sessions`;
+DROP TABLE `pkce_request_sessions`;
+
 
