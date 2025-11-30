@@ -16,28 +16,6 @@ CREATE TABLE `clients` (
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_general_ci;
 
-CREATE TABLE `authorization_sessions` (
-    `id` CHAR(36) NOT NULL,
-    `signature` VARCHAR(48) NOT NULL COMMENT 'SHA384',
-    `requested_at`  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `client_id` CHAR(36) NOT NULL,
-    `token_type` TINYINT UNSIGNED NOT NULL,
-    `user_id` VARCHAR(32) NOT NULL,
-    `requested_scope` TEXT NOT NULL,
-    `granted_scope` TEXT NOT NULL,
-    `form_data` TEXT NOT NULL,
-    `session_data` JSON NOT NULL,
-    `active` TINYINT(1) NOT NULL DEFAULT 1,
-    `requested_audience` TEXT NOT NULL,
-    `granted_audience` TEXT NOT NULL,
-    `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`)
-) ENGINE = InnoDB
-  DEFAULT CHARSET = utf8mb4
-  COLLATE = utf8mb4_general_ci;
-CREATE INDEX `authorization_sessions_type_and_signature_idx` ON `authorization_sessions` (`type`, `signature`);
-
 
 CREATE TABLE `access_tokens` (
     `id` CHAR(36) NOT NULL,
