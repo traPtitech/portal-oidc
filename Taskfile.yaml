@@ -5,28 +5,22 @@ env:
   BOIL_VER: "v4.15.0"
 
 tasks:
-  init:
-    cmds:
-      - go install github.com/go-task/task/v3/cmd/task@latest
-      - go install github.com/rubenv/sql-migrate/...@latest
-      - go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
-      - go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
   start:server:
     cmds:
       - go run ./cmd serve
 
   migrate:
     cmds:
-      - sql-migrate {{ .CLI_ARGS }}
+      - go tool sql-migrate {{ .CLI_ARGS }}
   migrate:new:
     cmds:
-      - sql-migrate new _
+      - go tool sql-migrate new _
   migrate:up:
     cmds:
-      - sql-migrate up
+      - go tool sql-migrate up
   migrate:down:
     cmds:
-      - sql-migrate down
+      - go tool sql-migrate down
 
   gen:db:
     deps:
