@@ -172,7 +172,6 @@ require (
 	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/tetratelabs/wazero v1.9.0 // indirect
-	github.com/tiendc/sqlboiler-extensions v0.8.0 // indirect
 	github.com/u-root/u-root v0.15.1-0.20251014130006-62f7144b33da // indirect
 	github.com/u-root/uio v0.0.0-20240224005618-d2acac8f3701 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
