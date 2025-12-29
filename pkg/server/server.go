@@ -28,7 +28,7 @@ func NewServer(config Config) http.Handler {
 	}
 
 	signer := &jwt.DefaultSigner{
-		GetPrivateKey: func(_ context.Context) (interface{}, error) {
+		GetPrivateKey: func(_ context.Context) (any, error) {
 			return privateKey, nil
 		},
 	}

@@ -61,7 +61,7 @@ func newFositeSession(
 			AuthTime:    authTime,
 		},
 		Headers: &jwt.Headers{
-			Extra: make(map[string]interface{}),
+			Extra: make(map[string]any),
 		},
 	}
 
@@ -75,10 +75,10 @@ func emptyFositeSession() *openid.DefaultSession {
 	return &openid.DefaultSession{
 		Claims: &jwt.IDTokenClaims{
 			RequestedAt: time.Now().UTC(),
-			Extra:       make(map[string]interface{}),
+			Extra:       make(map[string]any),
 		},
 		Headers: &jwt.Headers{
-			Extra: make(map[string]interface{}),
+			Extra: make(map[string]any),
 		},
 	}
 }
