@@ -1,0 +1,24 @@
+[tools]
+go = "1.24"
+"golangci-lint" = "latest"
+
+[tasks."start:server"]
+run = "go run ./cmd serve"
+
+[tasks.migrate]
+run = "go tool sql-migrate {{arg(name='cmd')}}"
+
+[tasks."migrate:new"]
+run = "go tool sql-migrate new _"
+
+[tasks."migrate:up"]
+run = "go tool sql-migrate up"
+
+[tasks."migrate:down"]
+run = "go tool sql-migrate down"
+
+[tasks.gen]
+run = "go generate ./..."
+
+[tasks.lint]
+run = "golangci-lint run"
