@@ -1,0 +1,48 @@
+version: "2"
+linters:
+  default: none
+  enable:
+    - asasalint
+    - asciicheck
+    - bodyclose
+    - contextcheck
+    - durationcheck
+    - errcheck
+    - errchkjson
+    - errorlint
+    - exhaustive
+    - funlen
+    - gocheckcompilerdirectives
+    - gochecksumtype
+    - gosec
+    - govet
+    - ineffassign
+    - makezero
+    - nilerr
+    - nilnil
+    - noctx
+    - protogetter
+    - reassign
+    - rowserrcheck
+    - spancheck
+    - sqlclosecheck
+    - staticcheck
+    - testifylint
+    - unused
+    - zerologlint
+  settings:
+    funlen:
+      lines: 60
+      statements: 60
+      ignore-comments: false
+  exclusions:
+    generated: lax
+    rules:
+      - path: _test.go
+        linters:
+          - funlen
+formatters:
+  enable:
+    - gofmt
+  exclusions:
+    generated: lax
