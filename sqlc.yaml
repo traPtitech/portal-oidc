@@ -1,8 +1,7 @@
 version: "2"
 sql:
   - engine: "mysql"
-    queries:
-      - query
+    queries: query/query.sql
     schema: migrations
     strict_function_checks: true
     gen:
@@ -16,3 +15,10 @@ sql:
             go_type: "github.com/google/uuid.UUID"
             nullable: false
         out: "pkg/infrastructure/mariadb/v1/gen"
+  - engine: "mysql"
+    queries: query/portal.sql
+    schema: _dev
+    gen:
+      go:
+        package: "portal"
+        out: "pkg/infrastructure/portal/v1/gen"
