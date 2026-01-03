@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -27,8 +28,12 @@ func main() {
 		Use:   "serve",
 		Short: "Starts the server",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			srv := server.NewServer(config)
-			return http.ListenAndServe(":8080", srv)
+			srv := &http.Server{
+				Addr:              ":8080",
+				Handler:           server.NewServer(config),
+				ReadHeaderTimeout: 10 * time.Second,
+			}
+			return srv.ListenAndServe()
 		},
 	})
 
