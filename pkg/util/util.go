@@ -1,10 +1,11 @@
 package util
 
 import (
+	"errors"
 	"log"
 	"strings"
 
-	"github.com/ory/viper"
+	"github.com/spf13/viper"
 )
 
 func CobraOnInitializeFunc(configFilePath *string, envPrefix string, config interface{}) func() {
@@ -19,7 +20,8 @@ func CobraOnInitializeFunc(configFilePath *string, envPrefix string, config inte
 		viper.SetEnvPrefix(envPrefix)
 		viper.AutomaticEnv()
 		if err := viper.ReadInConfig(); err != nil {
-			if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+			var configFileNotFoundError viper.ConfigFileNotFoundError
+			if !errors.As(err, &configFileNotFoundError) {
 				log.Fatalf("failed to read config file: %v", err)
 			}
 		}
