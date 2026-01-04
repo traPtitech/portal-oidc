@@ -15,6 +15,14 @@ func (c ClientID) String() string {
 	return uuid.UUID(c).String()
 }
 
+func ParseClientID(s string) (ClientID, error) {
+	id, err := uuid.Parse(s)
+	if err != nil {
+		return ClientID{}, errors.Wrap(err, "invalid UUID format")
+	}
+	return ClientID(id), nil
+}
+
 type ClientType string
 
 func (c ClientType) String() string {
@@ -48,4 +56,9 @@ type Client struct {
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
+}
+
+type BlacklistedJTI struct {
+	JTI   string
+	After time.Time
 }
