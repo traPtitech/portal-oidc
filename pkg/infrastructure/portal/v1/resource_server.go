@@ -6,11 +6,10 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/traPtitech/portal-oidc/pkg/domain"
-	models "github.com/traPtitech/portal-oidc/pkg/infrastructure/portal/v1/db/gen"
 )
 
 func (p *Portal) GetProfile(ctx context.Context, id domain.TrapID) (domain.Profile, error) {
-	user, err := models.Users(models.UserWhere.ID.EQ(id.String())).One(ctx, p.db)
+	user, err := p.q.GetUserByID(ctx, id.String())
 	if err != nil {
 		return domain.Profile{}, errors.Wrap(err, "Failed to get user")
 	}
@@ -31,7 +30,7 @@ func (p *Portal) GetProfile(ctx context.Context, id domain.TrapID) (domain.Profi
 }
 
 func (p *Portal) GetEmail(ctx context.Context, id domain.TrapID) (domain.Email, error) {
-	user, err := models.Users(models.UserWhere.ID.EQ(id.String())).One(ctx, p.db)
+	user, err := p.q.GetUserByID(ctx, id.String())
 	if err != nil {
 		return domain.Email{}, errors.Wrap(err, "Failed to get user")
 	}

@@ -6,11 +6,10 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/traPtitech/portal-oidc/pkg/domain"
-	models "github.com/traPtitech/portal-oidc/pkg/infrastructure/portal/v1/db/gen"
 )
 
 func (p *Portal) GetGrade(ctx context.Context, id domain.TrapID) (string, error) {
-	user, err := models.Users(models.UserWhere.ID.EQ(id.String())).One(ctx, p.db)
+	user, err := p.q.GetUserByID(ctx, id.String())
 	if err != nil {
 		return "", errors.Wrap(err, "Failed to get user")
 	}
