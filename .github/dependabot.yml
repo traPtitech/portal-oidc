@@ -3,7 +3,7 @@ updates:
   - package-ecosystem: gomod
     directory: "/"
     schedule:
-      interval: monthly
+      interval: weekly
     open-pull-requests-limit: 10
     commit-message:
       prefix: ":arrow_up: chore(go-deps):"
@@ -15,14 +15,14 @@ updates:
   - package-ecosystem: docker
     directory: "/"
     schedule:
-      interval: monthly
+      interval: weekly
     open-pull-requests-limit: 5
     commit-message:
       prefix: ":arrow_up: chore(docker-deps):"
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
-      interval: monthly
+      interval: weekly
     open-pull-requests-limit: 5
     commit-message:
       prefix: ":arrow_up: chore(gha-deps):"
