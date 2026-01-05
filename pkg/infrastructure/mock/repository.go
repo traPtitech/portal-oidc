@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/traPtitech/portal-oidc/pkg/domain"
+	"github.com/traPtitech/portal-oidc/pkg/domain/repository"
 )
 
 // Repository implements repository.Repository for testing
@@ -120,19 +121,17 @@ func (m *Repository) DeleteLoginSession(_ context.Context, id domain.LoginSessio
 
 // OIDCClientRepository methods
 
-func (m *Repository) CreateOIDCClient(_ context.Context, id uuid.UUID, userID domain.TrapID, typ domain.ClientType, name string, desc string, secret string, redirectURIs []string) (domain.Client, error) {
+func (m *Repository) CreateOIDCClient(_ context.Context, params repository.CreateClientParams) (domain.Client, error) {
 	client := domain.Client{
-		ID:           domain.ClientID(id),
-		UserID:       userID,
-		Type:         typ,
-		Name:         name,
-		Description:  desc,
-		Secret:       secret,
-		RedirectURIs: redirectURIs,
+		ID:           params.ID,
+		SecretHash:   params.SecretHash,
+		Name:         params.Name,
+		Type:         params.Type,
+		RedirectURIs: params.RedirectURIs,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
-	m.Clients[id.String()] = client
+	m.Clients[uuid.UUID(params.ID).String()] = client
 	return client, nil
 }
 
@@ -144,36 +143,33 @@ func (m *Repository) GetOIDCClient(_ context.Context, id domain.ClientID) (domai
 	return client, nil
 }
 
-func (m *Repository) ListOIDCClientsByUser(_ context.Context, userID domain.TrapID) ([]domain.Client, error) {
+func (m *Repository) ListOIDCClients(_ context.Context) ([]domain.Client, error) {
 	var clients []domain.Client
 	for _, c := range m.Clients {
-		if c.UserID == userID {
-			clients = append(clients, c)
-		}
+		clients = append(clients, c)
 	}
 	return clients, nil
 }
 
-func (m *Repository) UpdateOIDCClient(_ context.Context, id domain.ClientID, _ domain.TrapID, typ domain.ClientType, name string, desc string, redirectURIs []string) (domain.Client, error) {
+func (m *Repository) UpdateOIDCClient(_ context.Context, id domain.ClientID, params repository.UpdateClientParams) (domain.Client, error) {
 	client, ok := m.Clients[uuid.UUID(id).String()]
 	if !ok {
 		return domain.Client{}, sql.ErrNoRows
 	}
-	client.Type = typ
-	client.Name = name
-	client.Description = desc
-	client.RedirectURIs = redirectURIs
+	client.Name = params.Name
+	client.Type = params.Type
+	client.RedirectURIs = params.RedirectURIs
 	client.UpdatedAt = time.Now()
 	m.Clients[uuid.UUID(id).String()] = client
 	return client, nil
 }
 
-func (m *Repository) UpdateOIDCClientSecret(_ context.Context, id domain.ClientID, secret string) (domain.Client, error) {
+func (m *Repository) UpdateOIDCClientSecret(_ context.Context, id domain.ClientID, secretHash *string) (domain.Client, error) {
 	client, ok := m.Clients[uuid.UUID(id).String()]
 	if !ok {
 		return domain.Client{}, sql.ErrNoRows
 	}
-	client.Secret = secret
+	client.SecretHash = secretHash
 	client.UpdatedAt = time.Now()
 	m.Clients[uuid.UUID(id).String()] = client
 	return client, nil

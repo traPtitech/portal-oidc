@@ -7,10 +7,20 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/traPtitech/portal-oidc/pkg/domain"
 	models "github.com/traPtitech/portal-oidc/pkg/interface/handler/v1/gen"
+	"github.com/traPtitech/portal-oidc/pkg/usecase"
 )
 
-func (h *Handler) CreateClientHandler(c echo.Context) error {
+func clientToResponse(c domain.Client, secret *string) models.Client {
+	return models.Client{
+		ClientId:     c.ID.String(),
+		ClientSecret: secret,
+		ClientType:   c.Type.String(),
+		Name:         c.Name,
+		RedirectUris: c.RedirectURIs,
+	}
+}
 
+func (h *Handler) CreateClientHandler(c echo.Context) error {
 	ctx := c.Request().Context()
 
 	req := models.CreateClientRequest{}
@@ -23,50 +33,39 @@ func (h *Handler) CreateClientHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, err)
 	}
 
-	userID, ok := ctx.Value(domain.ContextKeyUser).(domain.TrapID)
+	_, ok := ctx.Value(domain.ContextKeyUser).(domain.TrapID)
 	if !ok {
 		return c.JSON(http.StatusUnauthorized, "unauthorized")
 	}
 
-	client, err := h.usecase.CreateClient(ctx, userID, ctype, req.ClientName, req.Description, req.RedirectUris)
+	result, err := h.usecase.CreateClient(ctx, usecase.CreateClientParams{
+		Name:         req.Name,
+		Type:         ctype,
+		RedirectURIs: req.RedirectUris,
+	})
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, "Internal Server Error")
 	}
 
-	res := models.Client{
-		ClientId:     client.ID.String(),
-		ClientType:   client.Type.String(),
-		ClientName:   client.Name,
-		Description:  client.Description,
-		RedirectUris: client.RedirectURIs,
-		ClientSecret: &client.Secret,
+	var secret *string
+	if result.RawSecret != "" {
+		secret = &result.RawSecret
 	}
 
-	return c.JSON(http.StatusCreated, res)
+	return c.JSON(http.StatusCreated, clientToResponse(result.Client, secret))
 }
 
 func (h *Handler) ListClientsHandler(c echo.Context) error {
 	ctx := c.Request().Context()
 
-	userID, ok := ctx.Value(domain.ContextKeyUser).(domain.TrapID)
-	if !ok {
-		return c.JSON(http.StatusUnauthorized, "unauthorized")
-	}
-
-	clients, err := h.usecase.ListClientsByUser(ctx, userID)
+	clients, err := h.usecase.ListClients(ctx)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, "Internal Server Error")
 	}
 
 	res := make([]models.Client, len(clients))
-	for i, c := range clients {
-		res[i] = models.Client{
-			ClientId:     c.ID.String(),
-			ClientType:   c.Type.String(),
-			ClientName:   c.Name,
-			Description:  c.Description,
-			RedirectUris: c.RedirectURIs,
-		}
+	for i, cl := range clients {
+		res[i] = clientToResponse(cl, nil)
 	}
 
 	return c.JSON(http.StatusOK, res)
@@ -85,60 +84,39 @@ func (h *Handler) UpdateClientHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, err)
 	}
 
-	userID, ok := ctx.Value(domain.ContextKeyUser).(domain.TrapID)
-	if !ok {
-		return c.JSON(http.StatusUnauthorized, "unauthorized")
+	id, err := uuid.Parse(c.Param("clientId"))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, err)
 	}
+
+	client, err := h.usecase.UpdateClient(ctx, domain.ClientID(id), usecase.UpdateClientParams{
+		Name:         req.Name,
+		Type:         ctype,
+		RedirectURIs: req.RedirectUris,
+	})
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, "Internal Server Error")
+	}
+
+	return c.JSON(http.StatusOK, clientToResponse(client, nil))
+}
+
+func (h *Handler) UpdateClientSecretHandler(c echo.Context) error {
+	ctx := c.Request().Context()
 
 	id, err := uuid.Parse(c.Param("clientId"))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, err)
 	}
 
-	client, err := h.usecase.UpdateClient(ctx, domain.ClientID(id), userID, ctype, req.ClientName, req.Description, req.RedirectUris)
+	result, err := h.usecase.UpdateClientSecret(ctx, domain.ClientID(id))
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, "Internal Server Error")
 	}
 
-	res := models.Client{
-		ClientId:     client.ID.String(),
-		ClientType:   client.Type.String(),
-		ClientName:   client.Name,
-		Description:  client.Description,
-		RedirectUris: client.RedirectURIs,
-	}
-
-	return c.JSON(http.StatusOK, res)
-}
-
-func (h *Handler) UpdateClientSecretHandler(c echo.Context) error {
-	ctx := c.Request().Context()
-
-	req := models.UpdateClientSecretRequest{}
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, err)
-	}
-
-	userID, ok := ctx.Value(domain.ContextKeyUser).(domain.TrapID)
-	if !ok {
-		return c.JSON(http.StatusUnauthorized, "unauthorized")
-	}
-
-	id, err := uuid.Parse(req.ClientId)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, err)
-	}
-
-	client, err := h.usecase.UpdateClientSecret(ctx, userID, domain.ClientID(id))
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, "Internal Server Error")
-	}
-
-	res := models.UpdateClientSecretResponse{
-		ClientSecret: client.Secret,
-	}
-
-	return c.JSON(http.StatusOK, res)
+	return c.JSON(http.StatusOK, models.UpdateClientSecretResponse{
+		ClientSecret: result.RawSecret,
+	})
 }
 
 func (h *Handler) DeleteClientHandler(c echo.Context) error {
@@ -149,17 +127,12 @@ func (h *Handler) DeleteClientHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, "clientId is required")
 	}
 
-	userID, ok := ctx.Value(domain.ContextKeyUser).(domain.TrapID)
-	if !ok {
-		return c.JSON(http.StatusUnauthorized, "unauthorized")
-	}
-
 	id, err := uuid.Parse(clientId)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, err)
 	}
 
-	err = h.usecase.DeleteClient(ctx, userID, domain.ClientID(id))
+	err = h.usecase.DeleteClient(ctx, domain.ClientID(id))
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, "Internal Server Error")
 	}

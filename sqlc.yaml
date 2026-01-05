@@ -1,7 +1,7 @@
 version: "2"
 sql:
   - engine: "mysql"
-    queries: query/query.sql
+    queries: query/oauth2.sql
     schema: migrations
     strict_function_checks: true
     gen:

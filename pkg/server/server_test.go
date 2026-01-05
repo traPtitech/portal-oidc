@@ -54,9 +54,8 @@ func TestCreateClient(t *testing.T) {
 	server := NewServer(newTestConfig(repo, mock.NewPortal()))
 
 	req := newRequest(t, http.MethodPost, "/v1/clients", models.CreateClientRequest{
-		ClientName:   "test-app",
+		Name:         "test-app",
 		ClientType:   "public",
-		Description:  "Test application",
 		RedirectUris: []string{"http://localhost:3000/callback"},
 	}, "testuser")
 
@@ -72,8 +71,8 @@ func TestCreateClient(t *testing.T) {
 		t.Fatalf("failed to parse response: %v", err)
 	}
 
-	if resp.ClientName != "test-app" {
-		t.Errorf("expected client_name 'test-app', got %v", resp.ClientName)
+	if resp.Name != "test-app" {
+		t.Errorf("expected name 'test-app', got %v", resp.Name)
 	}
 	if resp.ClientType != "public" {
 		t.Errorf("expected client_type 'public', got %v", resp.ClientType)
@@ -85,10 +84,8 @@ func TestListClients(t *testing.T) {
 	testClientID := uuid.New()
 	repo.Clients[testClientID.String()] = domain.Client{
 		ID:           domain.ClientID(testClientID),
-		UserID:       "testuser",
 		Type:         domain.ClientTypePublic,
 		Name:         "existing-app",
-		Description:  "Existing application",
 		RedirectURIs: []string{"http://localhost:3000/callback"},
 	}
 
@@ -110,8 +107,8 @@ func TestListClients(t *testing.T) {
 	if len(resp) != 1 {
 		t.Fatalf("expected 1 client, got %d", len(resp))
 	}
-	if resp[0].ClientName != "existing-app" {
-		t.Errorf("expected client_name 'existing-app', got %v", resp[0].ClientName)
+	if resp[0].Name != "existing-app" {
+		t.Errorf("expected name 'existing-app', got %v", resp[0].Name)
 	}
 }
 
@@ -120,19 +117,16 @@ func TestUpdateClient(t *testing.T) {
 	testClientID := uuid.New()
 	repo.Clients[testClientID.String()] = domain.Client{
 		ID:           domain.ClientID(testClientID),
-		UserID:       "testuser",
 		Type:         domain.ClientTypePublic,
 		Name:         "original-name",
-		Description:  "Original description",
 		RedirectURIs: []string{"http://localhost:3000/callback"},
 	}
 
 	server := NewServer(newTestConfig(repo, mock.NewPortal()))
 
 	req := newRequest(t, http.MethodPut, "/v1/clients/"+testClientID.String(), models.UpdateClientRequest{
-		ClientName:   "updated-name",
+		Name:         "updated-name",
 		ClientType:   "confidential",
-		Description:  "Updated description",
 		RedirectUris: []string{"http://localhost:4000/callback"},
 	}, "testuser")
 
@@ -148,8 +142,8 @@ func TestUpdateClient(t *testing.T) {
 		t.Fatalf("failed to parse response: %v", err)
 	}
 
-	if resp.ClientName != "updated-name" {
-		t.Errorf("expected client_name 'updated-name', got %v", resp.ClientName)
+	if resp.Name != "updated-name" {
+		t.Errorf("expected name 'updated-name', got %v", resp.Name)
 	}
 }
 
@@ -158,10 +152,8 @@ func TestDeleteClient(t *testing.T) {
 	testClientID := uuid.New()
 	repo.Clients[testClientID.String()] = domain.Client{
 		ID:           domain.ClientID(testClientID),
-		UserID:       "testuser",
 		Type:         domain.ClientTypePublic,
 		Name:         "to-be-deleted",
-		Description:  "Will be deleted",
 		RedirectURIs: []string{"http://localhost:3000/callback"},
 	}
 
@@ -185,9 +177,8 @@ func TestCreateClientUnauthorized(t *testing.T) {
 	server := NewServer(newTestConfig(repo, mock.NewPortal()))
 
 	req := newRequest(t, http.MethodPost, "/v1/clients", models.CreateClientRequest{
-		ClientName:   "test-app",
+		Name:         "test-app",
 		ClientType:   "public",
-		Description:  "Test application",
 		RedirectUris: []string{"http://localhost:3000/callback"},
 	}, "") // No user
 

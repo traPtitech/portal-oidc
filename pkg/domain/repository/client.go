@@ -3,15 +3,28 @@ package repository
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/traPtitech/portal-oidc/pkg/domain"
 )
 
+type CreateClientParams struct {
+	ID           domain.ClientID
+	SecretHash   *string
+	Name         string
+	Type         domain.ClientType
+	RedirectURIs []string
+}
+
+type UpdateClientParams struct {
+	Name         string
+	Type         domain.ClientType
+	RedirectURIs []string
+}
+
 type OIDCClientRepository interface {
-	CreateOIDCClient(ctx context.Context, id uuid.UUID, userID domain.TrapID, typ domain.ClientType, name string, desc string, secret string, redirectURIs []string) (domain.Client, error)
+	CreateOIDCClient(ctx context.Context, params CreateClientParams) (domain.Client, error)
 	GetOIDCClient(ctx context.Context, id domain.ClientID) (domain.Client, error)
-	ListOIDCClientsByUser(ctx context.Context, userID domain.TrapID) ([]domain.Client, error)
-	UpdateOIDCClient(ctx context.Context, id domain.ClientID, userID domain.TrapID, typ domain.ClientType, name string, desc string, redirectURIs []string) (domain.Client, error)
-	UpdateOIDCClientSecret(ctx context.Context, id domain.ClientID, secret string) (domain.Client, error)
+	ListOIDCClients(ctx context.Context) ([]domain.Client, error)
+	UpdateOIDCClient(ctx context.Context, id domain.ClientID, params UpdateClientParams) (domain.Client, error)
+	UpdateOIDCClientSecret(ctx context.Context, id domain.ClientID, secretHash *string) (domain.Client, error)
 	DeleteOIDCClient(ctx context.Context, id domain.ClientID) error
 }

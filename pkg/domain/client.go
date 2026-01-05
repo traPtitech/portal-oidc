@@ -7,8 +7,6 @@ import (
 	"github.com/google/uuid"
 )
 
-const DefaultSecretLength = 32
-
 type ClientID uuid.UUID
 
 func (c ClientID) String() string {
@@ -39,13 +37,10 @@ const (
 
 type Client struct {
 	ID           ClientID
-	UserID       TrapID
-	Type         ClientType
+	SecretHash   *string // NULL for public clients
 	Name         string
-	Secret       string
-	Description  string
+	Type         ClientType
 	RedirectURIs []string
-
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }

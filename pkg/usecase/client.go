@@ -2,27 +2,60 @@ package usecase
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 
 	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
 	"github.com/traPtitech/portal-oidc/pkg/domain"
 	"github.com/traPtitech/portal-oidc/pkg/domain/random"
+	"github.com/traPtitech/portal-oidc/pkg/domain/repository"
 )
 
-func (u *UseCase) CreateClient(ctx context.Context, userID domain.TrapID, typ domain.ClientType, name string, desc string, redirectURIs []string) (domain.Client, error) {
-	id := uuid.New()
-	secret := random.GenerateRandomString(domain.DefaultSecretLength)
-
-	client, err := u.repo.CreateOIDCClient(ctx, id, userID, typ, name, desc, secret, redirectURIs)
-	if err != nil {
-		return domain.Client{}, errors.Wrap(err, "Failed to create client")
-	}
-
-	return client, nil
+// CreateClientResult contains the created client and the raw secret (only returned on creation)
+type CreateClientResult struct {
+	Client    domain.Client
+	RawSecret string // Only available on creation
 }
 
-func (u *UseCase) ListClientsByUser(ctx context.Context, userID domain.TrapID) ([]domain.Client, error) {
-	clients, err := u.repo.ListOIDCClientsByUser(ctx, userID)
+type CreateClientParams struct {
+	Name         string
+	Type         domain.ClientType
+	RedirectURIs []string
+}
+
+func hashSecret(secret string) string {
+	h := sha256.Sum256([]byte(secret))
+	return hex.EncodeToString(h[:])
+}
+
+func (u *UseCase) CreateClient(ctx context.Context, params CreateClientParams) (CreateClientResult, error) {
+	id := domain.ClientID(uuid.New())
+
+	var secretHash *string
+	var rawSecret string
+	if params.Type == domain.ClientTypeConfidential {
+		rawSecret = random.GenerateRandomString(32)
+		hash := hashSecret(rawSecret)
+		secretHash = &hash
+	}
+
+	client, err := u.repo.CreateOIDCClient(ctx, repository.CreateClientParams{
+		ID:           id,
+		SecretHash:   secretHash,
+		Name:         params.Name,
+		Type:         params.Type,
+		RedirectURIs: params.RedirectURIs,
+	})
+	if err != nil {
+		return CreateClientResult{}, errors.Wrap(err, "Failed to create client")
+	}
+
+	return CreateClientResult{Client: client, RawSecret: rawSecret}, nil
+}
+
+func (u *UseCase) ListClients(ctx context.Context) ([]domain.Client, error) {
+	clients, err := u.repo.ListOIDCClients(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to list clients")
 	}
@@ -30,17 +63,18 @@ func (u *UseCase) ListClientsByUser(ctx context.Context, userID domain.TrapID) (
 	return clients, nil
 }
 
-func (u *UseCase) UpdateClient(ctx context.Context, id domain.ClientID, userID domain.TrapID, typ domain.ClientType, name string, desc string, redirectURIs []string) (domain.Client, error) {
-	client, err := u.repo.GetOIDCClient(ctx, id)
-	if err != nil {
-		return domain.Client{}, errors.Wrap(err, "Failed to get client")
-	}
+type UpdateClientParams struct {
+	Name         string
+	Type         domain.ClientType
+	RedirectURIs []string
+}
 
-	if client.UserID != userID {
-		return domain.Client{}, errors.New("Client does not belong to the user")
-	}
-
-	newclient, err := u.repo.UpdateOIDCClient(ctx, id, userID, typ, name, desc, redirectURIs)
+func (u *UseCase) UpdateClient(ctx context.Context, id domain.ClientID, params UpdateClientParams) (domain.Client, error) {
+	newclient, err := u.repo.UpdateOIDCClient(ctx, id, repository.UpdateClientParams{
+		Name:         params.Name,
+		Type:         params.Type,
+		RedirectURIs: params.RedirectURIs,
+	})
 	if err != nil {
 		return domain.Client{}, errors.Wrap(err, "Failed to update client")
 	}
@@ -48,36 +82,26 @@ func (u *UseCase) UpdateClient(ctx context.Context, id domain.ClientID, userID d
 	return newclient, nil
 }
 
-func (u *UseCase) UpdateClientSecret(ctx context.Context, userID domain.TrapID, id domain.ClientID) (domain.Client, error) {
-	client, err := u.repo.GetOIDCClient(ctx, id)
-	secret := random.GenerateRandomString(domain.DefaultSecretLength)
-	if err != nil {
-		return domain.Client{}, errors.Wrap(err, "Failed to get client")
-	}
-
-	if client.UserID != userID {
-		return domain.Client{}, errors.New("Client does not belong to the user")
-	}
-
-	newclient, err := u.repo.UpdateOIDCClientSecret(ctx, id, secret)
-	if err != nil {
-		return domain.Client{}, errors.Wrap(err, "Failed to update client secret")
-	}
-
-	return newclient, nil
+// UpdateClientSecretResult contains the updated client and the new raw secret
+type UpdateClientSecretResult struct {
+	Client    domain.Client
+	RawSecret string
 }
 
-func (u *UseCase) DeleteClient(ctx context.Context, userID domain.TrapID, id domain.ClientID) error {
-	client, err := u.repo.GetOIDCClient(ctx, id)
+func (u *UseCase) UpdateClientSecret(ctx context.Context, id domain.ClientID) (UpdateClientSecretResult, error) {
+	rawSecret := random.GenerateRandomString(32)
+	hash := hashSecret(rawSecret)
+
+	newclient, err := u.repo.UpdateOIDCClientSecret(ctx, id, &hash)
 	if err != nil {
-		return errors.Wrap(err, "Failed to get client")
+		return UpdateClientSecretResult{}, errors.Wrap(err, "Failed to update client secret")
 	}
 
-	if client.UserID != userID {
-		return errors.New("Client does not belong to the user")
-	}
+	return UpdateClientSecretResult{Client: newclient, RawSecret: rawSecret}, nil
+}
 
-	err = u.repo.DeleteOIDCClient(ctx, id)
+func (u *UseCase) DeleteClient(ctx context.Context, id domain.ClientID) error {
+	err := u.repo.DeleteOIDCClient(ctx, id)
 	if err != nil {
 		return errors.Wrap(err, "Failed to delete client")
 	}
