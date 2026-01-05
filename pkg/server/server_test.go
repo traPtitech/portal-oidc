@@ -3,6 +3,11 @@ package server
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
 	"time"
 
 	"github.com/google/uuid"
@@ -213,4 +218,175 @@ func newTestConfig(repo *mockRepository, portal *mockPortal, store *storage.Memo
 	}
 }
 
-// TODO: Add client management tests
+func TestCreateClient(t *testing.T) {
+	repo := newMockRepository()
+	portal := &mockPortal{}
+	store := storage.NewMemoryStore()
+	config := newTestConfig(repo, portal, store)
+
+	server := NewServer(config)
+
+	// Create request with user context
+	body := `{"client_name":"test-app","client_type":"public","description":"Test application","redirect_uris":["http://localhost:3000/callback"]}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/clients", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(context.WithValue(req.Context(), domain.ContextKeyUser, domain.TrapID("testuser")))
+
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Errorf("expected status %d, got %d: %s", http.StatusCreated, rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to parse response: %v", err)
+	}
+
+	if resp["client_name"] != "test-app" {
+		t.Errorf("expected client_name 'test-app', got %v", resp["client_name"])
+	}
+	if resp["client_type"] != "public" {
+		t.Errorf("expected client_type 'public', got %v", resp["client_type"])
+	}
+}
+
+func TestListClients(t *testing.T) {
+	repo := newMockRepository()
+	portal := &mockPortal{}
+	store := storage.NewMemoryStore()
+	config := newTestConfig(repo, portal, store)
+
+	// Pre-populate with a client
+	testClientID := uuid.New()
+	repo.clients[testClientID.String()] = domain.Client{
+		ID:           domain.ClientID(testClientID),
+		UserID:       domain.TrapID("testuser"),
+		Type:         domain.ClientTypePublic,
+		Name:         "existing-app",
+		Description:  "Existing application",
+		RedirectURIs: []string{"http://localhost:3000/callback"},
+	}
+
+	server := NewServer(config)
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/clients", nil)
+	req = req.WithContext(context.WithValue(req.Context(), domain.ContextKeyUser, domain.TrapID("testuser")))
+
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+
+	var resp []map[string]interface{}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to parse response: %v", err)
+	}
+
+	if len(resp) != 1 {
+		t.Errorf("expected 1 client, got %d", len(resp))
+	}
+	if resp[0]["client_name"] != "existing-app" {
+		t.Errorf("expected client_name 'existing-app', got %v", resp[0]["client_name"])
+	}
+}
+
+func TestUpdateClient(t *testing.T) {
+	repo := newMockRepository()
+	portal := &mockPortal{}
+	store := storage.NewMemoryStore()
+	config := newTestConfig(repo, portal, store)
+
+	// Pre-populate with a client
+	testClientID := uuid.New()
+	repo.clients[testClientID.String()] = domain.Client{
+		ID:           domain.ClientID(testClientID),
+		UserID:       domain.TrapID("testuser"),
+		Type:         domain.ClientTypePublic,
+		Name:         "original-name",
+		Description:  "Original description",
+		RedirectURIs: []string{"http://localhost:3000/callback"},
+	}
+
+	server := NewServer(config)
+
+	body := `{"client_name":"updated-name","client_type":"confidential","description":"Updated description","redirect_uris":["http://localhost:4000/callback"]}`
+	req := httptest.NewRequest(http.MethodPut, "/v1/clients/"+testClientID.String(), strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(context.WithValue(req.Context(), domain.ContextKeyUser, domain.TrapID("testuser")))
+
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to parse response: %v", err)
+	}
+
+	if resp["client_name"] != "updated-name" {
+		t.Errorf("expected client_name 'updated-name', got %v", resp["client_name"])
+	}
+}
+
+func TestDeleteClient(t *testing.T) {
+	repo := newMockRepository()
+	portal := &mockPortal{}
+	store := storage.NewMemoryStore()
+	config := newTestConfig(repo, portal, store)
+
+	// Pre-populate with a client
+	testClientID := uuid.New()
+	repo.clients[testClientID.String()] = domain.Client{
+		ID:           domain.ClientID(testClientID),
+		UserID:       domain.TrapID("testuser"),
+		Type:         domain.ClientTypePublic,
+		Name:         "to-be-deleted",
+		Description:  "Will be deleted",
+		RedirectURIs: []string{"http://localhost:3000/callback"},
+	}
+
+	server := NewServer(config)
+
+	req := httptest.NewRequest(http.MethodDelete, "/v1/clients/"+testClientID.String(), nil)
+	req = req.WithContext(context.WithValue(req.Context(), domain.ContextKeyUser, domain.TrapID("testuser")))
+
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Errorf("expected status %d, got %d: %s", http.StatusNoContent, rec.Code, rec.Body.String())
+	}
+
+	// Verify client was deleted
+	if _, exists := repo.clients[testClientID.String()]; exists {
+		t.Error("expected client to be deleted from repository")
+	}
+}
+
+func TestCreateClientUnauthorized(t *testing.T) {
+	repo := newMockRepository()
+	portal := &mockPortal{}
+	store := storage.NewMemoryStore()
+	config := newTestConfig(repo, portal, store)
+
+	server := NewServer(config)
+
+	body := `{"client_name":"test-app","client_type":"public","description":"Test application","redirect_uris":["http://localhost:3000/callback"]}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/clients", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	// No user context set
+
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("expected status %d, got %d: %s", http.StatusUnauthorized, rec.Code, rec.Body.String())
+	}
+}
