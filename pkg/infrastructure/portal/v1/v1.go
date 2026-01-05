@@ -6,7 +6,6 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/traPtitech/portal-oidc/pkg/domain/portal"
-	"github.com/traPtitech/portal-oidc/pkg/domain/rs"
 	portalgen "github.com/traPtitech/portal-oidc/pkg/infrastructure/portal/v1/gen"
 )
 
@@ -14,7 +13,6 @@ type Portal struct {
 	q *portalgen.Queries
 }
 
-var _ rs.ResourceServer = (*Portal)(nil)
 var _ portal.Portal = (*Portal)(nil)
 
 func NewPortal(conf Config) (*Portal, error) {

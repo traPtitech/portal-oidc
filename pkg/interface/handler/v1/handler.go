@@ -3,14 +3,13 @@ package v1
 import (
 	"time"
 
-	"github.com/traPtitech/portal-oidc/pkg/domain/store"
-	"github.com/traPtitech/portal-oidc/pkg/usecase"
-
 	"github.com/ory/fosite"
 	"github.com/ory/fosite/compose"
-	"github.com/ory/fosite/handler/oauth2"
 	"github.com/ory/fosite/handler/openid"
 	"github.com/ory/fosite/token/jwt"
+
+	"github.com/traPtitech/portal-oidc/pkg/domain/store"
+	"github.com/traPtitech/portal-oidc/pkg/usecase"
 )
 
 type Config struct {
@@ -30,15 +29,13 @@ func NewHandler(u usecase.UseCase, st store.Store, signer jwt.Signer, globalSecr
 		GlobalSecret:        globalSecret,
 	}
 
+	hmacStrategy := compose.NewOAuth2HMACStrategy(fconf)
+
 	provider := compose.Compose(
 		fconf,
 		st,
 		&compose.CommonStrategy{
-			CoreStrategy: &oauth2.DefaultJWTStrategy{
-				Signer:          signer,
-				HMACSHAStrategy: compose.NewOAuth2HMACStrategy(fconf),
-				Config:          fconf,
-			},
+			CoreStrategy: hmacStrategy,
 			OpenIDConnectTokenStrategy: &openid.DefaultStrategy{
 				Signer: signer,
 				Config: fconf,
