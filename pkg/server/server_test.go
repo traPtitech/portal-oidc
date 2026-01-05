@@ -1,12 +1,13 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/ory/fosite/storage"
 
 	"github.com/traPtitech/portal-oidc/pkg/domain"
+	models "github.com/traPtitech/portal-oidc/pkg/interface/handler/v1/gen"
 )
 
 // mockPortal implements portal.Portal for testing
@@ -218,153 +220,153 @@ func newTestConfig(repo *mockRepository, portal *mockPortal, store *storage.Memo
 	}
 }
 
+// Helper to create authenticated request with JSON body
+func newRequest(t *testing.T, method, path string, body any, userID domain.TrapID) *http.Request {
+	t.Helper()
+	var r io.Reader
+	if body != nil {
+		b, err := json.Marshal(body)
+		if err != nil {
+			t.Fatalf("failed to marshal body: %v", err)
+		}
+		r = bytes.NewReader(b)
+	}
+	req := httptest.NewRequest(method, path, r)
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	if userID != "" {
+		req = req.WithContext(context.WithValue(req.Context(), domain.ContextKeyUser, userID))
+	}
+	return req
+}
+
 func TestCreateClient(t *testing.T) {
 	repo := newMockRepository()
-	portal := &mockPortal{}
-	store := storage.NewMemoryStore()
-	config := newTestConfig(repo, portal, store)
+	server := NewServer(newTestConfig(repo, &mockPortal{}, storage.NewMemoryStore()))
 
-	server := NewServer(config)
-
-	// Create request with user context
-	body := `{"client_name":"test-app","client_type":"public","description":"Test application","redirect_uris":["http://localhost:3000/callback"]}`
-	req := httptest.NewRequest(http.MethodPost, "/v1/clients", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req = req.WithContext(context.WithValue(req.Context(), domain.ContextKeyUser, domain.TrapID("testuser")))
+	req := newRequest(t, http.MethodPost, "/v1/clients", models.CreateClientRequest{
+		ClientName:   "test-app",
+		ClientType:   "public",
+		Description:  "Test application",
+		RedirectUris: []string{"http://localhost:3000/callback"},
+	}, "testuser")
 
 	rec := httptest.NewRecorder()
 	server.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusCreated {
-		t.Errorf("expected status %d, got %d: %s", http.StatusCreated, rec.Code, rec.Body.String())
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, rec.Code, rec.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp models.Client
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to parse response: %v", err)
 	}
 
-	if resp["client_name"] != "test-app" {
-		t.Errorf("expected client_name 'test-app', got %v", resp["client_name"])
+	if resp.ClientName != "test-app" {
+		t.Errorf("expected client_name 'test-app', got %v", resp.ClientName)
 	}
-	if resp["client_type"] != "public" {
-		t.Errorf("expected client_type 'public', got %v", resp["client_type"])
+	if resp.ClientType != "public" {
+		t.Errorf("expected client_type 'public', got %v", resp.ClientType)
 	}
 }
 
 func TestListClients(t *testing.T) {
 	repo := newMockRepository()
-	portal := &mockPortal{}
-	store := storage.NewMemoryStore()
-	config := newTestConfig(repo, portal, store)
-
-	// Pre-populate with a client
 	testClientID := uuid.New()
 	repo.clients[testClientID.String()] = domain.Client{
 		ID:           domain.ClientID(testClientID),
-		UserID:       domain.TrapID("testuser"),
+		UserID:       "testuser",
 		Type:         domain.ClientTypePublic,
 		Name:         "existing-app",
 		Description:  "Existing application",
 		RedirectURIs: []string{"http://localhost:3000/callback"},
 	}
 
-	server := NewServer(config)
+	server := NewServer(newTestConfig(repo, &mockPortal{}, storage.NewMemoryStore()))
 
-	req := httptest.NewRequest(http.MethodGet, "/v1/clients", nil)
-	req = req.WithContext(context.WithValue(req.Context(), domain.ContextKeyUser, domain.TrapID("testuser")))
-
+	req := newRequest(t, http.MethodGet, "/v1/clients", nil, "testuser")
 	rec := httptest.NewRecorder()
 	server.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
-		t.Errorf("expected status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
 	}
 
-	var resp []map[string]interface{}
+	var resp []models.Client
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to parse response: %v", err)
 	}
 
 	if len(resp) != 1 {
-		t.Errorf("expected 1 client, got %d", len(resp))
+		t.Fatalf("expected 1 client, got %d", len(resp))
 	}
-	if resp[0]["client_name"] != "existing-app" {
-		t.Errorf("expected client_name 'existing-app', got %v", resp[0]["client_name"])
+	if resp[0].ClientName != "existing-app" {
+		t.Errorf("expected client_name 'existing-app', got %v", resp[0].ClientName)
 	}
 }
 
 func TestUpdateClient(t *testing.T) {
 	repo := newMockRepository()
-	portal := &mockPortal{}
-	store := storage.NewMemoryStore()
-	config := newTestConfig(repo, portal, store)
-
-	// Pre-populate with a client
 	testClientID := uuid.New()
 	repo.clients[testClientID.String()] = domain.Client{
 		ID:           domain.ClientID(testClientID),
-		UserID:       domain.TrapID("testuser"),
+		UserID:       "testuser",
 		Type:         domain.ClientTypePublic,
 		Name:         "original-name",
 		Description:  "Original description",
 		RedirectURIs: []string{"http://localhost:3000/callback"},
 	}
 
-	server := NewServer(config)
+	server := NewServer(newTestConfig(repo, &mockPortal{}, storage.NewMemoryStore()))
 
-	body := `{"client_name":"updated-name","client_type":"confidential","description":"Updated description","redirect_uris":["http://localhost:4000/callback"]}`
-	req := httptest.NewRequest(http.MethodPut, "/v1/clients/"+testClientID.String(), strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req = req.WithContext(context.WithValue(req.Context(), domain.ContextKeyUser, domain.TrapID("testuser")))
+	req := newRequest(t, http.MethodPut, "/v1/clients/"+testClientID.String(), models.UpdateClientRequest{
+		ClientName:   "updated-name",
+		ClientType:   "confidential",
+		Description:  "Updated description",
+		RedirectUris: []string{"http://localhost:4000/callback"},
+	}, "testuser")
 
 	rec := httptest.NewRecorder()
 	server.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
-		t.Errorf("expected status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp models.Client
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to parse response: %v", err)
 	}
 
-	if resp["client_name"] != "updated-name" {
-		t.Errorf("expected client_name 'updated-name', got %v", resp["client_name"])
+	if resp.ClientName != "updated-name" {
+		t.Errorf("expected client_name 'updated-name', got %v", resp.ClientName)
 	}
 }
 
 func TestDeleteClient(t *testing.T) {
 	repo := newMockRepository()
-	portal := &mockPortal{}
-	store := storage.NewMemoryStore()
-	config := newTestConfig(repo, portal, store)
-
-	// Pre-populate with a client
 	testClientID := uuid.New()
 	repo.clients[testClientID.String()] = domain.Client{
 		ID:           domain.ClientID(testClientID),
-		UserID:       domain.TrapID("testuser"),
+		UserID:       "testuser",
 		Type:         domain.ClientTypePublic,
 		Name:         "to-be-deleted",
 		Description:  "Will be deleted",
 		RedirectURIs: []string{"http://localhost:3000/callback"},
 	}
 
-	server := NewServer(config)
+	server := NewServer(newTestConfig(repo, &mockPortal{}, storage.NewMemoryStore()))
 
-	req := httptest.NewRequest(http.MethodDelete, "/v1/clients/"+testClientID.String(), nil)
-	req = req.WithContext(context.WithValue(req.Context(), domain.ContextKeyUser, domain.TrapID("testuser")))
-
+	req := newRequest(t, http.MethodDelete, "/v1/clients/"+testClientID.String(), nil, "testuser")
 	rec := httptest.NewRecorder()
 	server.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusNoContent {
-		t.Errorf("expected status %d, got %d: %s", http.StatusNoContent, rec.Code, rec.Body.String())
+		t.Fatalf("expected status %d, got %d: %s", http.StatusNoContent, rec.Code, rec.Body.String())
 	}
 
-	// Verify client was deleted
 	if _, exists := repo.clients[testClientID.String()]; exists {
 		t.Error("expected client to be deleted from repository")
 	}
@@ -372,16 +374,14 @@ func TestDeleteClient(t *testing.T) {
 
 func TestCreateClientUnauthorized(t *testing.T) {
 	repo := newMockRepository()
-	portal := &mockPortal{}
-	store := storage.NewMemoryStore()
-	config := newTestConfig(repo, portal, store)
+	server := NewServer(newTestConfig(repo, &mockPortal{}, storage.NewMemoryStore()))
 
-	server := NewServer(config)
-
-	body := `{"client_name":"test-app","client_type":"public","description":"Test application","redirect_uris":["http://localhost:3000/callback"]}`
-	req := httptest.NewRequest(http.MethodPost, "/v1/clients", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	// No user context set
+	req := newRequest(t, http.MethodPost, "/v1/clients", models.CreateClientRequest{
+		ClientName:   "test-app",
+		ClientType:   "public",
+		Description:  "Test application",
+		RedirectUris: []string{"http://localhost:3000/callback"},
+	}, "") // No user
 
 	rec := httptest.NewRecorder()
 	server.ServeHTTP(rec, req)
