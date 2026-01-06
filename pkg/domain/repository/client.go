@@ -20,11 +20,11 @@ type UpdateClientParams struct {
 	RedirectURIs []string
 }
 
-type OIDCClientRepository interface {
-	CreateOIDCClient(ctx context.Context, params CreateClientParams) (domain.Client, error)
-	GetOIDCClient(ctx context.Context, id domain.ClientID) (domain.Client, error)
-	ListOIDCClients(ctx context.Context) ([]domain.Client, error)
-	UpdateOIDCClient(ctx context.Context, id domain.ClientID, params UpdateClientParams) (domain.Client, error)
-	UpdateOIDCClientSecret(ctx context.Context, id domain.ClientID, secretHash *string) (domain.Client, error)
-	DeleteOIDCClient(ctx context.Context, id domain.ClientID) error
+type ClientRepository interface {
+	CreateClient(ctx context.Context, params CreateClientParams) (domain.Client, error)
+	GetClient(ctx context.Context, id domain.ClientID) (domain.Client, error)
+	ListClients(ctx context.Context) ([]domain.Client, error)
+	UpdateClient(ctx context.Context, id domain.ClientID, params UpdateClientParams) (domain.Client, error)
+	UpdateClientSecret(ctx context.Context, id domain.ClientID, secretHash *string) (domain.Client, error)
+	DeleteClient(ctx context.Context, id domain.ClientID) error
 }

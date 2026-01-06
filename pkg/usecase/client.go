@@ -40,7 +40,7 @@ func (u *UseCase) CreateClient(ctx context.Context, params CreateClientParams) (
 		secretHash = &hash
 	}
 
-	client, err := u.repo.CreateOIDCClient(ctx, repository.CreateClientParams{
+	client, err := u.repo.CreateClient(ctx, repository.CreateClientParams{
 		ID:           id,
 		SecretHash:   secretHash,
 		Name:         params.Name,
@@ -55,7 +55,7 @@ func (u *UseCase) CreateClient(ctx context.Context, params CreateClientParams) (
 }
 
 func (u *UseCase) ListClients(ctx context.Context) ([]domain.Client, error) {
-	clients, err := u.repo.ListOIDCClients(ctx)
+	clients, err := u.repo.ListClients(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to list clients")
 	}
@@ -70,7 +70,7 @@ type UpdateClientParams struct {
 }
 
 func (u *UseCase) UpdateClient(ctx context.Context, id domain.ClientID, params UpdateClientParams) (domain.Client, error) {
-	newclient, err := u.repo.UpdateOIDCClient(ctx, id, repository.UpdateClientParams{
+	newclient, err := u.repo.UpdateClient(ctx, id, repository.UpdateClientParams{
 		Name:         params.Name,
 		Type:         params.Type,
 		RedirectURIs: params.RedirectURIs,
@@ -92,7 +92,7 @@ func (u *UseCase) UpdateClientSecret(ctx context.Context, id domain.ClientID) (U
 	rawSecret := random.GenerateRandomString(32)
 	hash := hashSecret(rawSecret)
 
-	newclient, err := u.repo.UpdateOIDCClientSecret(ctx, id, &hash)
+	newclient, err := u.repo.UpdateClientSecret(ctx, id, &hash)
 	if err != nil {
 		return UpdateClientSecretResult{}, errors.Wrap(err, "Failed to update client secret")
 	}
@@ -101,7 +101,7 @@ func (u *UseCase) UpdateClientSecret(ctx context.Context, id domain.ClientID) (U
 }
 
 func (u *UseCase) DeleteClient(ctx context.Context, id domain.ClientID) error {
-	err := u.repo.DeleteOIDCClient(ctx, id)
+	err := u.repo.DeleteClient(ctx, id)
 	if err != nil {
 		return errors.Wrap(err, "Failed to delete client")
 	}

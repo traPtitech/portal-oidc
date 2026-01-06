@@ -31,8 +31,8 @@ type UpdateClientSecretResponse struct {
 	ClientSecret string `json:"client_secret"`
 }
 
-// CreateOIDCClientJSONRequestBody defines body for CreateOIDCClient for application/json ContentType.
-type CreateOIDCClientJSONRequestBody = CreateClientRequest
+// CreateClientJSONRequestBody defines body for CreateClient for application/json ContentType.
+type CreateClientJSONRequestBody = CreateClientRequest
 
-// UpdateOIDCClientJSONRequestBody defines body for UpdateOIDCClient for application/json ContentType.
-type UpdateOIDCClientJSONRequestBody = UpdateClientRequest
+// UpdateClientJSONRequestBody defines body for UpdateClient for application/json ContentType.
+type UpdateClientJSONRequestBody = UpdateClientRequest
