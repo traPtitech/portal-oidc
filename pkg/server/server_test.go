@@ -50,7 +50,7 @@ func TestCreateClient(t *testing.T) {
 
 	req := newRequest(t, http.MethodPost, "/v1/clients", models.CreateClientRequest{
 		Name:         "test-app",
-		ClientType:   "public",
+		Type:         models.CreateClientRequestTypePublic,
 		RedirectUris: []string{"http://localhost:3000/callback"},
 	}, "testuser")
 
@@ -69,8 +69,8 @@ func TestCreateClient(t *testing.T) {
 	if resp.Name != "test-app" {
 		t.Errorf("expected name 'test-app', got %v", resp.Name)
 	}
-	if resp.ClientType != "public" {
-		t.Errorf("expected client_type 'public', got %v", resp.ClientType)
+	if resp.Type != models.ClientTypePublic {
+		t.Errorf("expected type 'public', got %v", resp.Type)
 	}
 }
 
@@ -121,7 +121,7 @@ func TestUpdateClient(t *testing.T) {
 
 	req := newRequest(t, http.MethodPut, "/v1/clients/"+testClientID.String(), models.UpdateClientRequest{
 		Name:         "updated-name",
-		ClientType:   "confidential",
+		Type:         models.Confidential,
 		RedirectUris: []string{"http://localhost:4000/callback"},
 	}, "testuser")
 
@@ -173,7 +173,7 @@ func TestCreateClientUnauthorized(t *testing.T) {
 
 	req := newRequest(t, http.MethodPost, "/v1/clients", models.CreateClientRequest{
 		Name:         "test-app",
-		ClientType:   "public",
+		Type:         models.CreateClientRequestTypePublic,
 		RedirectUris: []string{"http://localhost:3000/callback"},
 	}, "") // No user
 

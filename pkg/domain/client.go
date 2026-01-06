@@ -13,6 +13,10 @@ func (c ClientID) String() string {
 	return uuid.UUID(c).String()
 }
 
+func (c ClientID) UUID() uuid.UUID {
+	return uuid.UUID(c)
+}
+
 type ClientType string
 
 func (c ClientType) String() string {
