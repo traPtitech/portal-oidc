@@ -65,8 +65,8 @@ func (h *Handler) AuthEndpoint(c echo.Context) error {
 	}
 
 	// 同意検証
-	if redirect := h.checkConsent(c, ar, session.UserID, clientID); redirect != nil {
-		return redirect
+	if err := h.checkConsent(c, ar, session.UserID, clientID); err != nil {
+		return nil
 	}
 
 	// スコープを許可
@@ -86,7 +86,10 @@ func (h *Handler) AuthEndpoint(c echo.Context) error {
 	return nil
 }
 
-var errAuthHandled = errors.New("auth error already handled")
+var (
+	errAuthHandled    = errors.New("auth error already handled")
+	errConsentPending = errors.New("consent redirect issued")
+)
 
 func (h *Handler) validateSession(c echo.Context, ar fosite.AuthorizeRequester, clientIDStr string) (*domain.Session, error) {
 	ctx := c.Request().Context()
@@ -123,15 +126,17 @@ func (h *Handler) checkConsent(c echo.Context, ar fosite.AuthorizeRequester, use
 	consent, err := h.usecase.GetUserConsent(ctx, userID, clientID)
 	if err != nil {
 		if errors.Is(err, usecase.ErrConsentNotFound) {
-			return c.Redirect(http.StatusFound, "/oauth2/consent")
+			_ = c.Redirect(http.StatusFound, "/oauth2/consent")
+			return errConsentPending
 		}
 		h.oauth2.WriteAuthorizeError(ctx, c.Response().Writer, ar, err)
-		return nil
+		return errAuthHandled
 	}
 
 	for _, scope := range ar.GetRequestedScopes() {
 		if !slices.Contains(consent.Scopes, scope) {
-			return c.Redirect(http.StatusFound, "/oauth2/consent")
+			_ = c.Redirect(http.StatusFound, "/oauth2/consent")
+			return errConsentPending
 		}
 	}
 

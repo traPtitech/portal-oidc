@@ -2,47 +2,37 @@ package server
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/ory/fosite"
 	"github.com/rs/cors"
 
+	"github.com/traPtitech/portal-oidc/pkg/domain/portal"
+	"github.com/traPtitech/portal-oidc/pkg/domain/repository"
 	repov1 "github.com/traPtitech/portal-oidc/pkg/infrastructure/mariadb/v1"
+	oauth2infra "github.com/traPtitech/portal-oidc/pkg/infrastructure/oauth2"
 	portalv1 "github.com/traPtitech/portal-oidc/pkg/infrastructure/portal/v1"
 	v1 "github.com/traPtitech/portal-oidc/pkg/interface/handler/v1"
 	"github.com/traPtitech/portal-oidc/pkg/usecase"
 )
 
 func NewServer(config Config) http.Handler {
-	// Use injected dependencies if provided, otherwise create from config
-	repo := config.Repository
-	if repo == nil {
-		var err error
-		repo, err = repov1.NewRepository(config.DB)
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	po := config.PortalImpl
-	if po == nil {
-		var err error
-		po, err = portalv1.NewPortal(config.Portal.DB)
-		if err != nil {
-			panic(err)
-		}
-	}
+	repo := initRepository(config)
+	po := initPortal(config)
+	oauth2Provider := initOAuth2Provider(config, repo)
 
 	uc := usecase.NewUseCase(repo, po)
-
-	// TODO: Initialize fosite OAuth2Provider when OAuth2 endpoints are needed
-	handlerConf := v1.HandlerConfig{
+	handler := v1.NewHandler(uc, oauth2Provider, v1.HandlerConfig{
 		Issuer:          config.Host,
-		SessionLifespan: 24 * time.Hour,
-	}
-	handler := v1.NewHandler(uc, nil, handlerConf)
+		SessionLifespan: DefaultSessionLifespan,
+	})
 
 	e := echo.New()
+
+	// OAuth2 endpoints
+	e.GET("/oauth2/authorize", handler.AuthEndpoint)
+	e.POST("/oauth2/token", handler.TokenEndpoint)
+	e.POST("/login", handler.LoginHandler)
 
 	// Client management endpoints
 	e.POST("/v1/clients", handler.CreateClientHandler)
@@ -52,11 +42,48 @@ func NewServer(config Config) http.Handler {
 	e.DELETE("/v1/clients/:clientId", handler.DeleteClientHandler)
 
 	return cors.New(cors.Options{
-		AllowOriginFunc: func(origin string) bool {
-			return true
-		},
+		AllowOriginFunc:  func(origin string) bool { return true },
 		AllowedHeaders:   []string{"*"},
 		ExposedHeaders:   []string{"Set-Cookie", "Cookie"},
 		AllowCredentials: true,
 	}).Handler(e)
+}
+
+func initRepository(config Config) repository.Repository {
+	if config.Repository != nil {
+		return config.Repository
+	}
+	repo, err := repov1.NewRepository(config.DB)
+	if err != nil {
+		panic(err)
+	}
+	return repo
+}
+
+func initPortal(config Config) portal.Portal {
+	if config.PortalImpl != nil {
+		return config.PortalImpl
+	}
+	po, err := portalv1.NewPortal(config.Portal.DB)
+	if err != nil {
+		panic(err)
+	}
+	return po
+}
+
+func initOAuth2Provider(config Config, repo repository.Repository) fosite.OAuth2Provider {
+	if config.OAuth2Provider != nil {
+		return config.OAuth2Provider
+	}
+	secret := []byte(config.OAuthSecret)
+	if len(secret) == 0 {
+		secret = []byte("default-secret-for-development-only")
+	}
+	provider, _ := oauth2infra.NewProvider(repo, oauth2infra.Config{
+		Issuer:              config.Host,
+		Secret:              secret,
+		AuthCodeLifespan:    DefaultAuthCodeLifespan,
+		AccessTokenLifespan: DefaultAccessTokenLifespan,
+	})
+	return provider
 }
