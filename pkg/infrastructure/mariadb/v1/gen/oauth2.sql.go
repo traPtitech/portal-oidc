@@ -15,35 +15,29 @@ import (
 const createClient = `-- name: CreateClient :exec
 
 INSERT INTO clients (
-    id,
-    user_id,
-    type,
+    client_id,
+    client_secret_hash,
     name,
-    description,
-    secret_key,
+    client_type,
     redirect_uris
-) VALUES (?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?)
 `
 
 type CreateClientParams struct {
-	ID           string
-	UserID       string
-	Type         string
-	Name         string
-	Description  string
-	SecretKey    string
-	RedirectUris json.RawMessage
+	ClientID         string
+	ClientSecretHash sql.NullString
+	Name             string
+	ClientType       string
+	RedirectUris     json.RawMessage
 }
 
 // Client queries (OAuthクライアント)
 func (q *Queries) CreateClient(ctx context.Context, arg CreateClientParams) error {
 	_, err := q.db.ExecContext(ctx, createClient,
-		arg.ID,
-		arg.UserID,
-		arg.Type,
+		arg.ClientID,
+		arg.ClientSecretHash,
 		arg.Name,
-		arg.Description,
-		arg.SecretKey,
+		arg.ClientType,
 		arg.RedirectUris,
 	)
 	return err
@@ -134,11 +128,11 @@ func (q *Queries) CreateUserConsent(ctx context.Context, arg CreateUserConsentPa
 }
 
 const deleteClient = `-- name: DeleteClient :exec
-DELETE FROM clients WHERE id = ?
+DELETE FROM clients WHERE client_id = ?
 `
 
-func (q *Queries) DeleteClient(ctx context.Context, id string) error {
-	_, err := q.db.ExecContext(ctx, deleteClient, id)
+func (q *Queries) DeleteClient(ctx context.Context, clientID string) error {
+	_, err := q.db.ExecContext(ctx, deleteClient, clientID)
 	return err
 }
 
@@ -170,19 +164,17 @@ func (q *Queries) DeleteLoginSession(ctx context.Context, id string) error {
 }
 
 const getClient = `-- name: GetClient :one
-SELECT id, user_id, name, type, description, secret_key, redirect_uris, created_at, updated_at FROM clients WHERE id = ?
+SELECT client_id, client_secret_hash, name, client_type, redirect_uris, created_at, updated_at FROM clients WHERE client_id = ?
 `
 
-func (q *Queries) GetClient(ctx context.Context, id string) (Client, error) {
-	row := q.db.QueryRowContext(ctx, getClient, id)
+func (q *Queries) GetClient(ctx context.Context, clientID string) (Client, error) {
+	row := q.db.QueryRowContext(ctx, getClient, clientID)
 	var i Client
 	err := row.Scan(
-		&i.ID,
-		&i.UserID,
+		&i.ClientID,
+		&i.ClientSecretHash,
 		&i.Name,
-		&i.Type,
-		&i.Description,
-		&i.SecretKey,
+		&i.ClientType,
 		&i.RedirectUris,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -254,12 +246,12 @@ func (q *Queries) GetUserConsent(ctx context.Context, arg GetUserConsentParams) 
 	return i, err
 }
 
-const listClientsByUserID = `-- name: ListClientsByUserID :many
-SELECT id, user_id, name, type, description, secret_key, redirect_uris, created_at, updated_at FROM clients WHERE user_id = ?
+const listClients = `-- name: ListClients :many
+SELECT client_id, client_secret_hash, name, client_type, redirect_uris, created_at, updated_at FROM clients
 `
 
-func (q *Queries) ListClientsByUserID(ctx context.Context, userID string) ([]Client, error) {
-	rows, err := q.db.QueryContext(ctx, listClientsByUserID, userID)
+func (q *Queries) ListClients(ctx context.Context) ([]Client, error) {
+	rows, err := q.db.QueryContext(ctx, listClients)
 	if err != nil {
 		return nil, err
 	}
@@ -268,12 +260,10 @@ func (q *Queries) ListClientsByUserID(ctx context.Context, userID string) ([]Cli
 	for rows.Next() {
 		var i Client
 		if err := rows.Scan(
-			&i.ID,
-			&i.UserID,
+			&i.ClientID,
+			&i.ClientSecretHash,
 			&i.Name,
-			&i.Type,
-			&i.Description,
-			&i.SecretKey,
+			&i.ClientType,
 			&i.RedirectUris,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -353,45 +343,42 @@ func (q *Queries) RevokeUserConsent(ctx context.Context, arg RevokeUserConsentPa
 
 const updateClient = `-- name: UpdateClient :exec
 UPDATE clients SET
-    type = ?,
     name = ?,
-    description = ?,
+    client_type = ?,
     redirect_uris = ?
-WHERE id = ?
+WHERE client_id = ?
 `
 
 type UpdateClientParams struct {
-	Type         string
 	Name         string
-	Description  string
+	ClientType   string
 	RedirectUris json.RawMessage
-	ID           string
+	ClientID     string
 }
 
 func (q *Queries) UpdateClient(ctx context.Context, arg UpdateClientParams) error {
 	_, err := q.db.ExecContext(ctx, updateClient,
-		arg.Type,
 		arg.Name,
-		arg.Description,
+		arg.ClientType,
 		arg.RedirectUris,
-		arg.ID,
+		arg.ClientID,
 	)
 	return err
 }
 
 const updateClientSecret = `-- name: UpdateClientSecret :exec
 UPDATE clients SET
-    secret_key = ?
-WHERE id = ?
+    client_secret_hash = ?
+WHERE client_id = ?
 `
 
 type UpdateClientSecretParams struct {
-	SecretKey string
-	ID        string
+	ClientSecretHash sql.NullString
+	ClientID         string
 }
 
 func (q *Queries) UpdateClientSecret(ctx context.Context, arg UpdateClientSecretParams) error {
-	_, err := q.db.ExecContext(ctx, updateClientSecret, arg.SecretKey, arg.ID)
+	_, err := q.db.ExecContext(ctx, updateClientSecret, arg.ClientSecretHash, arg.ClientID)
 	return err
 }
 

@@ -15,7 +15,8 @@ func clientToResponse(c domain.Client, secret *string) models.Client {
 		ClientId:     c.ID.String(),
 		ClientSecret: secret,
 		ClientType:   c.Type.String(),
-		Name:         c.Name,
+		ClientName:   c.Name,
+		Description:  "", // TODO: add description to domain.Client if needed
 		RedirectUris: c.RedirectURIs,
 	}
 }
@@ -39,7 +40,7 @@ func (h *Handler) CreateClientHandler(c echo.Context) error {
 	}
 
 	result, err := h.usecase.CreateClient(ctx, usecase.CreateClientParams{
-		Name:         req.Name,
+		Name:         req.ClientName,
 		Type:         ctype,
 		RedirectURIs: req.RedirectUris,
 	})
@@ -90,7 +91,7 @@ func (h *Handler) UpdateClientHandler(c echo.Context) error {
 	}
 
 	client, err := h.usecase.UpdateClient(ctx, domain.ClientID(id), usecase.UpdateClientParams{
-		Name:         req.Name,
+		Name:         req.ClientName,
 		Type:         ctype,
 		RedirectURIs: req.RedirectUris,
 	})

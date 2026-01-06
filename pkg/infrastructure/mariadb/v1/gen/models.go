@@ -11,15 +11,13 @@ import (
 )
 
 type Client struct {
-	ID           string
-	UserID       string
-	Name         string
-	Type         string
-	Description  string
-	SecretKey    string
-	RedirectUris json.RawMessage
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ClientID         string
+	ClientSecretHash sql.NullString
+	Name             string
+	ClientType       string
+	RedirectUris     json.RawMessage
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 }
 
 type LoginSession struct {

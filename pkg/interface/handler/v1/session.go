@@ -79,26 +79,3 @@ func newFositeSession(
 	}
 	return sess
 }
-
-func emptyFositeSession() *openid.DefaultSession {
-	now := time.Now().UTC()
-	expiresAt := now.Add(time.Hour) // デフォルト1時間
-
-	return &openid.DefaultSession{
-		ExpiresAt: map[fosite.TokenType]time.Time{
-			fosite.AccessToken:   expiresAt,
-			fosite.RefreshToken:  expiresAt,
-			fosite.AuthorizeCode: expiresAt,
-			fosite.IDToken:       expiresAt,
-		},
-		Claims: &jwt.IDTokenClaims{
-			IssuedAt:    now,
-			RequestedAt: now,
-			ExpiresAt:   expiresAt,
-			Extra:       make(map[string]any),
-		},
-		Headers: &jwt.Headers{
-			Extra: make(map[string]any),
-		},
-	}
-}

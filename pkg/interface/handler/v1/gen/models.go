@@ -6,24 +6,32 @@ package models
 // Client defines model for Client.
 type Client struct {
 	ClientId     string   `json:"client_id"`
-	ClientSecret *string  `json:"client_secret,omitempty"` // Only returned on creation
+	ClientName   string   `json:"client_name"`
+	ClientSecret *string  `json:"client_secret,omitempty"`
 	ClientType   string   `json:"client_type"`
-	Name         string   `json:"name"`
+	Description  string   `json:"description"`
 	RedirectUris []string `json:"redirect_uris"`
 }
 
 // CreateClientRequest defines model for CreateClientRequest.
 type CreateClientRequest struct {
+	ClientName   string   `json:"client_name"`
 	ClientType   string   `json:"client_type"`
-	Name         string   `json:"name"`
+	Description  string   `json:"description"`
 	RedirectUris []string `json:"redirect_uris"`
 }
 
 // UpdateClientRequest defines model for UpdateClientRequest.
 type UpdateClientRequest struct {
+	ClientName   string   `json:"client_name"`
 	ClientType   string   `json:"client_type"`
-	Name         string   `json:"name"`
+	Description  string   `json:"description"`
 	RedirectUris []string `json:"redirect_uris"`
+}
+
+// UpdateClientSecretRequest defines model for UpdateClientSecretRequest.
+type UpdateClientSecretRequest struct {
+	ClientId string `json:"client_id"`
 }
 
 // UpdateClientSecretResponse defines model for UpdateClientSecretResponse.
@@ -31,8 +39,11 @@ type UpdateClientSecretResponse struct {
 	ClientSecret string `json:"client_secret"`
 }
 
-// CreateClientJSONRequestBody defines body for CreateClient for application/json ContentType.
-type CreateClientJSONRequestBody = CreateClientRequest
+// CreateOIDCClientJSONRequestBody defines body for CreateOIDCClient for application/json ContentType.
+type CreateOIDCClientJSONRequestBody = CreateClientRequest
 
-// UpdateClientJSONRequestBody defines body for UpdateClient for application/json ContentType.
-type UpdateClientJSONRequestBody = UpdateClientRequest
+// UpdateOIDCClientSecretJSONRequestBody defines body for UpdateOIDCClientSecret for application/json ContentType.
+type UpdateOIDCClientSecretJSONRequestBody = UpdateClientSecretRequest
+
+// UpdateOIDCClientJSONRequestBody defines body for UpdateOIDCClient for application/json ContentType.
+type UpdateOIDCClientJSONRequestBody = UpdateClientRequest
