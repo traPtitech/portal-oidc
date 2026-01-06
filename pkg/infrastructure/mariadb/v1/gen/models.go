@@ -5,27 +5,10 @@
 package mariadb
 
 import (
+	"database/sql"
 	"encoding/json"
 	"time"
 )
-
-type AuthorizationSession struct {
-	ID   string
-	Type string
-	// SHA384
-	Signature         string
-	ClientID          string
-	UserID            string
-	Scope             string
-	GrantedScope      string
-	FormData          string
-	Session           string
-	Active            bool
-	RequestedAudience string
-	GrantedAudience   string
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
-}
 
 type Client struct {
 	ID           string
@@ -37,4 +20,36 @@ type Client struct {
 	RedirectUris json.RawMessage
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
+}
+
+type LoginSession struct {
+	ID          string
+	ClientID    string
+	RedirectUri string
+	FormData    string
+	Scopes      json.RawMessage
+	CreatedAt   time.Time
+	ExpiresAt   time.Time
+}
+
+type Session struct {
+	ID           string
+	UserID       string
+	UserAgent    sql.NullString
+	IpAddress    sql.NullString
+	AuthTime     time.Time
+	LastActiveAt time.Time
+	ExpiresAt    time.Time
+	RevokedAt    sql.NullTime
+	CreatedAt    time.Time
+}
+
+type UserConsent struct {
+	ID        string
+	UserID    string
+	ClientID  string
+	Scopes    json.RawMessage
+	GrantedAt time.Time
+	ExpiresAt sql.NullTime
+	RevokedAt sql.NullTime
 }

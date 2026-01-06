@@ -8,4 +8,5 @@ import (
 
 type Portal interface {
 	GetGrade(ctx context.Context, id domain.TrapID) (string, error)
+	VerifyPassword(ctx context.Context, id domain.TrapID, password string) (bool, error)
 }

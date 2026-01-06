@@ -6,8 +6,10 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
+	"github.com/ory/fosite"
 	"github.com/ory/fosite/handler/openid"
 	"github.com/ory/fosite/token/jwt"
+
 	"github.com/traPtitech/portal-oidc/pkg/domain"
 )
 
@@ -50,7 +52,13 @@ func newFositeSession(
 	opts ...func(sess *openid.DefaultSession),
 ) *openid.DefaultSession {
 	sess := &openid.DefaultSession{
-		Subject: userID.String(),
+		Subject:  userID.String(),
+		Username: userID.String(),
+		ExpiresAt: map[fosite.TokenType]time.Time{
+			fosite.AccessToken:   expiresAt,
+			fosite.RefreshToken:  expiresAt,
+			fosite.AuthorizeCode: authTime.Add(10 * time.Minute),
+		},
 		Claims: &jwt.IDTokenClaims{
 			Subject:     userID.String(),
 			Issuer:      issuer,
@@ -59,6 +67,7 @@ func newFositeSession(
 			ExpiresAt:   expiresAt,
 			RequestedAt: time.Now(),
 			AuthTime:    authTime,
+			Extra:       make(map[string]any),
 		},
 		Headers: &jwt.Headers{
 			Extra: make(map[string]any),
@@ -72,9 +81,20 @@ func newFositeSession(
 }
 
 func emptyFositeSession() *openid.DefaultSession {
+	now := time.Now().UTC()
+	expiresAt := now.Add(time.Hour) // デフォルト1時間
+
 	return &openid.DefaultSession{
+		ExpiresAt: map[fosite.TokenType]time.Time{
+			fosite.AccessToken:   expiresAt,
+			fosite.RefreshToken:  expiresAt,
+			fosite.AuthorizeCode: expiresAt,
+			fosite.IDToken:       expiresAt,
+		},
 		Claims: &jwt.IDTokenClaims{
-			RequestedAt: time.Now().UTC(),
+			IssuedAt:    now,
+			RequestedAt: now,
+			ExpiresAt:   expiresAt,
 			Extra:       make(map[string]any),
 		},
 		Headers: &jwt.Headers{

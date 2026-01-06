@@ -119,9 +119,9 @@ func (m *Repository) DeleteLoginSession(_ context.Context, id domain.LoginSessio
 	return nil
 }
 
-// OIDCClientRepository methods
+// ClientRepository methods
 
-func (m *Repository) CreateOIDCClient(_ context.Context, params repository.CreateClientParams) (domain.Client, error) {
+func (m *Repository) CreateClient(_ context.Context, params repository.CreateClientParams) (domain.Client, error) {
 	client := domain.Client{
 		ID:           params.ID,
 		SecretHash:   params.SecretHash,
@@ -135,7 +135,7 @@ func (m *Repository) CreateOIDCClient(_ context.Context, params repository.Creat
 	return client, nil
 }
 
-func (m *Repository) GetOIDCClient(_ context.Context, id domain.ClientID) (domain.Client, error) {
+func (m *Repository) GetClient(_ context.Context, id domain.ClientID) (domain.Client, error) {
 	client, ok := m.Clients[uuid.UUID(id).String()]
 	if !ok {
 		return domain.Client{}, sql.ErrNoRows
@@ -143,7 +143,7 @@ func (m *Repository) GetOIDCClient(_ context.Context, id domain.ClientID) (domai
 	return client, nil
 }
 
-func (m *Repository) ListOIDCClients(_ context.Context) ([]domain.Client, error) {
+func (m *Repository) ListClients(_ context.Context) ([]domain.Client, error) {
 	var clients []domain.Client
 	for _, c := range m.Clients {
 		clients = append(clients, c)
@@ -151,7 +151,7 @@ func (m *Repository) ListOIDCClients(_ context.Context) ([]domain.Client, error)
 	return clients, nil
 }
 
-func (m *Repository) UpdateOIDCClient(_ context.Context, id domain.ClientID, params repository.UpdateClientParams) (domain.Client, error) {
+func (m *Repository) UpdateClient(_ context.Context, id domain.ClientID, params repository.UpdateClientParams) (domain.Client, error) {
 	client, ok := m.Clients[uuid.UUID(id).String()]
 	if !ok {
 		return domain.Client{}, sql.ErrNoRows
@@ -164,7 +164,7 @@ func (m *Repository) UpdateOIDCClient(_ context.Context, id domain.ClientID, par
 	return client, nil
 }
 
-func (m *Repository) UpdateOIDCClientSecret(_ context.Context, id domain.ClientID, secretHash *string) (domain.Client, error) {
+func (m *Repository) UpdateClientSecret(_ context.Context, id domain.ClientID, secretHash *string) (domain.Client, error) {
 	client, ok := m.Clients[uuid.UUID(id).String()]
 	if !ok {
 		return domain.Client{}, sql.ErrNoRows
@@ -175,7 +175,7 @@ func (m *Repository) UpdateOIDCClientSecret(_ context.Context, id domain.ClientI
 	return client, nil
 }
 
-func (m *Repository) DeleteOIDCClient(_ context.Context, id domain.ClientID) error {
+func (m *Repository) DeleteClient(_ context.Context, id domain.ClientID) error {
 	delete(m.Clients, uuid.UUID(id).String())
 	return nil
 }
