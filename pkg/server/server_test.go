@@ -8,10 +8,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
-	"github.com/ory/fosite/storage"
 
 	"github.com/traPtitech/portal-oidc/pkg/domain"
 	"github.com/traPtitech/portal-oidc/pkg/infrastructure/mock"
@@ -20,12 +18,9 @@ import (
 
 func newTestConfig(repo *mock.Repository, portal *mock.Portal) Config {
 	return Config{
-		OIDCSecret:      "k8sSecretValue2024!@#$%^&*()_+Ab", //nolint:gosec // test credentials
-		Host:            "http://localhost:8080",
-		SessionLifespan: time.Hour,
-		Repository:      repo,
-		PortalImpl:      portal,
-		Store:           storage.NewMemoryStore(),
+		Host:       "http://localhost:8080",
+		Repository: repo,
+		PortalImpl: portal,
 	}
 }
 

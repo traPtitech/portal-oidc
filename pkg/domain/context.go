@@ -1,3 +1,5 @@
 package domain
 
-var ContextKeyUser = struct{}{}
+type contextKey string
+
+const ContextKeyUser contextKey = "user"

@@ -9,180 +9,60 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"time"
 )
 
 const createClient = `-- name: CreateClient :exec
 
 INSERT INTO clients (
-    id,
-    user_id,
-    type,
+    client_id,
+    client_secret_hash,
     name,
-    description,
-    secret_key,
+    client_type,
     redirect_uris
-) VALUES (?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?)
 `
 
 type CreateClientParams struct {
-	ID           string
-	UserID       string
-	Type         string
-	Name         string
-	Description  string
-	SecretKey    string
-	RedirectUris json.RawMessage
+	ClientID         string
+	ClientSecretHash sql.NullString
+	Name             string
+	ClientType       string
+	RedirectUris     json.RawMessage
 }
 
 // Client queries (OAuthクライアント)
 func (q *Queries) CreateClient(ctx context.Context, arg CreateClientParams) error {
 	_, err := q.db.ExecContext(ctx, createClient,
-		arg.ID,
-		arg.UserID,
-		arg.Type,
+		arg.ClientID,
+		arg.ClientSecretHash,
 		arg.Name,
-		arg.Description,
-		arg.SecretKey,
+		arg.ClientType,
 		arg.RedirectUris,
 	)
 	return err
 }
 
-const createLoginSession = `-- name: CreateLoginSession :exec
-
-INSERT INTO login_sessions (id, client_id, redirect_uri, form_data, scopes, expires_at)
-VALUES (?, ?, ?, ?, ?, ?)
-`
-
-type CreateLoginSessionParams struct {
-	ID          string
-	ClientID    string
-	RedirectUri string
-	FormData    string
-	Scopes      json.RawMessage
-	ExpiresAt   time.Time
-}
-
-// Login session queries (OAuth認可フロー一時状態)
-func (q *Queries) CreateLoginSession(ctx context.Context, arg CreateLoginSessionParams) error {
-	_, err := q.db.ExecContext(ctx, createLoginSession,
-		arg.ID,
-		arg.ClientID,
-		arg.RedirectUri,
-		arg.FormData,
-		arg.Scopes,
-		arg.ExpiresAt,
-	)
-	return err
-}
-
-const createSession = `-- name: CreateSession :exec
-
-INSERT INTO sessions (id, user_id, user_agent, ip_address, auth_time, last_active_at, expires_at)
-VALUES (?, ?, ?, ?, ?, ?, ?)
-`
-
-type CreateSessionParams struct {
-	ID           string
-	UserID       string
-	UserAgent    sql.NullString
-	IpAddress    sql.NullString
-	AuthTime     time.Time
-	LastActiveAt time.Time
-	ExpiresAt    time.Time
-}
-
-// Session queries (ログインセッション)
-func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) error {
-	_, err := q.db.ExecContext(ctx, createSession,
-		arg.ID,
-		arg.UserID,
-		arg.UserAgent,
-		arg.IpAddress,
-		arg.AuthTime,
-		arg.LastActiveAt,
-		arg.ExpiresAt,
-	)
-	return err
-}
-
-const createUserConsent = `-- name: CreateUserConsent :exec
-
-INSERT INTO user_consents (id, user_id, client_id, scopes, granted_at)
-VALUES (?, ?, ?, ?, ?)
-`
-
-type CreateUserConsentParams struct {
-	ID        string
-	UserID    string
-	ClientID  string
-	Scopes    json.RawMessage
-	GrantedAt time.Time
-}
-
-// User consent queries (ユーザー同意情報)
-func (q *Queries) CreateUserConsent(ctx context.Context, arg CreateUserConsentParams) error {
-	_, err := q.db.ExecContext(ctx, createUserConsent,
-		arg.ID,
-		arg.UserID,
-		arg.ClientID,
-		arg.Scopes,
-		arg.GrantedAt,
-	)
-	return err
-}
-
 const deleteClient = `-- name: DeleteClient :exec
-DELETE FROM clients WHERE id = ?
+DELETE FROM clients WHERE client_id = ?
 `
 
-func (q *Queries) DeleteClient(ctx context.Context, id string) error {
-	_, err := q.db.ExecContext(ctx, deleteClient, id)
-	return err
-}
-
-const deleteExpiredLoginSessions = `-- name: DeleteExpiredLoginSessions :exec
-DELETE FROM login_sessions WHERE expires_at < NOW()
-`
-
-func (q *Queries) DeleteExpiredLoginSessions(ctx context.Context) error {
-	_, err := q.db.ExecContext(ctx, deleteExpiredLoginSessions)
-	return err
-}
-
-const deleteExpiredSessions = `-- name: DeleteExpiredSessions :exec
-DELETE FROM sessions WHERE expires_at < NOW()
-`
-
-func (q *Queries) DeleteExpiredSessions(ctx context.Context) error {
-	_, err := q.db.ExecContext(ctx, deleteExpiredSessions)
-	return err
-}
-
-const deleteLoginSession = `-- name: DeleteLoginSession :exec
-DELETE FROM login_sessions WHERE id = ?
-`
-
-func (q *Queries) DeleteLoginSession(ctx context.Context, id string) error {
-	_, err := q.db.ExecContext(ctx, deleteLoginSession, id)
+func (q *Queries) DeleteClient(ctx context.Context, clientID string) error {
+	_, err := q.db.ExecContext(ctx, deleteClient, clientID)
 	return err
 }
 
 const getClient = `-- name: GetClient :one
-SELECT id, user_id, name, type, description, secret_key, redirect_uris, created_at, updated_at FROM clients WHERE id = ?
+SELECT client_id, client_secret_hash, name, client_type, redirect_uris, created_at, updated_at FROM clients WHERE client_id = ?
 `
 
-func (q *Queries) GetClient(ctx context.Context, id string) (Client, error) {
-	row := q.db.QueryRowContext(ctx, getClient, id)
+func (q *Queries) GetClient(ctx context.Context, clientID string) (Client, error) {
+	row := q.db.QueryRowContext(ctx, getClient, clientID)
 	var i Client
 	err := row.Scan(
-		&i.ID,
-		&i.UserID,
+		&i.ClientID,
+		&i.ClientSecretHash,
 		&i.Name,
-		&i.Type,
-		&i.Description,
-		&i.SecretKey,
+		&i.ClientType,
 		&i.RedirectUris,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -190,76 +70,12 @@ func (q *Queries) GetClient(ctx context.Context, id string) (Client, error) {
 	return i, err
 }
 
-const getLoginSession = `-- name: GetLoginSession :one
-SELECT id, client_id, redirect_uri, form_data, scopes, created_at, expires_at FROM login_sessions WHERE id = ?
+const listClients = `-- name: ListClients :many
+SELECT client_id, client_secret_hash, name, client_type, redirect_uris, created_at, updated_at FROM clients
 `
 
-func (q *Queries) GetLoginSession(ctx context.Context, id string) (LoginSession, error) {
-	row := q.db.QueryRowContext(ctx, getLoginSession, id)
-	var i LoginSession
-	err := row.Scan(
-		&i.ID,
-		&i.ClientID,
-		&i.RedirectUri,
-		&i.FormData,
-		&i.Scopes,
-		&i.CreatedAt,
-		&i.ExpiresAt,
-	)
-	return i, err
-}
-
-const getSession = `-- name: GetSession :one
-SELECT id, user_id, user_agent, ip_address, auth_time, last_active_at, expires_at, revoked_at, created_at FROM sessions WHERE id = ? AND revoked_at IS NULL
-`
-
-func (q *Queries) GetSession(ctx context.Context, id string) (Session, error) {
-	row := q.db.QueryRowContext(ctx, getSession, id)
-	var i Session
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.UserAgent,
-		&i.IpAddress,
-		&i.AuthTime,
-		&i.LastActiveAt,
-		&i.ExpiresAt,
-		&i.RevokedAt,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const getUserConsent = `-- name: GetUserConsent :one
-SELECT id, user_id, client_id, scopes, granted_at, expires_at, revoked_at FROM user_consents WHERE user_id = ? AND client_id = ? AND revoked_at IS NULL
-`
-
-type GetUserConsentParams struct {
-	UserID   string
-	ClientID string
-}
-
-func (q *Queries) GetUserConsent(ctx context.Context, arg GetUserConsentParams) (UserConsent, error) {
-	row := q.db.QueryRowContext(ctx, getUserConsent, arg.UserID, arg.ClientID)
-	var i UserConsent
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.ClientID,
-		&i.Scopes,
-		&i.GrantedAt,
-		&i.ExpiresAt,
-		&i.RevokedAt,
-	)
-	return i, err
-}
-
-const listClientsByUserID = `-- name: ListClientsByUserID :many
-SELECT id, user_id, name, type, description, secret_key, redirect_uris, created_at, updated_at FROM clients WHERE user_id = ?
-`
-
-func (q *Queries) ListClientsByUserID(ctx context.Context, userID string) ([]Client, error) {
-	rows, err := q.db.QueryContext(ctx, listClientsByUserID, userID)
+func (q *Queries) ListClients(ctx context.Context) ([]Client, error) {
+	rows, err := q.db.QueryContext(ctx, listClients)
 	if err != nil {
 		return nil, err
 	}
@@ -268,12 +84,10 @@ func (q *Queries) ListClientsByUserID(ctx context.Context, userID string) ([]Cli
 	for rows.Next() {
 		var i Client
 		if err := rows.Scan(
-			&i.ID,
-			&i.UserID,
+			&i.ClientID,
+			&i.ClientSecretHash,
 			&i.Name,
-			&i.Type,
-			&i.Description,
-			&i.SecretKey,
+			&i.ClientType,
 			&i.RedirectUris,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -291,141 +105,43 @@ func (q *Queries) ListClientsByUserID(ctx context.Context, userID string) ([]Cli
 	return items, nil
 }
 
-const listSessionsByUser = `-- name: ListSessionsByUser :many
-SELECT id, user_id, user_agent, ip_address, auth_time, last_active_at, expires_at, revoked_at, created_at FROM sessions WHERE user_id = ? AND revoked_at IS NULL ORDER BY last_active_at DESC
-`
-
-func (q *Queries) ListSessionsByUser(ctx context.Context, userID string) ([]Session, error) {
-	rows, err := q.db.QueryContext(ctx, listSessionsByUser, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Session
-	for rows.Next() {
-		var i Session
-		if err := rows.Scan(
-			&i.ID,
-			&i.UserID,
-			&i.UserAgent,
-			&i.IpAddress,
-			&i.AuthTime,
-			&i.LastActiveAt,
-			&i.ExpiresAt,
-			&i.RevokedAt,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const revokeSession = `-- name: RevokeSession :exec
-UPDATE sessions SET revoked_at = NOW() WHERE id = ?
-`
-
-func (q *Queries) RevokeSession(ctx context.Context, id string) error {
-	_, err := q.db.ExecContext(ctx, revokeSession, id)
-	return err
-}
-
-const revokeUserConsent = `-- name: RevokeUserConsent :exec
-UPDATE user_consents SET revoked_at = NOW() WHERE user_id = ? AND client_id = ?
-`
-
-type RevokeUserConsentParams struct {
-	UserID   string
-	ClientID string
-}
-
-func (q *Queries) RevokeUserConsent(ctx context.Context, arg RevokeUserConsentParams) error {
-	_, err := q.db.ExecContext(ctx, revokeUserConsent, arg.UserID, arg.ClientID)
-	return err
-}
-
 const updateClient = `-- name: UpdateClient :exec
 UPDATE clients SET
-    type = ?,
     name = ?,
-    description = ?,
+    client_type = ?,
     redirect_uris = ?
-WHERE id = ?
+WHERE client_id = ?
 `
 
 type UpdateClientParams struct {
-	Type         string
 	Name         string
-	Description  string
+	ClientType   string
 	RedirectUris json.RawMessage
-	ID           string
+	ClientID     string
 }
 
 func (q *Queries) UpdateClient(ctx context.Context, arg UpdateClientParams) error {
 	_, err := q.db.ExecContext(ctx, updateClient,
-		arg.Type,
 		arg.Name,
-		arg.Description,
+		arg.ClientType,
 		arg.RedirectUris,
-		arg.ID,
+		arg.ClientID,
 	)
 	return err
 }
 
 const updateClientSecret = `-- name: UpdateClientSecret :exec
 UPDATE clients SET
-    secret_key = ?
-WHERE id = ?
+    client_secret_hash = ?
+WHERE client_id = ?
 `
 
 type UpdateClientSecretParams struct {
-	SecretKey string
-	ID        string
+	ClientSecretHash sql.NullString
+	ClientID         string
 }
 
 func (q *Queries) UpdateClientSecret(ctx context.Context, arg UpdateClientSecretParams) error {
-	_, err := q.db.ExecContext(ctx, updateClientSecret, arg.SecretKey, arg.ID)
-	return err
-}
-
-const updateSessionLastActive = `-- name: UpdateSessionLastActive :exec
-UPDATE sessions SET last_active_at = ? WHERE id = ?
-`
-
-type UpdateSessionLastActiveParams struct {
-	LastActiveAt time.Time
-	ID           string
-}
-
-func (q *Queries) UpdateSessionLastActive(ctx context.Context, arg UpdateSessionLastActiveParams) error {
-	_, err := q.db.ExecContext(ctx, updateSessionLastActive, arg.LastActiveAt, arg.ID)
-	return err
-}
-
-const updateUserConsentScopes = `-- name: UpdateUserConsentScopes :exec
-UPDATE user_consents SET scopes = ?, granted_at = ? WHERE user_id = ? AND client_id = ?
-`
-
-type UpdateUserConsentScopesParams struct {
-	Scopes    json.RawMessage
-	GrantedAt time.Time
-	UserID    string
-	ClientID  string
-}
-
-func (q *Queries) UpdateUserConsentScopes(ctx context.Context, arg UpdateUserConsentScopesParams) error {
-	_, err := q.db.ExecContext(ctx, updateUserConsentScopes,
-		arg.Scopes,
-		arg.GrantedAt,
-		arg.UserID,
-		arg.ClientID,
-	)
+	_, err := q.db.ExecContext(ctx, updateClientSecret, arg.ClientSecretHash, arg.ClientID)
 	return err
 }
