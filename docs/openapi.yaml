@@ -2,7 +2,7 @@ openapi: 3.0.0
 info:
   title: Portal OIDC
   version: "3.0"
-  description: OIDCクライアント管理周りのAPI
+  description: 認可認証基盤
   license:
     name: MIT
     url: "https://github.com/traPtitech/portal-oidc/blob/master/LICENSE"
@@ -14,13 +14,163 @@ servers:
     description: local
 
 tags:
+  - name: oauth2
+    description: OAuth2エンドポイント
+  - name: auth
+    description: 認証エンドポイント
   - name: client
-    description: OIDCクライアント管理
+    description: クライアント管理
 
 paths:
+  "/oauth2/authorize":
+    get:
+      summary: 認可エンドポイント
+      description: OAuth2 Authorization Code Flowの認可エンドポイント
+      operationId: Authorize
+      tags:
+        - oauth2
+      parameters:
+        - name: client_id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: クライアントID
+        - name: redirect_uri
+          in: query
+          required: true
+          schema:
+            type: string
+          description: リダイレクトURI
+        - name: response_type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [code]
+          description: レスポンスタイプ (code のみ)
+        - name: scope
+          in: query
+          required: true
+          schema:
+            type: string
+          description: スコープ (スペース区切り)
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+          description: CSRF対策用のstate
+        - name: code_challenge
+          in: query
+          required: true
+          schema:
+            type: string
+          description: PKCE code_challenge
+        - name: code_challenge_method
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [S256]
+          description: PKCE code_challenge_method (S256 のみ)
+      responses:
+        "302":
+          description: |
+            - 認証済み: redirect_uri に認可コード付きでリダイレクト
+            - 未認証: /login にリダイレクト
+        "400":
+          description: Bad Request (不正なパラメータ)
+
+  "/oauth2/token":
+    post:
+      summary: トークンエンドポイント
+      description: 認可コードをアクセストークンに交換
+      operationId: Token
+      tags:
+        - oauth2
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - grant_type
+                - code
+                - redirect_uri
+                - client_id
+                - code_verifier
+              properties:
+                grant_type:
+                  type: string
+                  enum: [authorization_code]
+                code:
+                  type: string
+                  description: 認可コード
+                redirect_uri:
+                  type: string
+                  description: 認可リクエスト時と同じredirect_uri
+                client_id:
+                  type: string
+                  description: クライアントID
+                code_verifier:
+                  type: string
+                  description: PKCE code_verifier
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "400":
+          description: Bad Request
+
+  "/login":
+    post:
+      summary: ログイン
+      description: traP IDとパスワードで認証
+      operationId: Login
+      tags:
+        - auth
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - trap_id
+                - password
+              properties:
+                trap_id:
+                  type: string
+                  description: traP ID
+                password:
+                  type: string
+                  description: パスワード
+      responses:
+        "302":
+          description: 認証成功、/oauth2/authorize にリダイレクト
+        "400":
+          description: Bad Request (認可リクエストが見つからない)
+        "401":
+          description: Unauthorized (認証失敗)
+
   "/v1/clients":
     post:
-      summary: OIDCクライアントを作成
+      summary: クライアントを作成
+      description: クライアントを作成します
+      operationId: CreateClient
+      tags:
+        - client
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateClientRequest"
       responses:
         "201":
           description: Created
@@ -30,19 +180,15 @@ paths:
                 $ref: "#/components/schemas/Client"
         "400":
           description: Bad Request
-      description: OIDCクライアントを作成します
-      operationId: CreateOIDCClient
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateClientRequest"
-        description: ""
+        "401":
+          description: Unauthorized
+
+    get:
+      summary: クライアント一覧を取得
+      description: クライアントの一覧を取得します
+      operationId: ListClients
       tags:
         - client
-    get:
-      summary: OIDCクライアントを取得
-      description: OIDCクライアントを取得します
       responses:
         "200":
           description: OK
@@ -52,15 +198,29 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Client"
-        "400":
-          description: Bad Request
-      operationId: ListOIDCClients
-      tags:
-        - client
+        "401":
+          description: Unauthorized
+
   "/v1/clients/{clientId}":
     put:
-      summary: OIDCクライアントを更新
-      description: OIDCクライアントを更新します
+      summary: クライアントを更新
+      description: クライアントを更新します
+      operationId: UpdateClient
+      tags:
+        - client
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateClientRequest"
       responses:
         "200":
           description: OK
@@ -70,46 +230,46 @@ paths:
                 $ref: "#/components/schemas/Client"
         "400":
           description: Bad Request
-      operationId: UpdateOIDCClient
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not Found
+
+    delete:
+      summary: クライアントを削除
+      description: クライアントを削除します
+      operationId: DeleteClient
+      tags:
+        - client
       parameters:
         - name: clientId
           in: path
           required: true
           schema:
             type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateClientRequest"
-        description: ""
-      tags:
-        - client
-    delete:
-      summary: OIDCクライアントを削除
-      description: OIDCクライアントを削除します
+            format: uuid
       responses:
         "204":
           description: No Content
-      operationId: DeleteOIDCClient
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not Found
+
+  "/v1/clients/{clientId}/secret":
+    put:
+      summary: クライアントシークレットを更新
+      description: クライアントのシークレットを再生成します
+      operationId: UpdateClientSecret
+      tags:
+        - client
       parameters:
         - name: clientId
           in: path
           required: true
           schema:
             type: string
-      tags:
-        - client
-  "/v1/clients/secret":
-    post:
-      summary: OIDCクライアントのシークレットを更新
-      description: OIDCクライアントのシークレットを更新します
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateClientSecretRequest"
-        description: ""
+            format: uuid
       responses:
         "200":
           description: OK
@@ -117,82 +277,110 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UpdateClientSecretResponse"
-        "400":
-          description: Bad Request
-      operationId: UpdateOIDCClientSecret
-
-      tags:
-        - client
-
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not Found
 
 components:
   schemas:
+    TokenResponse:
+      type: object
+      required:
+        - access_token
+        - token_type
+        - expires_in
+      properties:
+        access_token:
+          type: string
+          description: アクセストークン (JWT)
+        token_type:
+          type: string
+          enum: [Bearer]
+        expires_in:
+          type: integer
+          description: 有効期限 (秒)
+        scope:
+          type: string
+          description: 付与されたスコープ
+
     Client:
       type: object
       required:
-        - client_id
-        - client_type
-        - client_name
-        - description
+        - id
+        - name
+        - type
         - redirect_uris
       properties:
-        client_id:
+        id:
           type: string
-        client_type:
+          format: uuid
+          description: クライアントID
+        name:
           type: string
-        client_name:
+          description: クライアント名
+        type:
           type: string
-        client_secret:
+          enum: [public, confidential]
+          description: クライアントタイプ
+        secret:
           type: string
+          description: クライアントシークレット (作成時のみ返却、confidentialの場合)
         description:
           type: string
+          description: 説明
         redirect_uris:
           type: array
           items:
             type: string
+          description: 許可するリダイレクトURI
+
     CreateClientRequest:
       type: object
       required:
-        - client_type
-        - client_name
-        - description
+        - name
+        - type
         - redirect_uris
       properties:
-        client_type:
+        name:
           type: string
-        client_name:
+          description: クライアント名
+        type:
           type: string
+          enum: [public, confidential]
+          description: クライアントタイプ
         description:
           type: string
+          description: 説明
         redirect_uris:
           type: array
           items:
             type: string
+          description: 許可するリダイレクトURI
+
     UpdateClientRequest:
       type: object
       required:
-        - client_type
-        - client_name
-        - description
+        - name
+        - type
         - redirect_uris
       properties:
-        client_type:
+        name:
           type: string
-        client_name:
+          description: クライアント名
+        type:
           type: string
+          enum: [public, confidential]
+          description: クライアントタイプ
         description:
           type: string
+          description: 説明
         redirect_uris:
           type: array
           items:
             type: string
-    UpdateClientSecretRequest:
-      type: object
-      required:
-        - client_id
-      properties:
-        client_id:
-          type: string
+          description: 許可するリダイレクトURI
+
     UpdateClientSecretResponse:
       type: object
       required:
@@ -200,3 +388,4 @@ components:
       properties:
         client_secret:
           type: string
+          description: 新しいクライアントシークレット

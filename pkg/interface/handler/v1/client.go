@@ -12,11 +12,10 @@ import (
 
 func clientToResponse(c domain.Client, secret *string) models.Client {
 	return models.Client{
-		ClientId:     c.ID.String(),
-		ClientSecret: secret,
-		ClientType:   c.Type.String(),
-		ClientName:   c.Name,
-		Description:  "", // TODO: add description to domain.Client if needed
+		Id:           c.ID.UUID(),
+		Secret:       secret,
+		Type:         models.ClientType(c.Type.String()),
+		Name:         c.Name,
 		RedirectUris: c.RedirectURIs,
 	}
 }
@@ -24,12 +23,12 @@ func clientToResponse(c domain.Client, secret *string) models.Client {
 func (h *Handler) CreateClientHandler(c echo.Context) error {
 	ctx := c.Request().Context()
 
-	req := models.CreateClientRequest{}
+	var req models.CreateClientRequest
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, err)
 	}
 
-	ctype, err := domain.ParseClientType(req.ClientType)
+	ctype, err := domain.ParseClientType(string(req.Type))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, err)
 	}
@@ -40,7 +39,7 @@ func (h *Handler) CreateClientHandler(c echo.Context) error {
 	}
 
 	result, err := h.usecase.CreateClient(ctx, usecase.CreateClientParams{
-		Name:         req.ClientName,
+		Name:         req.Name,
 		Type:         ctype,
 		RedirectURIs: req.RedirectUris,
 	})
@@ -75,12 +74,12 @@ func (h *Handler) ListClientsHandler(c echo.Context) error {
 func (h *Handler) UpdateClientHandler(c echo.Context) error {
 	ctx := c.Request().Context()
 
-	req := models.UpdateClientRequest{}
+	var req models.UpdateClientRequest
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, err)
 	}
 
-	ctype, err := domain.ParseClientType(req.ClientType)
+	ctype, err := domain.ParseClientType(string(req.Type))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, err)
 	}
@@ -91,7 +90,7 @@ func (h *Handler) UpdateClientHandler(c echo.Context) error {
 	}
 
 	client, err := h.usecase.UpdateClient(ctx, domain.ClientID(id), usecase.UpdateClientParams{
-		Name:         req.ClientName,
+		Name:         req.Name,
 		Type:         ctype,
 		RedirectURIs: req.RedirectUris,
 	})

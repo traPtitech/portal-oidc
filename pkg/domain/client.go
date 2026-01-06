@@ -13,6 +13,10 @@ func (c ClientID) String() string {
 	return uuid.UUID(c).String()
 }
 
+func (c ClientID) UUID() uuid.UUID {
+	return uuid.UUID(c)
+}
+
 func ParseClientID(s string) (ClientID, error) {
 	id, err := uuid.Parse(s)
 	if err != nil {
