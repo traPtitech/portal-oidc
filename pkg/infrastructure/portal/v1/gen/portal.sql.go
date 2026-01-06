@@ -10,26 +10,36 @@ import (
 	"database/sql"
 )
 
+const getUserAuth = `-- name: GetUserAuth :one
+SELECT id, password
+FROM users WHERE id = ?
+`
+
+type GetUserAuthRow struct {
+	ID       string
+	Password sql.NullString
+}
+
+func (q *Queries) GetUserAuth(ctx context.Context, id string) (GetUserAuthRow, error) {
+	row := q.db.QueryRowContext(ctx, getUserAuth, id)
+	var i GetUserAuthRow
+	err := row.Scan(&i.ID, &i.Password)
+	return i, err
+}
+
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, student_number, alphabetic_name, email
+SELECT id, student_number
 FROM users WHERE id = ?
 `
 
 type GetUserByIDRow struct {
-	ID             string
-	StudentNumber  sql.NullString
-	AlphabeticName sql.NullString
-	Email          sql.NullString
+	ID            string
+	StudentNumber sql.NullString
 }
 
 func (q *Queries) GetUserByID(ctx context.Context, id string) (GetUserByIDRow, error) {
 	row := q.db.QueryRowContext(ctx, getUserByID, id)
 	var i GetUserByIDRow
-	err := row.Scan(
-		&i.ID,
-		&i.StudentNumber,
-		&i.AlphabeticName,
-		&i.Email,
-	)
+	err := row.Scan(&i.ID, &i.StudentNumber)
 	return i, err
 }

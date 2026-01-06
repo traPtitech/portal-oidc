@@ -19,10 +19,30 @@ const (
 	CreateClientRequestTypePublic       CreateClientRequestType = "public"
 )
 
+// Defines values for TokenResponseTokenType.
+const (
+	Bearer TokenResponseTokenType = "Bearer"
+)
+
 // Defines values for UpdateClientRequestType.
 const (
 	Confidential UpdateClientRequestType = "confidential"
 	Public       UpdateClientRequestType = "public"
+)
+
+// Defines values for AuthorizeParamsResponseType.
+const (
+	Code AuthorizeParamsResponseType = "code"
+)
+
+// Defines values for AuthorizeParamsCodeChallengeMethod.
+const (
+	S256 AuthorizeParamsCodeChallengeMethod = "S256"
+)
+
+// Defines values for TokenFormdataBodyGrantType.
+const (
+	AuthorizationCode TokenFormdataBodyGrantType = "authorization_code"
 )
 
 // Client defines model for Client.
@@ -67,6 +87,22 @@ type CreateClientRequest struct {
 // CreateClientRequestType クライアントタイプ
 type CreateClientRequestType string
 
+// TokenResponse defines model for TokenResponse.
+type TokenResponse struct {
+	// AccessToken アクセストークン (JWT)
+	AccessToken string `json:"access_token"`
+
+	// ExpiresIn 有効期限 (秒)
+	ExpiresIn int `json:"expires_in"`
+
+	// Scope 付与されたスコープ
+	Scope     *string                `json:"scope,omitempty"`
+	TokenType TokenResponseTokenType `json:"token_type"`
+}
+
+// TokenResponseTokenType defines model for TokenResponse.TokenType.
+type TokenResponseTokenType string
+
 // UpdateClientRequest defines model for UpdateClientRequest.
 type UpdateClientRequest struct {
 	// Description 説明
@@ -90,6 +126,70 @@ type UpdateClientSecretResponse struct {
 	// ClientSecret 新しいクライアントシークレット
 	ClientSecret string `json:"client_secret"`
 }
+
+// LoginFormdataBody defines parameters for Login.
+type LoginFormdataBody struct {
+	// Password パスワード
+	Password string `form:"password" json:"password"`
+
+	// TrapId traP ID
+	TrapId string `form:"trap_id" json:"trap_id"`
+}
+
+// AuthorizeParams defines parameters for Authorize.
+type AuthorizeParams struct {
+	// ClientId クライアントID
+	ClientId string `form:"client_id" json:"client_id"`
+
+	// RedirectUri リダイレクトURI
+	RedirectUri string `form:"redirect_uri" json:"redirect_uri"`
+
+	// ResponseType レスポンスタイプ (code のみ)
+	ResponseType AuthorizeParamsResponseType `form:"response_type" json:"response_type"`
+
+	// Scope スコープ (スペース区切り)
+	Scope string `form:"scope" json:"scope"`
+
+	// State CSRF対策用のstate
+	State *string `form:"state,omitempty" json:"state,omitempty"`
+
+	// CodeChallenge PKCE code_challenge
+	CodeChallenge string `form:"code_challenge" json:"code_challenge"`
+
+	// CodeChallengeMethod PKCE code_challenge_method (S256 のみ)
+	CodeChallengeMethod AuthorizeParamsCodeChallengeMethod `form:"code_challenge_method" json:"code_challenge_method"`
+}
+
+// AuthorizeParamsResponseType defines parameters for Authorize.
+type AuthorizeParamsResponseType string
+
+// AuthorizeParamsCodeChallengeMethod defines parameters for Authorize.
+type AuthorizeParamsCodeChallengeMethod string
+
+// TokenFormdataBody defines parameters for Token.
+type TokenFormdataBody struct {
+	// ClientId クライアントID
+	ClientId string `form:"client_id" json:"client_id"`
+
+	// Code 認可コード
+	Code string `form:"code" json:"code"`
+
+	// CodeVerifier PKCE code_verifier
+	CodeVerifier string                     `form:"code_verifier" json:"code_verifier"`
+	GrantType    TokenFormdataBodyGrantType `form:"grant_type" json:"grant_type"`
+
+	// RedirectUri 認可リクエスト時と同じredirect_uri
+	RedirectUri string `form:"redirect_uri" json:"redirect_uri"`
+}
+
+// TokenFormdataBodyGrantType defines parameters for Token.
+type TokenFormdataBodyGrantType string
+
+// LoginFormdataRequestBody defines body for Login for application/x-www-form-urlencoded ContentType.
+type LoginFormdataRequestBody LoginFormdataBody
+
+// TokenFormdataRequestBody defines body for Token for application/x-www-form-urlencoded ContentType.
+type TokenFormdataRequestBody TokenFormdataBody
 
 // CreateClientJSONRequestBody defines body for CreateClient for application/json ContentType.
 type CreateClientJSONRequestBody = CreateClientRequest

@@ -10,6 +10,33 @@ import (
 	"time"
 )
 
+type AuthorizationCode struct {
+	Code                string
+	ClientID            string
+	UserID              string
+	RedirectUri         string
+	Scope               string
+	CodeChallenge       string
+	CodeChallengeMethod string
+	SessionData         string
+	Used                bool
+	ExpiresAt           time.Time
+	CreatedAt           time.Time
+}
+
+type AuthorizationRequest struct {
+	ID                  string
+	ClientID            string
+	RedirectUri         string
+	Scope               string
+	State               sql.NullString
+	CodeChallenge       string
+	CodeChallengeMethod string
+	UserID              sql.NullString
+	ExpiresAt           time.Time
+	CreatedAt           time.Time
+}
+
 type Client struct {
 	ClientID         string
 	ClientSecretHash sql.NullString
@@ -18,4 +45,15 @@ type Client struct {
 	RedirectUris     json.RawMessage
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
+}
+
+type Session struct {
+	ID           string
+	UserID       string
+	UserAgent    sql.NullString
+	IpAddress    sql.NullString
+	AuthTime     time.Time
+	LastActiveAt time.Time
+	ExpiresAt    time.Time
+	CreatedAt    time.Time
 }

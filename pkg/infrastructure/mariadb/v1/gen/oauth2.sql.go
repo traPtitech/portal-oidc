@@ -9,7 +9,74 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"time"
 )
+
+const createAuthorizationCode = `-- name: CreateAuthorizationCode :exec
+
+INSERT INTO authorization_codes (code, client_id, user_id, redirect_uri, scope, code_challenge, code_challenge_method, session_data, expires_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateAuthorizationCodeParams struct {
+	Code                string
+	ClientID            string
+	UserID              string
+	RedirectUri         string
+	Scope               string
+	CodeChallenge       string
+	CodeChallengeMethod string
+	SessionData         string
+	ExpiresAt           time.Time
+}
+
+// AuthorizationCode queries (認可コード)
+func (q *Queries) CreateAuthorizationCode(ctx context.Context, arg CreateAuthorizationCodeParams) error {
+	_, err := q.db.ExecContext(ctx, createAuthorizationCode,
+		arg.Code,
+		arg.ClientID,
+		arg.UserID,
+		arg.RedirectUri,
+		arg.Scope,
+		arg.CodeChallenge,
+		arg.CodeChallengeMethod,
+		arg.SessionData,
+		arg.ExpiresAt,
+	)
+	return err
+}
+
+const createAuthorizationRequest = `-- name: CreateAuthorizationRequest :exec
+
+INSERT INTO authorization_requests (id, client_id, redirect_uri, scope, state, code_challenge, code_challenge_method, expires_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateAuthorizationRequestParams struct {
+	ID                  string
+	ClientID            string
+	RedirectUri         string
+	Scope               string
+	State               sql.NullString
+	CodeChallenge       string
+	CodeChallengeMethod string
+	ExpiresAt           time.Time
+}
+
+// AuthorizationRequest queries (認可リクエスト一時保存)
+func (q *Queries) CreateAuthorizationRequest(ctx context.Context, arg CreateAuthorizationRequestParams) error {
+	_, err := q.db.ExecContext(ctx, createAuthorizationRequest,
+		arg.ID,
+		arg.ClientID,
+		arg.RedirectUri,
+		arg.Scope,
+		arg.State,
+		arg.CodeChallenge,
+		arg.CodeChallengeMethod,
+		arg.ExpiresAt,
+	)
+	return err
+}
 
 const createClient = `-- name: CreateClient :exec
 
@@ -30,7 +97,7 @@ type CreateClientParams struct {
 	RedirectUris     json.RawMessage
 }
 
-// Client queries (OAuthクライアント)
+// Client queries
 func (q *Queries) CreateClient(ctx context.Context, arg CreateClientParams) error {
 	_, err := q.db.ExecContext(ctx, createClient,
 		arg.ClientID,
@@ -42,6 +109,54 @@ func (q *Queries) CreateClient(ctx context.Context, arg CreateClientParams) erro
 	return err
 }
 
+const createSession = `-- name: CreateSession :exec
+
+INSERT INTO sessions (id, user_id, user_agent, ip_address, auth_time, last_active_at, expires_at)
+VALUES (?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateSessionParams struct {
+	ID           string
+	UserID       string
+	UserAgent    sql.NullString
+	IpAddress    sql.NullString
+	AuthTime     time.Time
+	LastActiveAt time.Time
+	ExpiresAt    time.Time
+}
+
+// Session queries (認証済みセッション)
+func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) error {
+	_, err := q.db.ExecContext(ctx, createSession,
+		arg.ID,
+		arg.UserID,
+		arg.UserAgent,
+		arg.IpAddress,
+		arg.AuthTime,
+		arg.LastActiveAt,
+		arg.ExpiresAt,
+	)
+	return err
+}
+
+const deleteAuthorizationCode = `-- name: DeleteAuthorizationCode :exec
+DELETE FROM authorization_codes WHERE code = ?
+`
+
+func (q *Queries) DeleteAuthorizationCode(ctx context.Context, code string) error {
+	_, err := q.db.ExecContext(ctx, deleteAuthorizationCode, code)
+	return err
+}
+
+const deleteAuthorizationRequest = `-- name: DeleteAuthorizationRequest :exec
+DELETE FROM authorization_requests WHERE id = ?
+`
+
+func (q *Queries) DeleteAuthorizationRequest(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, deleteAuthorizationRequest, id)
+	return err
+}
+
 const deleteClient = `-- name: DeleteClient :exec
 DELETE FROM clients WHERE client_id = ?
 `
@@ -49,6 +164,60 @@ DELETE FROM clients WHERE client_id = ?
 func (q *Queries) DeleteClient(ctx context.Context, clientID string) error {
 	_, err := q.db.ExecContext(ctx, deleteClient, clientID)
 	return err
+}
+
+const deleteSession = `-- name: DeleteSession :exec
+DELETE FROM sessions WHERE id = ?
+`
+
+func (q *Queries) DeleteSession(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, deleteSession, id)
+	return err
+}
+
+const getAuthorizationCode = `-- name: GetAuthorizationCode :one
+SELECT code, client_id, user_id, redirect_uri, scope, code_challenge, code_challenge_method, session_data, used, expires_at, created_at FROM authorization_codes WHERE code = ?
+`
+
+func (q *Queries) GetAuthorizationCode(ctx context.Context, code string) (AuthorizationCode, error) {
+	row := q.db.QueryRowContext(ctx, getAuthorizationCode, code)
+	var i AuthorizationCode
+	err := row.Scan(
+		&i.Code,
+		&i.ClientID,
+		&i.UserID,
+		&i.RedirectUri,
+		&i.Scope,
+		&i.CodeChallenge,
+		&i.CodeChallengeMethod,
+		&i.SessionData,
+		&i.Used,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getAuthorizationRequest = `-- name: GetAuthorizationRequest :one
+SELECT id, client_id, redirect_uri, scope, state, code_challenge, code_challenge_method, user_id, expires_at, created_at FROM authorization_requests WHERE id = ?
+`
+
+func (q *Queries) GetAuthorizationRequest(ctx context.Context, id string) (AuthorizationRequest, error) {
+	row := q.db.QueryRowContext(ctx, getAuthorizationRequest, id)
+	var i AuthorizationRequest
+	err := row.Scan(
+		&i.ID,
+		&i.ClientID,
+		&i.RedirectUri,
+		&i.Scope,
+		&i.State,
+		&i.CodeChallenge,
+		&i.CodeChallengeMethod,
+		&i.UserID,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const getClient = `-- name: GetClient :one
@@ -66,6 +235,26 @@ func (q *Queries) GetClient(ctx context.Context, clientID string) (Client, error
 		&i.RedirectUris,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getSession = `-- name: GetSession :one
+SELECT id, user_id, user_agent, ip_address, auth_time, last_active_at, expires_at, created_at FROM sessions WHERE id = ?
+`
+
+func (q *Queries) GetSession(ctx context.Context, id string) (Session, error) {
+	row := q.db.QueryRowContext(ctx, getSession, id)
+	var i Session
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.UserAgent,
+		&i.IpAddress,
+		&i.AuthTime,
+		&i.LastActiveAt,
+		&i.ExpiresAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -103,6 +292,29 @@ func (q *Queries) ListClients(ctx context.Context) ([]Client, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const markAuthorizationCodeUsed = `-- name: MarkAuthorizationCodeUsed :exec
+UPDATE authorization_codes SET used = TRUE WHERE code = ?
+`
+
+func (q *Queries) MarkAuthorizationCodeUsed(ctx context.Context, code string) error {
+	_, err := q.db.ExecContext(ctx, markAuthorizationCodeUsed, code)
+	return err
+}
+
+const updateAuthorizationRequestUserID = `-- name: UpdateAuthorizationRequestUserID :exec
+UPDATE authorization_requests SET user_id = ? WHERE id = ?
+`
+
+type UpdateAuthorizationRequestUserIDParams struct {
+	UserID sql.NullString
+	ID     string
+}
+
+func (q *Queries) UpdateAuthorizationRequestUserID(ctx context.Context, arg UpdateAuthorizationRequestUserIDParams) error {
+	_, err := q.db.ExecContext(ctx, updateAuthorizationRequestUserID, arg.UserID, arg.ID)
+	return err
 }
 
 const updateClient = `-- name: UpdateClient :exec

@@ -17,6 +17,14 @@ func (c ClientID) UUID() uuid.UUID {
 	return uuid.UUID(c)
 }
 
+func ParseClientID(s string) (ClientID, error) {
+	id, err := uuid.Parse(s)
+	if err != nil {
+		return ClientID{}, errors.Wrap(err, "invalid client id")
+	}
+	return ClientID(id), nil
+}
+
 type ClientType string
 
 func (c ClientType) String() string {
