@@ -3,100 +3,12 @@ package v1
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
-	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
 	"github.com/traPtitech/portal-oidc/pkg/domain"
 	mariadb "github.com/traPtitech/portal-oidc/pkg/infrastructure/mariadb/v1/gen"
 )
-
-func convertToDomainSession(sess *mariadb.Session) (domain.Session, error) {
-	sessionID, err := uuid.Parse(sess.ID)
-	if err != nil {
-		return domain.Session{}, errors.Wrap(err, "failed to parse session id")
-	}
-
-	var revokedAt *time.Time
-	if sess.RevokedAt.Valid {
-		revokedAt = &sess.RevokedAt.Time
-	}
-
-	return domain.Session{
-		ID:           domain.SessionID(sessionID),
-		UserID:       domain.TrapID(sess.UserID),
-		UserAgent:    sess.UserAgent.String,
-		IPAddress:    sess.IpAddress.String,
-		AuthTime:     sess.AuthTime,
-		LastActiveAt: sess.LastActiveAt,
-		ExpiresAt:    sess.ExpiresAt,
-		RevokedAt:    revokedAt,
-		CreatedAt:    sess.CreatedAt,
-	}, nil
-}
-
-func convertToDomainUserConsent(consent *mariadb.UserConsent) (domain.UserConsent, error) {
-	consentID, err := uuid.Parse(consent.ID)
-	if err != nil {
-		return domain.UserConsent{}, errors.Wrap(err, "failed to parse consent id")
-	}
-
-	clientID, err := uuid.Parse(consent.ClientID)
-	if err != nil {
-		return domain.UserConsent{}, errors.Wrap(err, "failed to parse client id")
-	}
-
-	var scopes []string
-	if err := json.Unmarshal(consent.Scopes, &scopes); err != nil {
-		return domain.UserConsent{}, errors.Wrap(err, "failed to unmarshal scopes")
-	}
-
-	var expiresAt, revokedAt *time.Time
-	if consent.ExpiresAt.Valid {
-		expiresAt = &consent.ExpiresAt.Time
-	}
-	if consent.RevokedAt.Valid {
-		revokedAt = &consent.RevokedAt.Time
-	}
-
-	return domain.UserConsent{
-		ID:        domain.UserConsentID(consentID),
-		UserID:    domain.TrapID(consent.UserID),
-		ClientID:  domain.ClientID(clientID),
-		Scopes:    scopes,
-		GrantedAt: consent.GrantedAt,
-		ExpiresAt: expiresAt,
-		RevokedAt: revokedAt,
-	}, nil
-}
-
-func convertToDomainLoginSession(sess *mariadb.LoginSession) (domain.LoginSession, error) {
-	sessionID, err := uuid.Parse(sess.ID)
-	if err != nil {
-		return domain.LoginSession{}, errors.Wrap(err, "failed to parse login session id")
-	}
-
-	clientID, err := uuid.Parse(sess.ClientID)
-	if err != nil {
-		return domain.LoginSession{}, errors.Wrap(err, "failed to parse client id")
-	}
-
-	var scopes []string
-	if err := json.Unmarshal(sess.Scopes, &scopes); err != nil {
-		return domain.LoginSession{}, errors.Wrap(err, "failed to unmarshal scopes")
-	}
-
-	return domain.LoginSession{
-		ID:          domain.LoginSessionID(sessionID),
-		ClientID:    domain.ClientID(clientID),
-		RedirectURI: sess.RedirectUri,
-		FormData:    sess.FormData,
-		Scopes:      scopes,
-		CreatedAt:   sess.CreatedAt,
-		ExpiresAt:   sess.ExpiresAt,
-	}, nil
-}
 
 // Session methods
 
@@ -121,140 +33,154 @@ func (r *MariaDBRepository) GetSession(ctx context.Context, id domain.SessionID)
 	if err != nil {
 		return domain.Session{}, errors.Wrap(err, "failed to get session")
 	}
-	return convertToDomainSession(&sess)
+
+	sessionID, err := uuid.Parse(sess.ID)
+	if err != nil {
+		return domain.Session{}, errors.Wrap(err, "failed to parse session id")
+	}
+
+	return domain.Session{
+		ID:           domain.SessionID(sessionID),
+		UserID:       domain.TrapID(sess.UserID),
+		UserAgent:    sess.UserAgent.String,
+		IPAddress:    sess.IpAddress.String,
+		AuthTime:     sess.AuthTime,
+		LastActiveAt: sess.LastActiveAt,
+		ExpiresAt:    sess.ExpiresAt,
+		CreatedAt:    sess.CreatedAt,
+	}, nil
 }
 
-func (r *MariaDBRepository) UpdateSessionLastActive(ctx context.Context, id domain.SessionID, lastActiveAt time.Time) error {
-	err := r.q.UpdateSessionLastActive(ctx, mariadb.UpdateSessionLastActiveParams{
-		ID:           uuid.UUID(id).String(),
-		LastActiveAt: lastActiveAt,
+func (r *MariaDBRepository) DeleteSession(ctx context.Context, id domain.SessionID) error {
+	err := r.q.DeleteSession(ctx, uuid.UUID(id).String())
+	if err != nil {
+		return errors.Wrap(err, "failed to delete session")
+	}
+	return nil
+}
+
+// AuthorizationRequest methods
+
+func (r *MariaDBRepository) CreateAuthorizationRequest(ctx context.Context, req domain.AuthorizationRequest) error {
+	err := r.q.CreateAuthorizationRequest(ctx, mariadb.CreateAuthorizationRequestParams{
+		ID:                  uuid.UUID(req.ID).String(),
+		ClientID:            req.ClientID,
+		RedirectUri:         req.RedirectURI,
+		Scope:               req.Scope,
+		State:               sql.NullString{String: req.State, Valid: req.State != ""},
+		CodeChallenge:       req.CodeChallenge,
+		CodeChallengeMethod: req.CodeChallengeMethod,
+		ExpiresAt:           req.ExpiresAt,
 	})
 	if err != nil {
-		return errors.Wrap(err, "failed to update session last active")
+		return errors.Wrap(err, "failed to create authorization request")
 	}
 	return nil
 }
 
-func (r *MariaDBRepository) RevokeSession(ctx context.Context, id domain.SessionID) error {
-	err := r.q.RevokeSession(ctx, uuid.UUID(id).String())
+func (r *MariaDBRepository) GetAuthorizationRequest(ctx context.Context, id domain.AuthorizationRequestID) (domain.AuthorizationRequest, error) {
+	req, err := r.q.GetAuthorizationRequest(ctx, uuid.UUID(id).String())
 	if err != nil {
-		return errors.Wrap(err, "failed to revoke session")
-	}
-	return nil
-}
-
-func (r *MariaDBRepository) ListSessionsByUser(ctx context.Context, userID domain.TrapID) ([]domain.Session, error) {
-	sessions, err := r.q.ListSessionsByUser(ctx, userID.String())
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to list sessions")
+		return domain.AuthorizationRequest{}, errors.Wrap(err, "failed to get authorization request")
 	}
 
-	result := make([]domain.Session, len(sessions))
-	for i, sess := range sessions {
-		s, err := convertToDomainSession(&sess)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to convert session")
-		}
-		result[i] = s
+	reqID, err := uuid.Parse(req.ID)
+	if err != nil {
+		return domain.AuthorizationRequest{}, errors.Wrap(err, "failed to parse authorization request id")
 	}
+
+	result := domain.AuthorizationRequest{
+		ID:                  domain.AuthorizationRequestID(reqID),
+		ClientID:            req.ClientID,
+		RedirectURI:         req.RedirectUri,
+		Scope:               req.Scope,
+		State:               req.State.String,
+		CodeChallenge:       req.CodeChallenge,
+		CodeChallengeMethod: req.CodeChallengeMethod,
+		ExpiresAt:           req.ExpiresAt,
+		CreatedAt:           req.CreatedAt,
+	}
+
+	if req.UserID.Valid {
+		userID := domain.TrapID(req.UserID.String)
+		result.UserID = &userID
+	}
+
 	return result, nil
 }
 
-// UserConsent methods
-
-func (r *MariaDBRepository) CreateUserConsent(ctx context.Context, consent domain.UserConsent) error {
-	scopes, err := json.Marshal(consent.Scopes)
-	if err != nil {
-		return errors.Wrap(err, "failed to marshal scopes")
-	}
-
-	err = r.q.CreateUserConsent(ctx, mariadb.CreateUserConsentParams{
-		ID:        uuid.UUID(consent.ID).String(),
-		UserID:    consent.UserID.String(),
-		ClientID:  uuid.UUID(consent.ClientID).String(),
-		Scopes:    scopes,
-		GrantedAt: consent.GrantedAt,
+func (r *MariaDBRepository) UpdateAuthorizationRequestUserID(ctx context.Context, id domain.AuthorizationRequestID, userID domain.TrapID) error {
+	err := r.q.UpdateAuthorizationRequestUserID(ctx, mariadb.UpdateAuthorizationRequestUserIDParams{
+		ID:     uuid.UUID(id).String(),
+		UserID: sql.NullString{String: userID.String(), Valid: true},
 	})
 	if err != nil {
-		return errors.Wrap(err, "failed to create user consent")
+		return errors.Wrap(err, "failed to update authorization request user id")
 	}
 	return nil
 }
 
-func (r *MariaDBRepository) GetUserConsent(ctx context.Context, userID domain.TrapID, clientID domain.ClientID) (domain.UserConsent, error) {
-	consent, err := r.q.GetUserConsent(ctx, mariadb.GetUserConsentParams{
-		UserID:   userID.String(),
-		ClientID: uuid.UUID(clientID).String(),
-	})
+func (r *MariaDBRepository) DeleteAuthorizationRequest(ctx context.Context, id domain.AuthorizationRequestID) error {
+	err := r.q.DeleteAuthorizationRequest(ctx, uuid.UUID(id).String())
 	if err != nil {
-		return domain.UserConsent{}, errors.Wrap(err, "failed to get user consent")
-	}
-	return convertToDomainUserConsent(&consent)
-}
-
-func (r *MariaDBRepository) UpdateUserConsentScopes(ctx context.Context, userID domain.TrapID, clientID domain.ClientID, scopes []string, grantedAt time.Time) error {
-	scopesJSON, err := json.Marshal(scopes)
-	if err != nil {
-		return errors.Wrap(err, "failed to marshal scopes")
-	}
-
-	err = r.q.UpdateUserConsentScopes(ctx, mariadb.UpdateUserConsentScopesParams{
-		UserID:    userID.String(),
-		ClientID:  uuid.UUID(clientID).String(),
-		Scopes:    scopesJSON,
-		GrantedAt: grantedAt,
-	})
-	if err != nil {
-		return errors.Wrap(err, "failed to update user consent scopes")
+		return errors.Wrap(err, "failed to delete authorization request")
 	}
 	return nil
 }
 
-func (r *MariaDBRepository) RevokeUserConsent(ctx context.Context, userID domain.TrapID, clientID domain.ClientID) error {
-	err := r.q.RevokeUserConsent(ctx, mariadb.RevokeUserConsentParams{
-		UserID:   userID.String(),
-		ClientID: uuid.UUID(clientID).String(),
+// AuthorizationCode methods
+
+func (r *MariaDBRepository) CreateAuthorizationCode(ctx context.Context, code domain.AuthorizationCode) error {
+	err := r.q.CreateAuthorizationCode(ctx, mariadb.CreateAuthorizationCodeParams{
+		Code:                code.Code,
+		ClientID:            code.ClientID,
+		UserID:              code.UserID.String(),
+		RedirectUri:         code.RedirectURI,
+		Scope:               code.Scope,
+		CodeChallenge:       code.CodeChallenge,
+		CodeChallengeMethod: code.CodeChallengeMethod,
+		SessionData:         code.SessionData,
+		ExpiresAt:           code.ExpiresAt,
 	})
 	if err != nil {
-		return errors.Wrap(err, "failed to revoke user consent")
+		return errors.Wrap(err, "failed to create authorization code")
 	}
 	return nil
 }
 
-// LoginSession methods
-
-func (r *MariaDBRepository) CreateLoginSession(ctx context.Context, sess domain.LoginSession) error {
-	scopes, err := json.Marshal(sess.Scopes)
+func (r *MariaDBRepository) GetAuthorizationCode(ctx context.Context, code string) (domain.AuthorizationCode, error) {
+	c, err := r.q.GetAuthorizationCode(ctx, code)
 	if err != nil {
-		return errors.Wrap(err, "failed to marshal scopes")
+		return domain.AuthorizationCode{}, errors.Wrap(err, "failed to get authorization code")
 	}
 
-	err = r.q.CreateLoginSession(ctx, mariadb.CreateLoginSessionParams{
-		ID:          uuid.UUID(sess.ID).String(),
-		ClientID:    uuid.UUID(sess.ClientID).String(),
-		RedirectUri: sess.RedirectURI,
-		FormData:    sess.FormData,
-		Scopes:      scopes,
-		ExpiresAt:   sess.ExpiresAt,
-	})
+	return domain.AuthorizationCode{
+		Code:                c.Code,
+		ClientID:            c.ClientID,
+		UserID:              domain.TrapID(c.UserID),
+		RedirectURI:         c.RedirectUri,
+		Scope:               c.Scope,
+		CodeChallenge:       c.CodeChallenge,
+		CodeChallengeMethod: c.CodeChallengeMethod,
+		SessionData:         c.SessionData,
+		Used:                c.Used,
+		ExpiresAt:           c.ExpiresAt,
+		CreatedAt:           c.CreatedAt,
+	}, nil
+}
+
+func (r *MariaDBRepository) MarkAuthorizationCodeUsed(ctx context.Context, code string) error {
+	err := r.q.MarkAuthorizationCodeUsed(ctx, code)
 	if err != nil {
-		return errors.Wrap(err, "failed to create login session")
+		return errors.Wrap(err, "failed to mark authorization code used")
 	}
 	return nil
 }
 
-func (r *MariaDBRepository) GetLoginSession(ctx context.Context, id domain.LoginSessionID) (domain.LoginSession, error) {
-	sess, err := r.q.GetLoginSession(ctx, uuid.UUID(id).String())
+func (r *MariaDBRepository) DeleteAuthorizationCode(ctx context.Context, code string) error {
+	err := r.q.DeleteAuthorizationCode(ctx, code)
 	if err != nil {
-		return domain.LoginSession{}, errors.Wrap(err, "failed to get login session")
-	}
-	return convertToDomainLoginSession(&sess)
-}
-
-func (r *MariaDBRepository) DeleteLoginSession(ctx context.Context, id domain.LoginSessionID) error {
-	err := r.q.DeleteLoginSession(ctx, uuid.UUID(id).String())
-	if err != nil {
-		return errors.Wrap(err, "failed to delete login session")
+		return errors.Wrap(err, "failed to delete authorization code")
 	}
 	return nil
 }

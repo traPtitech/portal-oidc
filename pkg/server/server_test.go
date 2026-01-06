@@ -206,17 +206,18 @@ func TestAuthEndpoint_NoSession_RedirectsToLogin(t *testing.T) {
 	server := NewServer(newTestConfig(repo, mock.NewPortal()))
 
 	req := httptest.NewRequest(http.MethodGet, "/oauth2/authorize?"+url.Values{
-		"client_id":     {testClientID.String()},
-		"redirect_uri":  {"http://localhost:3000/callback"},
-		"response_type": {"code"},
-		"scope":         {"openid"},
-		"state":         {"test-state-12345"}, // fosite requires at least 8 chars
+		"client_id":             {testClientID.String()},
+		"redirect_uri":          {"http://localhost:3000/callback"},
+		"response_type":         {"code"},
+		"scope":                 {"openid"},
+		"state":                 {"test-state-12345"},
+		"code_challenge":        {"test-challenge"},
+		"code_challenge_method": {"S256"},
 	}.Encode(), nil)
 
 	rec := httptest.NewRecorder()
 	server.ServeHTTP(rec, req)
 
-	// Echo uses 303 See Other for redirects after GET requests
 	if rec.Code != http.StatusFound && rec.Code != http.StatusSeeOther {
 		t.Fatalf("expected redirect status, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -226,21 +227,21 @@ func TestAuthEndpoint_NoSession_RedirectsToLogin(t *testing.T) {
 		t.Errorf("expected redirect to /login, got %s", location)
 	}
 
-	// Should set login_session cookie
+	// Should set auth_request cookie
 	cookies := rec.Result().Cookies()
-	var loginSessionCookie *http.Cookie
+	var authRequestCookie *http.Cookie
 	for _, c := range cookies {
-		if c.Name == "login_session" {
-			loginSessionCookie = c
+		if c.Name == "auth_request" {
+			authRequestCookie = c
 			break
 		}
 	}
-	if loginSessionCookie == nil {
-		t.Error("expected login_session cookie to be set")
+	if authRequestCookie == nil {
+		t.Error("expected auth_request cookie to be set")
 	}
 }
 
-func TestAuthEndpoint_WithSession_NoConsent_RedirectsToConsent(t *testing.T) {
+func TestAuthEndpoint_WithSession_ReturnsCode(t *testing.T) {
 	repo := mock.NewRepository()
 	testClientID := uuid.New()
 	repo.Clients[testClientID.String()] = domain.Client{
@@ -265,67 +266,13 @@ func TestAuthEndpoint_WithSession_NoConsent_RedirectsToConsent(t *testing.T) {
 	server := NewServer(newTestConfig(repo, mock.NewPortal()))
 
 	req := httptest.NewRequest(http.MethodGet, "/oauth2/authorize?"+url.Values{
-		"client_id":     {testClientID.String()},
-		"redirect_uri":  {"http://localhost:3000/callback"},
-		"response_type": {"code"},
-		"scope":         {"openid"},
-		"state":         {"test-state-12345"}, // fosite requires at least 8 chars
-	}.Encode(), nil)
-	req.AddCookie(&http.Cookie{Name: "gate_token", Value: sessionID.String()})
-
-	rec := httptest.NewRecorder()
-	server.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusFound && rec.Code != http.StatusSeeOther {
-		t.Fatalf("expected redirect status, got %d: %s", rec.Code, rec.Body.String())
-	}
-
-	location := rec.Header().Get("Location")
-	if location != "/oauth2/consent" {
-		t.Errorf("expected redirect to /oauth2/consent, got %s", location)
-	}
-}
-
-func TestAuthEndpoint_WithSessionAndConsent_ReturnsCode(t *testing.T) {
-	repo := mock.NewRepository()
-	testClientID := uuid.New()
-	repo.Clients[testClientID.String()] = domain.Client{
-		ID:           domain.ClientID(testClientID),
-		Type:         domain.ClientTypePublic,
-		Name:         "test-app",
-		RedirectURIs: []string{"http://localhost:3000/callback"},
-	}
-
-	// Create a valid session
-	sessionID := uuid.New()
-	now := time.Now()
-	repo.Sessions[sessionID.String()] = domain.Session{
-		ID:           domain.SessionID(sessionID),
-		UserID:       "testuser",
-		AuthTime:     now,
-		LastActiveAt: now,
-		ExpiresAt:    now.Add(24 * time.Hour),
-		CreatedAt:    now,
-	}
-
-	// Create consent
-	consentKey := "testuser:" + testClientID.String()
-	repo.UserConsents[consentKey] = domain.UserConsent{
-		ID:        domain.UserConsentID(uuid.New()),
-		UserID:    "testuser",
-		ClientID:  domain.ClientID(testClientID),
-		Scopes:    []string{"openid", "profile"},
-		GrantedAt: now,
-	}
-
-	server := NewServer(newTestConfig(repo, mock.NewPortal()))
-
-	req := httptest.NewRequest(http.MethodGet, "/oauth2/authorize?"+url.Values{
-		"client_id":     {testClientID.String()},
-		"redirect_uri":  {"http://localhost:3000/callback"},
-		"response_type": {"code"},
-		"scope":         {"openid"},
-		"state":         {"test-state"},
+		"client_id":             {testClientID.String()},
+		"redirect_uri":          {"http://localhost:3000/callback"},
+		"response_type":         {"code"},
+		"scope":                 {"openid"},
+		"state":                 {"test-state-12345"},
+		"code_challenge":        {"test-challenge"},
+		"code_challenge_method": {"S256"},
 	}.Encode(), nil)
 	req.AddCookie(&http.Cookie{Name: "gate_token", Value: sessionID.String()})
 
@@ -352,8 +299,8 @@ func TestAuthEndpoint_WithSessionAndConsent_ReturnsCode(t *testing.T) {
 	}
 
 	state := parsedURL.Query().Get("state")
-	if state != "test-state" {
-		t.Errorf("expected state 'test-state', got %s", state)
+	if state != "test-state-12345" {
+		t.Errorf("expected state 'test-state-12345', got %s", state)
 	}
 }
 
@@ -371,7 +318,6 @@ func TestAuthEndpoint_InvalidClient_ReturnsError(t *testing.T) {
 	rec := httptest.NewRecorder()
 	server.ServeHTTP(rec, req)
 
-	// Fosite returns 400 for invalid client
 	if rec.Code != http.StatusBadRequest && rec.Code != http.StatusUnauthorized {
 		t.Errorf("expected error status, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -404,7 +350,6 @@ func TestLoginHandler_InvalidCredentials_ReturnsUnauthorized(t *testing.T) {
 	portal := mock.NewPortal()
 	portal.Users["testuser"] = "correct-password"
 
-	// Create login session
 	testClientID := uuid.New()
 	repo.Clients[testClientID.String()] = domain.Client{
 		ID:           domain.ClientID(testClientID),
@@ -413,16 +358,18 @@ func TestLoginHandler_InvalidCredentials_ReturnsUnauthorized(t *testing.T) {
 		RedirectURIs: []string{"http://localhost:3000/callback"},
 	}
 
-	loginSessionID := uuid.New()
+	authReqID := uuid.New()
 	now := time.Now()
-	repo.LoginSessions[loginSessionID.String()] = domain.LoginSession{
-		ID:          domain.LoginSessionID(loginSessionID),
-		ClientID:    domain.ClientID(testClientID),
-		RedirectURI: "http://localhost:3000/callback",
-		FormData:    "client_id=" + testClientID.String(),
-		Scopes:      []string{"openid"},
-		CreatedAt:   now,
-		ExpiresAt:   now.Add(10 * time.Minute),
+	repo.AuthorizationRequests[authReqID.String()] = domain.AuthorizationRequest{
+		ID:                  domain.AuthorizationRequestID(authReqID),
+		ClientID:            testClientID.String(),
+		RedirectURI:         "http://localhost:3000/callback",
+		Scope:               "openid",
+		State:               "test-state",
+		CodeChallenge:       "test-challenge",
+		CodeChallengeMethod: "S256",
+		CreatedAt:           now,
+		ExpiresAt:           now.Add(15 * time.Minute),
 	}
 
 	server := NewServer(newTestConfig(repo, portal))
@@ -433,7 +380,7 @@ func TestLoginHandler_InvalidCredentials_ReturnsUnauthorized(t *testing.T) {
 	}
 	req := httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.AddCookie(&http.Cookie{Name: "login_session", Value: loginSessionID.String()})
+	req.AddCookie(&http.Cookie{Name: "auth_request", Value: authReqID.String()})
 
 	rec := httptest.NewRecorder()
 	server.ServeHTTP(rec, req)
@@ -448,7 +395,6 @@ func TestLoginHandler_ValidCredentials_RedirectsToAuthorize(t *testing.T) {
 	portal := mock.NewPortal()
 	portal.Users["testuser"] = "correct-password"
 
-	// Create login session
 	testClientID := uuid.New()
 	repo.Clients[testClientID.String()] = domain.Client{
 		ID:           domain.ClientID(testClientID),
@@ -457,17 +403,18 @@ func TestLoginHandler_ValidCredentials_RedirectsToAuthorize(t *testing.T) {
 		RedirectURIs: []string{"http://localhost:3000/callback"},
 	}
 
-	loginSessionID := uuid.New()
+	authReqID := uuid.New()
 	now := time.Now()
-	formData := "client_id=" + testClientID.String() + "&redirect_uri=http://localhost:3000/callback"
-	repo.LoginSessions[loginSessionID.String()] = domain.LoginSession{
-		ID:          domain.LoginSessionID(loginSessionID),
-		ClientID:    domain.ClientID(testClientID),
-		RedirectURI: "http://localhost:3000/callback",
-		FormData:    formData,
-		Scopes:      []string{"openid"},
-		CreatedAt:   now,
-		ExpiresAt:   now.Add(10 * time.Minute),
+	repo.AuthorizationRequests[authReqID.String()] = domain.AuthorizationRequest{
+		ID:                  domain.AuthorizationRequestID(authReqID),
+		ClientID:            testClientID.String(),
+		RedirectURI:         "http://localhost:3000/callback",
+		Scope:               "openid",
+		State:               "test-state",
+		CodeChallenge:       "test-challenge",
+		CodeChallengeMethod: "S256",
+		CreatedAt:           now,
+		ExpiresAt:           now.Add(15 * time.Minute),
 	}
 
 	server := NewServer(newTestConfig(repo, portal))
@@ -478,7 +425,7 @@ func TestLoginHandler_ValidCredentials_RedirectsToAuthorize(t *testing.T) {
 	}
 	req := httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.AddCookie(&http.Cookie{Name: "login_session", Value: loginSessionID.String()})
+	req.AddCookie(&http.Cookie{Name: "auth_request", Value: authReqID.String()})
 
 	rec := httptest.NewRecorder()
 	server.ServeHTTP(rec, req)
@@ -510,9 +457,9 @@ func TestLoginHandler_ValidCredentials_RedirectsToAuthorize(t *testing.T) {
 		t.Errorf("expected 1 session to be created, got %d", len(repo.Sessions))
 	}
 
-	// Verify login session was deleted
-	if len(repo.LoginSessions) != 0 {
-		t.Errorf("expected login session to be deleted, got %d", len(repo.LoginSessions))
+	// Verify authorization request was deleted
+	if len(repo.AuthorizationRequests) != 0 {
+		t.Errorf("expected authorization request to be deleted, got %d", len(repo.AuthorizationRequests))
 	}
 }
 
@@ -542,7 +489,6 @@ func TestTokenEndpoint_InvalidCode_ReturnsError(t *testing.T) {
 	rec := httptest.NewRecorder()
 	server.ServeHTTP(rec, req)
 
-	// fosite returns 400 for invalid grant
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("expected status %d, got %d: %s", http.StatusBadRequest, rec.Code, rec.Body.String())
 	}

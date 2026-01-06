@@ -6,10 +6,10 @@ import (
 	"github.com/google/uuid"
 )
 
-// SessionID はログインセッションの識別子
+// SessionID はセッションの識別子
 type SessionID uuid.UUID
 
-// Session はログインセッション (spec.md sessions テーブル準拠)
+// Session は認証済みユーザーのセッション
 type Session struct {
 	ID           SessionID
 	UserID       TrapID
@@ -18,34 +18,37 @@ type Session struct {
 	AuthTime     time.Time
 	LastActiveAt time.Time
 	ExpiresAt    time.Time
-	RevokedAt    *time.Time
 	CreatedAt    time.Time
 }
 
-// UserConsentID はユーザー同意の識別子
-type UserConsentID uuid.UUID
+// AuthorizationRequestID は認可リクエストの識別子
+type AuthorizationRequestID uuid.UUID
 
-// UserConsent はユーザーの同意情報 (spec.md user_consents テーブル準拠)
-type UserConsent struct {
-	ID        UserConsentID
-	UserID    TrapID
-	ClientID  ClientID
-	Scopes    []string
-	GrantedAt time.Time
-	ExpiresAt *time.Time
-	RevokedAt *time.Time
+// AuthorizationRequest は認可フロー中の一時状態 (ログインリダイレクト用)
+type AuthorizationRequest struct {
+	ID                  AuthorizationRequestID
+	ClientID            string
+	RedirectURI         string
+	Scope               string
+	State               string
+	CodeChallenge       string
+	CodeChallengeMethod string
+	UserID              *TrapID // ログイン後に設定
+	ExpiresAt           time.Time
+	CreatedAt           time.Time
 }
 
-// LoginSessionID はOAuth認可フロー一時状態の識別子
-type LoginSessionID uuid.UUID
-
-// LoginSession はOAuth認可フロー一時状態
-type LoginSession struct {
-	ID          LoginSessionID
-	ClientID    ClientID
-	RedirectURI string
-	FormData    string
-	Scopes      []string
-	CreatedAt   time.Time
-	ExpiresAt   time.Time
+// AuthorizationCode は認可コード
+type AuthorizationCode struct {
+	Code                string
+	ClientID            string
+	UserID              TrapID
+	RedirectURI         string
+	Scope               string
+	CodeChallenge       string
+	CodeChallengeMethod string
+	SessionData         string // fosite session (JSON)
+	Used                bool
+	ExpiresAt           time.Time
+	CreatedAt           time.Time
 }

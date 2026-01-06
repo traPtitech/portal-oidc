@@ -28,7 +28,7 @@ func (p *privateKeyProvider) GetPrivateKey(ctx context.Context) (interface{}, er
 }
 
 func NewProvider(repo repository.Repository, config Config) (fosite.OAuth2Provider, *Store) {
-	store := NewStore(repo)
+	store := NewStore(repo, config.AuthCodeLifespan)
 
 	// Generate RSA key for JWT signing
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)

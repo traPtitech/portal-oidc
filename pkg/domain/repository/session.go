@@ -2,27 +2,25 @@ package repository
 
 import (
 	"context"
-	"time"
 
 	"github.com/traPtitech/portal-oidc/pkg/domain"
 )
 
 type SessionRepository interface {
-	// Session (ログインセッション)
+	// Session (認証済みユーザー)
 	CreateSession(ctx context.Context, sess domain.Session) error
 	GetSession(ctx context.Context, id domain.SessionID) (domain.Session, error)
-	UpdateSessionLastActive(ctx context.Context, id domain.SessionID, lastActiveAt time.Time) error
-	RevokeSession(ctx context.Context, id domain.SessionID) error
-	ListSessionsByUser(ctx context.Context, userID domain.TrapID) ([]domain.Session, error)
+	DeleteSession(ctx context.Context, id domain.SessionID) error
 
-	// UserConsent (ユーザー同意情報)
-	CreateUserConsent(ctx context.Context, consent domain.UserConsent) error
-	GetUserConsent(ctx context.Context, userID domain.TrapID, clientID domain.ClientID) (domain.UserConsent, error)
-	UpdateUserConsentScopes(ctx context.Context, userID domain.TrapID, clientID domain.ClientID, scopes []string, grantedAt time.Time) error
-	RevokeUserConsent(ctx context.Context, userID domain.TrapID, clientID domain.ClientID) error
+	// AuthorizationRequest (認可リクエスト一時保存)
+	CreateAuthorizationRequest(ctx context.Context, req domain.AuthorizationRequest) error
+	GetAuthorizationRequest(ctx context.Context, id domain.AuthorizationRequestID) (domain.AuthorizationRequest, error)
+	UpdateAuthorizationRequestUserID(ctx context.Context, id domain.AuthorizationRequestID, userID domain.TrapID) error
+	DeleteAuthorizationRequest(ctx context.Context, id domain.AuthorizationRequestID) error
 
-	// LoginSession (OAuth認可フロー一時状態)
-	CreateLoginSession(ctx context.Context, sess domain.LoginSession) error
-	GetLoginSession(ctx context.Context, id domain.LoginSessionID) (domain.LoginSession, error)
-	DeleteLoginSession(ctx context.Context, id domain.LoginSessionID) error
+	// AuthorizationCode (認可コード)
+	CreateAuthorizationCode(ctx context.Context, code domain.AuthorizationCode) error
+	GetAuthorizationCode(ctx context.Context, code string) (domain.AuthorizationCode, error)
+	MarkAuthorizationCodeUsed(ctx context.Context, code string) error
+	DeleteAuthorizationCode(ctx context.Context, code string) error
 }

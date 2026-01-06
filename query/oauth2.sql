@@ -1,4 +1,4 @@
--- Client queries (OAuthクライアント)
+-- Client queries
 
 -- name: CreateClient :exec
 INSERT INTO clients (
@@ -30,53 +30,44 @@ WHERE client_id = ?;
 -- name: DeleteClient :exec
 DELETE FROM clients WHERE client_id = ?;
 
--- Session queries (ログインセッション)
+-- Session queries (認証済みセッション)
 
 -- name: CreateSession :exec
 INSERT INTO sessions (id, user_id, user_agent, ip_address, auth_time, last_active_at, expires_at)
 VALUES (?, ?, ?, ?, ?, ?, ?);
 
 -- name: GetSession :one
-SELECT * FROM sessions WHERE id = ? AND revoked_at IS NULL;
+SELECT * FROM sessions WHERE id = ?;
 
--- name: UpdateSessionLastActive :exec
-UPDATE sessions SET last_active_at = ? WHERE id = ?;
+-- name: DeleteSession :exec
+DELETE FROM sessions WHERE id = ?;
 
--- name: RevokeSession :exec
-UPDATE sessions SET revoked_at = NOW() WHERE id = ?;
+-- AuthorizationRequest queries (認可リクエスト一時保存)
 
--- name: DeleteExpiredSessions :exec
-DELETE FROM sessions WHERE expires_at < NOW();
+-- name: CreateAuthorizationRequest :exec
+INSERT INTO authorization_requests (id, client_id, redirect_uri, scope, state, code_challenge, code_challenge_method, expires_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
--- name: ListSessionsByUser :many
-SELECT * FROM sessions WHERE user_id = ? AND revoked_at IS NULL ORDER BY last_active_at DESC;
+-- name: GetAuthorizationRequest :one
+SELECT * FROM authorization_requests WHERE id = ?;
 
--- User consent queries (ユーザー同意情報)
+-- name: UpdateAuthorizationRequestUserID :exec
+UPDATE authorization_requests SET user_id = ? WHERE id = ?;
 
--- name: CreateUserConsent :exec
-INSERT INTO user_consents (id, user_id, client_id, scopes, granted_at)
-VALUES (?, ?, ?, ?, ?);
+-- name: DeleteAuthorizationRequest :exec
+DELETE FROM authorization_requests WHERE id = ?;
 
--- name: GetUserConsent :one
-SELECT * FROM user_consents WHERE user_id = ? AND client_id = ? AND revoked_at IS NULL;
+-- AuthorizationCode queries (認可コード)
 
--- name: UpdateUserConsentScopes :exec
-UPDATE user_consents SET scopes = ?, granted_at = ? WHERE user_id = ? AND client_id = ?;
+-- name: CreateAuthorizationCode :exec
+INSERT INTO authorization_codes (code, client_id, user_id, redirect_uri, scope, code_challenge, code_challenge_method, session_data, expires_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
--- name: RevokeUserConsent :exec
-UPDATE user_consents SET revoked_at = NOW() WHERE user_id = ? AND client_id = ?;
+-- name: GetAuthorizationCode :one
+SELECT * FROM authorization_codes WHERE code = ?;
 
--- Login session queries (OAuth認可フロー一時状態)
+-- name: MarkAuthorizationCodeUsed :exec
+UPDATE authorization_codes SET used = TRUE WHERE code = ?;
 
--- name: CreateLoginSession :exec
-INSERT INTO login_sessions (id, client_id, redirect_uri, form_data, scopes, expires_at)
-VALUES (?, ?, ?, ?, ?, ?);
-
--- name: GetLoginSession :one
-SELECT * FROM login_sessions WHERE id = ?;
-
--- name: DeleteLoginSession :exec
-DELETE FROM login_sessions WHERE id = ?;
-
--- name: DeleteExpiredLoginSessions :exec
-DELETE FROM login_sessions WHERE expires_at < NOW();
+-- name: DeleteAuthorizationCode :exec
+DELETE FROM authorization_codes WHERE code = ?;

@@ -13,22 +13,22 @@ import (
 
 // Repository implements repository.Repository for testing
 type Repository struct {
-	Sessions      map[string]domain.Session
-	UserConsents  map[string]domain.UserConsent
-	LoginSessions map[string]domain.LoginSession
-	Clients       map[string]domain.Client
+	Sessions              map[string]domain.Session
+	AuthorizationRequests map[string]domain.AuthorizationRequest
+	AuthorizationCodes    map[string]domain.AuthorizationCode
+	Clients               map[string]domain.Client
 }
 
 func NewRepository() *Repository {
 	return &Repository{
-		Sessions:      make(map[string]domain.Session),
-		UserConsents:  make(map[string]domain.UserConsent),
-		LoginSessions: make(map[string]domain.LoginSession),
-		Clients:       make(map[string]domain.Client),
+		Sessions:              make(map[string]domain.Session),
+		AuthorizationRequests: make(map[string]domain.AuthorizationRequest),
+		AuthorizationCodes:    make(map[string]domain.AuthorizationCode),
+		Clients:               make(map[string]domain.Client),
 	}
 }
 
-// SessionRepository methods
+// Session methods
 
 func (m *Repository) CreateSession(_ context.Context, sess domain.Session) error {
 	m.Sessions[uuid.UUID(sess.ID).String()] = sess
@@ -43,79 +43,68 @@ func (m *Repository) GetSession(_ context.Context, id domain.SessionID) (domain.
 	return sess, nil
 }
 
-func (m *Repository) UpdateSessionLastActive(_ context.Context, id domain.SessionID, lastActiveAt time.Time) error {
-	if sess, ok := m.Sessions[uuid.UUID(id).String()]; ok {
-		sess.LastActiveAt = lastActiveAt
-		m.Sessions[uuid.UUID(id).String()] = sess
-	}
-	return nil
-}
-
-func (m *Repository) RevokeSession(_ context.Context, id domain.SessionID) error {
+func (m *Repository) DeleteSession(_ context.Context, id domain.SessionID) error {
 	delete(m.Sessions, uuid.UUID(id).String())
 	return nil
 }
 
-func (m *Repository) ListSessionsByUser(_ context.Context, userID domain.TrapID) ([]domain.Session, error) {
-	var sessions []domain.Session
-	for _, s := range m.Sessions {
-		if s.UserID == userID {
-			sessions = append(sessions, s)
-		}
-	}
-	return sessions, nil
-}
+// AuthorizationRequest methods
 
-// UserConsent methods
-
-func (m *Repository) CreateUserConsent(_ context.Context, consent domain.UserConsent) error {
-	key := consent.UserID.String() + ":" + uuid.UUID(consent.ClientID).String()
-	m.UserConsents[key] = consent
+func (m *Repository) CreateAuthorizationRequest(_ context.Context, req domain.AuthorizationRequest) error {
+	m.AuthorizationRequests[uuid.UUID(req.ID).String()] = req
 	return nil
 }
 
-func (m *Repository) GetUserConsent(_ context.Context, userID domain.TrapID, clientID domain.ClientID) (domain.UserConsent, error) {
-	key := userID.String() + ":" + uuid.UUID(clientID).String()
-	consent, ok := m.UserConsents[key]
+func (m *Repository) GetAuthorizationRequest(_ context.Context, id domain.AuthorizationRequestID) (domain.AuthorizationRequest, error) {
+	req, ok := m.AuthorizationRequests[uuid.UUID(id).String()]
 	if !ok {
-		return domain.UserConsent{}, sql.ErrNoRows
+		return domain.AuthorizationRequest{}, sql.ErrNoRows
 	}
-	return consent, nil
+	return req, nil
 }
 
-func (m *Repository) UpdateUserConsentScopes(_ context.Context, userID domain.TrapID, clientID domain.ClientID, scopes []string, grantedAt time.Time) error {
-	key := userID.String() + ":" + uuid.UUID(clientID).String()
-	if consent, ok := m.UserConsents[key]; ok {
-		consent.Scopes = scopes
-		consent.GrantedAt = grantedAt
-		m.UserConsents[key] = consent
-	}
-	return nil
-}
-
-func (m *Repository) RevokeUserConsent(_ context.Context, userID domain.TrapID, clientID domain.ClientID) error {
-	key := userID.String() + ":" + uuid.UUID(clientID).String()
-	delete(m.UserConsents, key)
-	return nil
-}
-
-// LoginSession methods
-
-func (m *Repository) CreateLoginSession(_ context.Context, sess domain.LoginSession) error {
-	m.LoginSessions[uuid.UUID(sess.ID).String()] = sess
-	return nil
-}
-
-func (m *Repository) GetLoginSession(_ context.Context, id domain.LoginSessionID) (domain.LoginSession, error) {
-	sess, ok := m.LoginSessions[uuid.UUID(id).String()]
+func (m *Repository) UpdateAuthorizationRequestUserID(_ context.Context, id domain.AuthorizationRequestID, userID domain.TrapID) error {
+	req, ok := m.AuthorizationRequests[uuid.UUID(id).String()]
 	if !ok {
-		return domain.LoginSession{}, sql.ErrNoRows
+		return sql.ErrNoRows
 	}
-	return sess, nil
+	req.UserID = &userID
+	m.AuthorizationRequests[uuid.UUID(id).String()] = req
+	return nil
 }
 
-func (m *Repository) DeleteLoginSession(_ context.Context, id domain.LoginSessionID) error {
-	delete(m.LoginSessions, uuid.UUID(id).String())
+func (m *Repository) DeleteAuthorizationRequest(_ context.Context, id domain.AuthorizationRequestID) error {
+	delete(m.AuthorizationRequests, uuid.UUID(id).String())
+	return nil
+}
+
+// AuthorizationCode methods
+
+func (m *Repository) CreateAuthorizationCode(_ context.Context, code domain.AuthorizationCode) error {
+	m.AuthorizationCodes[code.Code] = code
+	return nil
+}
+
+func (m *Repository) GetAuthorizationCode(_ context.Context, code string) (domain.AuthorizationCode, error) {
+	c, ok := m.AuthorizationCodes[code]
+	if !ok {
+		return domain.AuthorizationCode{}, sql.ErrNoRows
+	}
+	return c, nil
+}
+
+func (m *Repository) MarkAuthorizationCodeUsed(_ context.Context, code string) error {
+	c, ok := m.AuthorizationCodes[code]
+	if !ok {
+		return sql.ErrNoRows
+	}
+	c.Used = true
+	m.AuthorizationCodes[code] = c
+	return nil
+}
+
+func (m *Repository) DeleteAuthorizationCode(_ context.Context, code string) error {
+	delete(m.AuthorizationCodes, code)
 	return nil
 }
 

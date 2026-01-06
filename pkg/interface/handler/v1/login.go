@@ -18,7 +18,7 @@ type LoginRequest struct {
 func (h *Handler) LoginHandler(c echo.Context) error {
 	ctx := c.Request().Context()
 
-	loginSession, err := h.getLoginSessionFromCookie(c)
+	authReq, err := h.getAuthorizationRequestFromCookie(c)
 	if err != nil {
 		return err
 	}
@@ -41,7 +41,7 @@ func (h *Handler) LoginHandler(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to create session")
 	}
 
-	_ = h.usecase.DeleteLoginSession(ctx, loginSession.ID)
+	_ = h.usecase.DeleteAuthorizationRequest(ctx, authReq.ID)
 
 	c.SetCookie(&http.Cookie{
 		Name:     oidcCookieKeySessionID,
@@ -51,30 +51,39 @@ func (h *Handler) LoginHandler(c echo.Context) error {
 		SameSite: http.SameSiteLaxMode,
 	})
 
+	// 認可フローに戻る
 	redirectURL := url.URL{
-		Path:     "/oauth2/authorize",
-		RawQuery: loginSession.FormData,
+		Path: "/oauth2/authorize",
+		RawQuery: url.Values{
+			"client_id":             {authReq.ClientID},
+			"redirect_uri":          {authReq.RedirectURI},
+			"scope":                 {authReq.Scope},
+			"state":                 {authReq.State},
+			"response_type":         {"code"},
+			"code_challenge":        {authReq.CodeChallenge},
+			"code_challenge_method": {authReq.CodeChallengeMethod},
+		}.Encode(),
 	}
 	return c.Redirect(http.StatusFound, redirectURL.String())
 }
 
-func (h *Handler) getLoginSessionFromCookie(c echo.Context) (domain.LoginSession, error) {
-	cookie, err := c.Cookie(loginSessionCookie)
+func (h *Handler) getAuthorizationRequestFromCookie(c echo.Context) (domain.AuthorizationRequest, error) {
+	cookie, err := c.Cookie(authRequestCookie)
 	if err != nil {
-		return domain.LoginSession{}, echo.NewHTTPError(http.StatusBadRequest, "login session not found")
+		return domain.AuthorizationRequest{}, echo.NewHTTPError(http.StatusBadRequest, "authorization request not found")
 	}
 
-	loginSessionID, err := uuid.Parse(cookie.Value)
+	authReqID, err := uuid.Parse(cookie.Value)
 	if err != nil {
-		return domain.LoginSession{}, echo.NewHTTPError(http.StatusBadRequest, "invalid login session")
+		return domain.AuthorizationRequest{}, echo.NewHTTPError(http.StatusBadRequest, "invalid authorization request")
 	}
 
-	loginSession, err := h.usecase.GetLoginSession(c.Request().Context(), domain.LoginSessionID(loginSessionID))
+	authReq, err := h.usecase.GetAuthorizationRequest(c.Request().Context(), domain.AuthorizationRequestID(authReqID))
 	if err != nil {
-		return domain.LoginSession{}, echo.NewHTTPError(http.StatusBadRequest, "login session expired or not found")
+		return domain.AuthorizationRequest{}, echo.NewHTTPError(http.StatusBadRequest, "authorization request expired or not found")
 	}
 
-	return loginSession, nil
+	return authReq, nil
 }
 
 func (h *Handler) verifyCredentials(ctx context.Context, userID domain.TrapID, password string) error {

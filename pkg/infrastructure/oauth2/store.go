@@ -2,11 +2,14 @@ package oauth2
 
 import (
 	"context"
-	"sync"
+	"database/sql"
+	"encoding/json"
+	"net/url"
+	"strings"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/go-jose/go-jose/v3"
-	"github.com/google/uuid"
 	"github.com/ory/fosite"
 	"github.com/ory/fosite/handler/openid"
 
@@ -14,71 +17,172 @@ import (
 	"github.com/traPtitech/portal-oidc/pkg/domain/repository"
 )
 
-// Store implements minimal fosite storage for Authorization Code Flow
+// Store implements fosite storage interfaces with DB persistence
 type Store struct {
-	repo repository.Repository
-
-	// In-memory storage for authorization codes (short-lived)
-	authCodes   map[string]fosite.Requester
-	authCodesMu sync.RWMutex
-
-	// In-memory storage for OIDC sessions
-	oidcSessions   map[string]*openid.DefaultSession
-	oidcSessionsMu sync.RWMutex
+	repo            repository.Repository
+	authCodeExpiry  time.Duration
 }
 
-func NewStore(repo repository.Repository) *Store {
+func NewStore(repo repository.Repository, authCodeExpiry time.Duration) *Store {
 	return &Store{
-		repo:         repo,
-		authCodes:    make(map[string]fosite.Requester),
-		oidcSessions: make(map[string]*openid.DefaultSession),
+		repo:           repo,
+		authCodeExpiry: authCodeExpiry,
 	}
+}
+
+// sessionData is serialized to JSON for DB storage
+type sessionData struct {
+	Subject   string            `json:"subject"`
+	Username  string            `json:"username"`
+	ExpiresAt map[string]int64  `json:"expires_at"`
+	Extra     map[string]string `json:"extra"`
+}
+
+func serializeSession(sess fosite.Session) (string, error) {
+	if sess == nil {
+		return "{}", nil
+	}
+
+	data := sessionData{
+		Subject:   sess.GetSubject(),
+		Username:  sess.GetUsername(),
+		ExpiresAt: make(map[string]int64),
+	}
+
+	// Store expiry times
+	for _, key := range []fosite.TokenType{fosite.AccessToken, fosite.AuthorizeCode, fosite.RefreshToken} {
+		if t := sess.GetExpiresAt(key); !t.IsZero() {
+			data.ExpiresAt[string(key)] = t.Unix()
+		}
+	}
+
+	bytes, err := json.Marshal(data)
+	if err != nil {
+		return "", err
+	}
+	return string(bytes), nil
+}
+
+func deserializeSession(s string) (*openid.DefaultSession, error) {
+	var data sessionData
+	if err := json.Unmarshal([]byte(s), &data); err != nil {
+		return nil, err
+	}
+
+	sess := &openid.DefaultSession{
+		Subject:  data.Subject,
+		Username: data.Username,
+	}
+
+	// Restore expiry times
+	if len(data.ExpiresAt) > 0 {
+		sess.ExpiresAt = make(map[fosite.TokenType]time.Time)
+		for key, val := range data.ExpiresAt {
+			sess.ExpiresAt[fosite.TokenType(key)] = time.Unix(val, 0)
+		}
+	}
+
+	return sess, nil
 }
 
 // fosite.ClientManager implementation
 
 func (s *Store) GetClient(ctx context.Context, id string) (fosite.Client, error) {
-	clientID, err := uuid.Parse(id)
+	clientID, err := domain.ParseClientID(id)
 	if err != nil {
 		return nil, fosite.ErrNotFound
 	}
 
-	client, err := s.repo.GetClient(ctx, domain.ClientID(clientID))
+	client, err := s.repo.GetClient(ctx, clientID)
 	if err != nil {
 		return nil, fosite.ErrNotFound
 	}
-
 	return &fositeClient{client: client}, nil
 }
 
 // oauth2.AuthorizeCodeStorage implementation
 
 func (s *Store) CreateAuthorizeCodeSession(ctx context.Context, code string, request fosite.Requester) error {
-	s.authCodesMu.Lock()
-	defer s.authCodesMu.Unlock()
-	s.authCodes[code] = request
-	return nil
+	sessData, err := serializeSession(request.GetSession())
+	if err != nil {
+		return errors.Wrap(err, "failed to serialize session")
+	}
+
+	// Get PKCE data from form
+	form := request.GetRequestForm()
+
+	authCode := domain.AuthorizationCode{
+		Code:                code,
+		ClientID:            request.GetClient().GetID(),
+		UserID:              domain.TrapID(request.GetSession().GetSubject()),
+		RedirectURI:         form.Get("redirect_uri"),
+		Scope:               strings.Join(request.GetGrantedScopes(), " "),
+		CodeChallenge:       form.Get("code_challenge"),
+		CodeChallengeMethod: form.Get("code_challenge_method"),
+		SessionData:         sessData,
+		Used:                false,
+		ExpiresAt:           time.Now().Add(s.authCodeExpiry),
+		CreatedAt:           time.Now(),
+	}
+
+	return s.repo.CreateAuthorizationCode(ctx, authCode)
 }
 
 func (s *Store) GetAuthorizeCodeSession(ctx context.Context, code string, session fosite.Session) (fosite.Requester, error) {
-	s.authCodesMu.RLock()
-	defer s.authCodesMu.RUnlock()
+	authCode, err := s.repo.GetAuthorizationCode(ctx, code)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fosite.ErrNotFound
+		}
+		return nil, err
+	}
 
-	req, ok := s.authCodes[code]
-	if !ok {
+	// Check if already used (replay attack)
+	if authCode.Used {
+		return nil, fosite.ErrInvalidatedAuthorizeCode
+	}
+
+	// Check expiry
+	if time.Now().After(authCode.ExpiresAt) {
 		return nil, fosite.ErrNotFound
 	}
+
+	// Deserialize session
+	sess, err := deserializeSession(authCode.SessionData)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to deserialize session")
+	}
+
+	// Get client
+	client, err := s.GetClient(ctx, authCode.ClientID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Reconstruct the request
+	form := url.Values{}
+	form.Set("code_challenge", authCode.CodeChallenge)
+	form.Set("code_challenge_method", authCode.CodeChallengeMethod)
+	form.Set("redirect_uri", authCode.RedirectURI)
+
+	req := &fosite.Request{
+		ID:             code,
+		RequestedAt:    authCode.CreatedAt,
+		Client:         client,
+		Session:        sess,
+		GrantedScope:   strings.Split(authCode.Scope, " "),
+		RequestedScope: strings.Split(authCode.Scope, " "),
+		Form:           form,
+	}
+
 	return req, nil
 }
 
 func (s *Store) InvalidateAuthorizeCodeSession(ctx context.Context, code string) error {
-	s.authCodesMu.Lock()
-	defer s.authCodesMu.Unlock()
-	delete(s.authCodes, code)
-	return nil
+	return s.repo.MarkAuthorizationCodeUsed(ctx, code)
 }
 
-// oauth2.AccessTokenStorage implementation (stateless - no storage needed)
+// oauth2.AccessTokenStorage implementation (stateless JWT - no storage needed)
 
 func (s *Store) CreateAccessTokenSession(ctx context.Context, signature string, request fosite.Requester) error {
 	return nil // Stateless JWT
@@ -106,34 +210,18 @@ func (s *Store) DeletePKCERequestSession(ctx context.Context, signature string) 
 	return nil // Deleted with auth code
 }
 
-// openid.OpenIDConnectRequestStorage implementation
+// openid.OpenIDConnectRequestStorage implementation (minimal - uses auth code session)
 
 func (s *Store) CreateOpenIDConnectSession(ctx context.Context, code string, request fosite.Requester) error {
-	s.oidcSessionsMu.Lock()
-	defer s.oidcSessionsMu.Unlock()
-
-	if sess, ok := request.GetSession().(*openid.DefaultSession); ok {
-		s.oidcSessions[code] = sess
-	}
-	return nil
+	return nil // Stored with auth code
 }
 
 func (s *Store) GetOpenIDConnectSession(ctx context.Context, code string, request fosite.Requester) (fosite.Requester, error) {
-	s.oidcSessionsMu.RLock()
-	defer s.oidcSessionsMu.RUnlock()
-
-	_, ok := s.oidcSessions[code]
-	if !ok {
-		return nil, fosite.ErrNotFound
-	}
-	return request, nil
+	return s.GetAuthorizeCodeSession(ctx, code, request.GetSession())
 }
 
 func (s *Store) DeleteOpenIDConnectSession(ctx context.Context, code string) error {
-	s.oidcSessionsMu.Lock()
-	defer s.oidcSessionsMu.Unlock()
-	delete(s.oidcSessions, code)
-	return nil
+	return nil // Deleted with auth code
 }
 
 // fositeClient wraps domain.Client to implement fosite.Client
@@ -237,7 +325,7 @@ func (s *Store) MarkJWTUsedForTime(ctx context.Context, jti string, exp time.Tim
 	return nil
 }
 
-// oauth2.RefreshTokenStorage implementation (not used, but required)
+// oauth2.RefreshTokenStorage implementation (not used)
 
 func (s *Store) CreateRefreshTokenSession(ctx context.Context, signature string, accessSignature string, request fosite.Requester) error {
 	return nil
@@ -273,17 +361,4 @@ func (s *Store) ClientAssertionJWTValid(ctx context.Context, jti string) error {
 
 func (s *Store) SetClientAssertionJWT(ctx context.Context, jti string, exp time.Time) error {
 	return nil
-}
-
-// Cleanup old auth codes periodically
-func (s *Store) Cleanup(maxAge time.Duration) {
-	s.authCodesMu.Lock()
-	defer s.authCodesMu.Unlock()
-
-	now := time.Now()
-	for code, req := range s.authCodes {
-		if req.GetRequestedAt().Add(maxAge).Before(now) {
-			delete(s.authCodes, code)
-		}
-	}
 }

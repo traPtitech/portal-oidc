@@ -3,44 +3,20 @@ package v1
 import (
 	"errors"
 	"net/http"
-	"slices"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
-	"github.com/ory/fosite"
 	"github.com/traPtitech/portal-oidc/pkg/domain"
-	"github.com/traPtitech/portal-oidc/pkg/usecase"
 )
 
-const loginSessionCookie = "login_session"
-
-// requireLogin は未認証ユーザーをログイン画面にリダイレクトする
-func (h *Handler) requireLogin(c echo.Context, clientID, redirectURI, forms string, scopes []string) error {
-	ctx := c.Request().Context()
-
-	// ログインセッションを作成 (元のリクエストパラメータを保存)
-	loginSession, err := h.usecase.CreateLoginSession(ctx, clientID, redirectURI, forms, scopes)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to create login session")
-	}
-
-	// ログインセッションIDをCookieにセット
-	c.SetCookie(&http.Cookie{
-		Name:     loginSessionCookie,
-		Value:    uuid.UUID(loginSession.ID).String(),
-		Path:     "/",
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-	})
-
-	return c.Redirect(http.StatusFound, "/login")
-}
+const authRequestCookie = "auth_request"
 
 func (h *Handler) AuthEndpoint(c echo.Context) error {
 	ctx := c.Request().Context()
 	rw := c.Response().Writer
 
+	// fosite がリクエストを検証 (client_id, redirect_uri 等)
 	ar, err := h.oauth2.NewAuthorizeRequest(ctx, c.Request())
 	if err != nil {
 		h.oauth2.WriteAuthorizeError(ctx, rw, ar, err)
@@ -55,18 +31,19 @@ func (h *Handler) AuthEndpoint(c echo.Context) error {
 	}
 	clientID := domain.ClientID(clientUUID)
 
-	// セッション検証
-	session, err := h.validateSession(c, ar, clientIDStr)
+	// セッション確認
+	session, err := h.getAuthenticatedSession(c)
 	if err != nil {
-		if errors.Is(err, errAuthHandled) {
-			return nil
-		}
-		return err
-	}
-
-	// 同意検証
-	if err := h.checkConsent(c, ar, session.UserID, clientID); err != nil {
-		return nil
+		// 未認証 → ログインへリダイレクト (検証済みリクエストを保存)
+		form := ar.GetRequestForm()
+		return h.redirectToLogin(c, domain.AuthorizationRequest{
+			ClientID:            clientIDStr,
+			RedirectURI:         form.Get("redirect_uri"),
+			Scope:               form.Get("scope"),
+			State:               form.Get("state"),
+			CodeChallenge:       form.Get("code_challenge"),
+			CodeChallengeMethod: form.Get("code_challenge_method"),
+		})
 	}
 
 	// スコープを許可
@@ -86,59 +63,38 @@ func (h *Handler) AuthEndpoint(c echo.Context) error {
 	return nil
 }
 
-var (
-	errAuthHandled    = errors.New("auth error already handled")
-	errConsentPending = errors.New("consent redirect issued")
-)
+var errNoSession = errors.New("no authenticated session")
 
-func (h *Handler) validateSession(c echo.Context, ar fosite.AuthorizeRequester, clientIDStr string) (*domain.Session, error) {
-	ctx := c.Request().Context()
-	redirectURI := ar.GetRedirectURI().String()
-	scopes := ar.GetRequestedScopes()
-	forms := c.Request().URL.RawQuery
-
+func (h *Handler) getAuthenticatedSession(c echo.Context) (*domain.Session, error) {
 	sessionID, err := extractSessionID(c.Request())
 	if err != nil {
-		if errors.Is(err, errNoSessionID) {
-			if err := h.requireLogin(c, clientIDStr, redirectURI, forms, scopes); err != nil {
-				return nil, err
-			}
-			return nil, errAuthHandled
-		}
-		h.oauth2.WriteAuthorizeError(ctx, c.Response().Writer, ar, err)
-		return nil, errAuthHandled
+		return nil, errNoSession
 	}
 
-	session, err := h.usecase.GetSession(ctx, sessionID)
+	session, err := h.usecase.GetSession(c.Request().Context(), sessionID)
 	if err != nil {
-		if err := h.requireLogin(c, clientIDStr, redirectURI, forms, scopes); err != nil {
-			return nil, err
-		}
-		return nil, errAuthHandled
+		return nil, errNoSession
 	}
 
 	return &session, nil
 }
 
-func (h *Handler) checkConsent(c echo.Context, ar fosite.AuthorizeRequester, userID domain.TrapID, clientID domain.ClientID) error {
+func (h *Handler) redirectToLogin(c echo.Context, req domain.AuthorizationRequest) error {
 	ctx := c.Request().Context()
 
-	consent, err := h.usecase.GetUserConsent(ctx, userID, clientID)
+	// AuthorizationRequest作成 (fosite検証済みのリクエストを保存)
+	authReq, err := h.usecase.CreateAuthorizationRequest(ctx, req)
 	if err != nil {
-		if errors.Is(err, usecase.ErrConsentNotFound) {
-			_ = c.Redirect(http.StatusFound, "/oauth2/consent")
-			return errConsentPending
-		}
-		h.oauth2.WriteAuthorizeError(ctx, c.Response().Writer, ar, err)
-		return errAuthHandled
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to create authorization request")
 	}
 
-	for _, scope := range ar.GetRequestedScopes() {
-		if !slices.Contains(consent.Scopes, scope) {
-			_ = c.Redirect(http.StatusFound, "/oauth2/consent")
-			return errConsentPending
-		}
-	}
+	c.SetCookie(&http.Cookie{
+		Name:     authRequestCookie,
+		Value:    uuid.UUID(authReq.ID).String(),
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
 
-	return nil
+	return c.Redirect(http.StatusFound, "/login")
 }
