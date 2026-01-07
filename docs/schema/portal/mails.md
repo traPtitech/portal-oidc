@@ -7,13 +7,16 @@
 
 ```sql
 CREATE TABLE `mails` (
-  `id` char(36) NOT NULL,
-  `to` text DEFAULT NULL,
-  `sub` varchar(255) DEFAULT NULL,
-  `main` text DEFAULT NULL,
-  `operator_id` varchar(32) DEFAULT NULL,
-  `created_at` datetime DEFAULT NULL,
-  PRIMARY KEY (`id`)
+  `id` char(36) NOT NULL COMMENT 'UUID v4',
+  `to` text NOT NULL COMMENT 'Recipients (format: @trap_id;@trap_id2)',
+  `subject` varchar(255) NOT NULL,
+  `body` text NOT NULL,
+  `operator_id` char(36) DEFAULT NULL COMMENT 'User who sent this mail',
+  `created_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),
+  PRIMARY KEY (`id`),
+  KEY `idx_mails_operator` (`operator_id`),
+  KEY `idx_mails_created_at` (`created_at`),
+  CONSTRAINT `fk_mails_operator` FOREIGN KEY (`operator_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
 ```
 
@@ -23,23 +26,26 @@ CREATE TABLE `mails` (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| id | char(36) |  | false |  |  |  |
-| to | text | NULL | true |  |  |  |
-| sub | varchar(255) | NULL | true |  |  |  |
-| main | text | NULL | true |  |  |  |
-| operator_id | varchar(32) | NULL | true |  |  |  |
-| created_at | datetime | NULL | true |  |  |  |
+| id | char(36) |  | false | [mail_logs](mail_logs.md) |  | UUID v4 |
+| to | text |  | false |  |  | Recipients (format: @trap_id;@trap_id2) |
+| subject | varchar(255) |  | false |  |  |  |
+| body | text |  | false |  |  |  |
+| operator_id | char(36) | NULL | true |  | [users](users.md) | User who sent this mail |
+| created_at | datetime(6) | current_timestamp(6) | false |  |  |  |
 
 ## Constraints
 
 | Name | Type | Definition |
 | ---- | ---- | ---------- |
+| fk_mails_operator | FOREIGN KEY | FOREIGN KEY (operator_id) REFERENCES users (id) |
 | PRIMARY | PRIMARY KEY | PRIMARY KEY (id) |
 
 ## Indexes
 
 | Name | Definition |
 | ---- | ---------- |
+| idx_mails_created_at | KEY idx_mails_created_at (created_at) USING BTREE |
+| idx_mails_operator | KEY idx_mails_operator (operator_id) USING BTREE |
 | PRIMARY | PRIMARY KEY (id) USING BTREE |
 
 ## Relations

@@ -7,9 +7,10 @@
 
 ```sql
 CREATE TABLE `namecards` (
-  `student_prefix` varchar(32) NOT NULL,
-  `color` varchar(32) DEFAULT NULL,
-  PRIMARY KEY (`student_prefix`)
+  `student_prefix` varchar(32) NOT NULL COMMENT 'Student number prefix (e.g., 15B, 24B)',
+  `color` varchar(7) NOT NULL COMMENT 'Hex color code (#RRGGBB)',
+  PRIMARY KEY (`student_prefix`),
+  CONSTRAINT `chk_namecards_color` CHECK (`color` regexp '^#[0-9A-Fa-f]{6}$')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
 ```
 
@@ -19,14 +20,15 @@ CREATE TABLE `namecards` (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| student_prefix | varchar(32) |  | false |  |  |  |
-| color | varchar(32) | NULL | true |  |  |  |
+| student_prefix | varchar(32) |  | false |  |  | Student number prefix (e.g., 15B, 24B) |
+| color | varchar(7) |  | false |  |  | Hex color code (#RRGGBB) |
 
 ## Constraints
 
 | Name | Type | Definition |
 | ---- | ---- | ---------- |
 | PRIMARY | PRIMARY KEY | PRIMARY KEY (student_prefix) |
+| chk_namecards_color | CHECK | CHECK (`color` regexp '^#[0-9A-Fa-f]{6}$') |
 
 ## Indexes
 

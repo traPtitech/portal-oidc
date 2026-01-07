@@ -22,7 +22,7 @@
 <text text-anchor="start" x="145.03" y="-89.2" font-family="Arial" font-size="14.00" fill="#666666">[varchar(32)]</text>
 <polygon fill="none" stroke="black" points="46.2,-46.2 46.2,-77 261.65,-77 261.65,-46.2 46.2,-46.2"/>
 <text text-anchor="start" x="53.2" y="-58.4" font-family="Arial" font-size="14.00">color </text>
-<text text-anchor="start" x="87.43" y="-58.4" font-family="Arial" font-size="14.00" fill="#666666">[varchar(32)]</text>
+<text text-anchor="start" x="87.43" y="-58.4" font-family="Arial" font-size="14.00" fill="#666666">[varchar(7)]</text>
 <polygon fill="none" stroke="black" stroke-width="3" points="44.7,-44.7 44.7,-144.9 263.15,-144.9 263.15,-44.7 44.7,-44.7"/>
 </g>
 </g>

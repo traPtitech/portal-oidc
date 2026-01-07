@@ -7,12 +7,17 @@
 
 ```sql
 CREATE TABLE `mail_logs` (
-  `id` char(36) NOT NULL,
-  `mail_id` char(36) DEFAULT NULL,
-  `status` varchar(32) DEFAULT NULL,
+  `id` char(36) NOT NULL COMMENT 'UUID v4',
+  `mail_id` char(36) NOT NULL,
+  `status` varchar(32) NOT NULL COMMENT 'Status: unsent, sent, failed',
   `error` text DEFAULT NULL,
-  `created_at` datetime DEFAULT NULL,
-  PRIMARY KEY (`id`)
+  `created_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),
+  PRIMARY KEY (`id`),
+  KEY `idx_mail_logs_mail` (`mail_id`),
+  KEY `idx_mail_logs_status` (`status`),
+  KEY `idx_mail_logs_created_at` (`created_at`),
+  CONSTRAINT `fk_mail_logs_mail` FOREIGN KEY (`mail_id`) REFERENCES `mails` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `chk_mail_logs_status` CHECK (`status` in ('unsent','sent','failed'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
 ```
 
@@ -22,22 +27,27 @@ CREATE TABLE `mail_logs` (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| id | char(36) |  | false |  |  |  |
-| mail_id | char(36) | NULL | true |  |  |  |
-| status | varchar(32) | NULL | true |  |  |  |
+| id | char(36) |  | false |  |  | UUID v4 |
+| mail_id | char(36) |  | false |  | [mails](mails.md) |  |
+| status | varchar(32) |  | false |  |  | Status: unsent, sent, failed |
 | error | text | NULL | true |  |  |  |
-| created_at | datetime | NULL | true |  |  |  |
+| created_at | datetime(6) | current_timestamp(6) | false |  |  |  |
 
 ## Constraints
 
 | Name | Type | Definition |
 | ---- | ---- | ---------- |
+| fk_mail_logs_mail | FOREIGN KEY | FOREIGN KEY (mail_id) REFERENCES mails (id) |
 | PRIMARY | PRIMARY KEY | PRIMARY KEY (id) |
+| chk_mail_logs_status | CHECK | CHECK (`status` in ('unsent','sent','failed')) |
 
 ## Indexes
 
 | Name | Definition |
 | ---- | ---------- |
+| idx_mail_logs_created_at | KEY idx_mail_logs_created_at (created_at) USING BTREE |
+| idx_mail_logs_mail | KEY idx_mail_logs_mail (mail_id) USING BTREE |
+| idx_mail_logs_status | KEY idx_mail_logs_status (status) USING BTREE |
 | PRIMARY | PRIMARY KEY (id) USING BTREE |
 
 ## Relations

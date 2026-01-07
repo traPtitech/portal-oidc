@@ -7,27 +7,18 @@
 
 ```sql
 CREATE TABLE `users` (
-  `id` varchar(32) NOT NULL,
-  `password` varchar(86) DEFAULT NULL,
-  `salt` varchar(86) DEFAULT NULL,
-  `email` varchar(191) DEFAULT NULL,
-  `student_number` varchar(8) DEFAULT NULL,
-  `phone_number` tinytext DEFAULT NULL,
-  `postcode` varchar(8) DEFAULT NULL,
-  `address` text DEFAULT NULL,
-  `birthdate` varchar(10) DEFAULT NULL,
-  `name` tinytext DEFAULT NULL,
-  `alphabetic_name` tinytext DEFAULT NULL,
-  `nickname` tinytext DEFAULT NULL,
-  `sex` tinytext DEFAULT NULL,
-  `student_prefix` varchar(3) DEFAULT NULL,
-  `department` text DEFAULT NULL,
-  `affiliation` text DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT NULL,
-  `updated_at` timestamp NULL DEFAULT NULL,
+  `id` char(36) NOT NULL COMMENT 'UUID v4',
+  `trap_id` varchar(32) NOT NULL COMMENT 'traP ID (unique username)',
+  `password_hash` varchar(255) NOT NULL COMMENT 'PBKDF2-SHA512 hash',
+  `email` varbinary(512) DEFAULT NULL COMMENT 'AES-GCM encrypted email',
+  `personal_info` blob DEFAULT NULL COMMENT 'AES-GCM encrypted JSON (name, phone, address, etc.)',
+  `student_number` varchar(8) DEFAULT NULL COMMENT 'Student number (plaintext for lookup)',
+  `created_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT current_timestamp(6) ON UPDATE current_timestamp(6),
   PRIMARY KEY (`id`),
-  UNIQUE KEY `email` (`email`),
-  UNIQUE KEY `student_number` (`student_number`)
+  UNIQUE KEY `uq_users_trap_id` (`trap_id`),
+  UNIQUE KEY `uq_users_student_number` (`student_number`),
+  KEY `idx_users_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
 ```
 
@@ -35,42 +26,33 @@ CREATE TABLE `users` (
 
 ## Columns
 
-| Name | Type | Default | Nullable | Children | Parents | Comment |
-| ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| id | varchar(32) |  | false |  |  |  |
-| password | varchar(86) | NULL | true |  |  |  |
-| salt | varchar(86) | NULL | true |  |  |  |
-| email | varchar(191) | NULL | true |  |  |  |
-| student_number | varchar(8) | NULL | true |  |  |  |
-| phone_number | tinytext | NULL | true |  |  |  |
-| postcode | varchar(8) | NULL | true |  |  |  |
-| address | text | NULL | true |  |  |  |
-| birthdate | varchar(10) | NULL | true |  |  |  |
-| name | tinytext | NULL | true |  |  |  |
-| alphabetic_name | tinytext | NULL | true |  |  |  |
-| nickname | tinytext | NULL | true |  |  |  |
-| sex | tinytext | NULL | true |  |  |  |
-| student_prefix | varchar(3) | NULL | true |  |  |  |
-| department | text | NULL | true |  |  |  |
-| affiliation | text | NULL | true |  |  |  |
-| created_at | timestamp | NULL | true |  |  |  |
-| updated_at | timestamp | NULL | true |  |  |  |
+| Name | Type | Default | Nullable | Extra Definition | Children | Parents | Comment |
+| ---- | ---- | ------- | -------- | ---------------- | -------- | ------- | ------- |
+| id | char(36) |  | false |  | [mails](mails.md) [user_keys](user_keys.md) [user_links](user_links.md) [group_members](group_members.md) [invitations](invitations.md) [group_member_logs](group_member_logs.md) [group_keys](group_keys.md) [secrets](secrets.md) [secret_logs](secret_logs.md) [user_statuses](user_statuses.md) [webhooks](webhooks.md) |  | UUID v4 |
+| trap_id | varchar(32) |  | false |  |  |  | traP ID (unique username) |
+| password_hash | varchar(255) |  | false |  |  |  | PBKDF2-SHA512 hash |
+| email | varbinary(512) | NULL | true |  |  |  | AES-GCM encrypted email |
+| personal_info | blob | NULL | true |  |  |  | AES-GCM encrypted JSON (name, phone, address, etc.) |
+| student_number | varchar(8) | NULL | true |  |  |  | Student number (plaintext for lookup) |
+| created_at | datetime(6) | current_timestamp(6) | false |  |  |  |  |
+| updated_at | datetime(6) | current_timestamp(6) | false | on update current_timestamp(6) |  |  |  |
 
 ## Constraints
 
 | Name | Type | Definition |
 | ---- | ---- | ---------- |
-| email | UNIQUE | UNIQUE KEY email (email) |
 | PRIMARY | PRIMARY KEY | PRIMARY KEY (id) |
-| student_number | UNIQUE | UNIQUE KEY student_number (student_number) |
+| uq_users_student_number | UNIQUE | UNIQUE KEY uq_users_student_number (student_number) |
+| uq_users_trap_id | UNIQUE | UNIQUE KEY uq_users_trap_id (trap_id) |
 
 ## Indexes
 
 | Name | Definition |
 | ---- | ---------- |
+| idx_users_created_at | KEY idx_users_created_at (created_at) USING BTREE |
 | PRIMARY | PRIMARY KEY (id) USING BTREE |
-| email | UNIQUE KEY email (email) USING BTREE |
-| student_number | UNIQUE KEY student_number (student_number) USING BTREE |
+| uq_users_student_number | UNIQUE KEY uq_users_student_number (student_number) USING BTREE |
+| uq_users_trap_id | UNIQUE KEY uq_users_trap_id (trap_id) USING BTREE |
 
 ## Relations
 

@@ -7,10 +7,20 @@
 
 ```sql
 CREATE TABLE `invitations` (
-  `id` varchar(14) NOT NULL,
-  `created_at` timestamp NULL DEFAULT NULL,
-  `updated_at` timestamp NULL DEFAULT NULL,
-  PRIMARY KEY (`id`)
+  `id` char(36) NOT NULL COMMENT 'UUID v4',
+  `code` varchar(20) NOT NULL COMMENT 'Invitation code (e.g., XXXX-XXXX-XXXX)',
+  `created_by` char(36) DEFAULT NULL COMMENT 'User who created this invitation',
+  `used_by` char(36) DEFAULT NULL COMMENT 'User who used this invitation',
+  `expires_at` datetime(6) DEFAULT NULL COMMENT 'Expiration time (NULL = never expires)',
+  `used_at` datetime(6) DEFAULT NULL,
+  `created_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_invitations_code` (`code`),
+  UNIQUE KEY `uq_invitations_used_by` (`used_by`),
+  KEY `idx_invitations_created_by` (`created_by`),
+  KEY `idx_invitations_expires_at` (`expires_at`),
+  CONSTRAINT `fk_invitations_created_by` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_invitations_used_by` FOREIGN KEY (`used_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
 ```
 
@@ -20,21 +30,33 @@ CREATE TABLE `invitations` (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| id | varchar(14) |  | false |  |  |  |
-| created_at | timestamp | NULL | true |  |  |  |
-| updated_at | timestamp | NULL | true |  |  |  |
+| id | char(36) |  | false |  |  | UUID v4 |
+| code | varchar(20) |  | false |  |  | Invitation code (e.g., XXXX-XXXX-XXXX) |
+| created_by | char(36) | NULL | true |  | [users](users.md) | User who created this invitation |
+| used_by | char(36) | NULL | true |  | [users](users.md) | User who used this invitation |
+| expires_at | datetime(6) | NULL | true |  |  | Expiration time (NULL = never expires) |
+| used_at | datetime(6) | NULL | true |  |  |  |
+| created_at | datetime(6) | current_timestamp(6) | false |  |  |  |
 
 ## Constraints
 
 | Name | Type | Definition |
 | ---- | ---- | ---------- |
+| fk_invitations_created_by | FOREIGN KEY | FOREIGN KEY (created_by) REFERENCES users (id) |
+| fk_invitations_used_by | FOREIGN KEY | FOREIGN KEY (used_by) REFERENCES users (id) |
 | PRIMARY | PRIMARY KEY | PRIMARY KEY (id) |
+| uq_invitations_code | UNIQUE | UNIQUE KEY uq_invitations_code (code) |
+| uq_invitations_used_by | UNIQUE | UNIQUE KEY uq_invitations_used_by (used_by) |
 
 ## Indexes
 
 | Name | Definition |
 | ---- | ---------- |
+| idx_invitations_created_by | KEY idx_invitations_created_by (created_by) USING BTREE |
+| idx_invitations_expires_at | KEY idx_invitations_expires_at (expires_at) USING BTREE |
 | PRIMARY | PRIMARY KEY (id) USING BTREE |
+| uq_invitations_code | UNIQUE KEY uq_invitations_code (code) USING BTREE |
+| uq_invitations_used_by | UNIQUE KEY uq_invitations_used_by (used_by) USING BTREE |
 
 ## Relations
 

@@ -7,10 +7,16 @@
 
 ```sql
 CREATE TABLE `user_links` (
-  `user_id` varchar(32) NOT NULL,
-  `service` varchar(64) NOT NULL,
-  `account` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`user_id`,`service`)
+  `user_id` char(36) NOT NULL,
+  `service` varchar(64) NOT NULL COMMENT 'Service name: twitter, github, discord, etc.',
+  `external_id` varchar(255) DEFAULT NULL COMMENT 'External service user ID',
+  `account_name` varchar(255) DEFAULT NULL COMMENT 'Display name/handle on the service',
+  `access_token` varbinary(1024) DEFAULT NULL COMMENT 'Encrypted OAuth access token (if stored)',
+  `created_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT current_timestamp(6) ON UPDATE current_timestamp(6),
+  PRIMARY KEY (`user_id`,`service`),
+  UNIQUE KEY `uq_user_links_service_external` (`service`,`external_id`),
+  CONSTRAINT `fk_user_links_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
 ```
 
@@ -18,23 +24,30 @@ CREATE TABLE `user_links` (
 
 ## Columns
 
-| Name | Type | Default | Nullable | Children | Parents | Comment |
-| ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| user_id | varchar(32) |  | false |  |  |  |
-| service | varchar(64) |  | false |  |  |  |
-| account | varchar(255) | NULL | true |  |  |  |
+| Name | Type | Default | Nullable | Extra Definition | Children | Parents | Comment |
+| ---- | ---- | ------- | -------- | ---------------- | -------- | ------- | ------- |
+| user_id | char(36) |  | false |  |  | [users](users.md) |  |
+| service | varchar(64) |  | false |  |  |  | Service name: twitter, github, discord, etc. |
+| external_id | varchar(255) | NULL | true |  |  |  | External service user ID |
+| account_name | varchar(255) | NULL | true |  |  |  | Display name/handle on the service |
+| access_token | varbinary(1024) | NULL | true |  |  |  | Encrypted OAuth access token (if stored) |
+| created_at | datetime(6) | current_timestamp(6) | false |  |  |  |  |
+| updated_at | datetime(6) | current_timestamp(6) | false | on update current_timestamp(6) |  |  |  |
 
 ## Constraints
 
 | Name | Type | Definition |
 | ---- | ---- | ---------- |
+| fk_user_links_user | FOREIGN KEY | FOREIGN KEY (user_id) REFERENCES users (id) |
 | PRIMARY | PRIMARY KEY | PRIMARY KEY (user_id, service) |
+| uq_user_links_service_external | UNIQUE | UNIQUE KEY uq_user_links_service_external (service, external_id) |
 
 ## Indexes
 
 | Name | Definition |
 | ---- | ---------- |
 | PRIMARY | PRIMARY KEY (user_id, service) USING BTREE |
+| uq_user_links_service_external | UNIQUE KEY uq_user_links_service_external (service, external_id) USING BTREE |
 
 ## Relations
 
