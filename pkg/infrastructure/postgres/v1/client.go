@@ -1,4 +1,4 @@
-package postgres
+package v1
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 
 	"github.com/traPtitech/portal-oidc/pkg/domain"
 	"github.com/traPtitech/portal-oidc/pkg/domain/repository"
-	postgres "github.com/traPtitech/portal-oidc/pkg/infrastructure/postgres/gen"
+	postgres "github.com/traPtitech/portal-oidc/pkg/infrastructure/postgres/v1/gen"
 )
 
 func (r *Repository) CreateClient(ctx context.Context, params repository.CreateClientParams) (domain.Client, error) {

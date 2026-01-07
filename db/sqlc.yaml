@@ -7,7 +7,7 @@ sql:
     gen:
       go:
         package: "gen"
-        out: "../pkg/infrastructure/postgres/gen"
+        out: "../pkg/infrastructure/postgres/v1/gen"
         sql_package: "pgx/v5"
   - engine: "postgresql"
     queries: query/portal.sql
@@ -16,5 +16,5 @@ sql:
     gen:
       go:
         package: "gen"
-        out: "../pkg/infrastructure/portal/gen"
+        out: "../pkg/infrastructure/portal/v1/gen"
         sql_package: "pgx/v5"

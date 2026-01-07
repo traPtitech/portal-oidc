@@ -6,8 +6,8 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/rs/cors"
 
-	repov1 "github.com/traPtitech/portal-oidc/pkg/infrastructure/postgres"
-	portalv1 "github.com/traPtitech/portal-oidc/pkg/infrastructure/portal"
+	repov1 "github.com/traPtitech/portal-oidc/pkg/infrastructure/postgres/v1"
+	portalv1 "github.com/traPtitech/portal-oidc/pkg/infrastructure/portal/v1"
 	v1 "github.com/traPtitech/portal-oidc/pkg/interface/handler/v1"
 	"github.com/traPtitech/portal-oidc/pkg/usecase"
 )

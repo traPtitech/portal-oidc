@@ -1,4 +1,4 @@
-package portal
+package v1
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/traPtitech/portal-oidc/pkg/domain/portal"
-	portalgen "github.com/traPtitech/portal-oidc/pkg/infrastructure/portal/gen"
+	portalgen "github.com/traPtitech/portal-oidc/pkg/infrastructure/portal/v1/gen"
 )
 
 type Portal struct {

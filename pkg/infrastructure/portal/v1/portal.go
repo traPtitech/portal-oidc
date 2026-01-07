@@ -1,4 +1,4 @@
-package portal
+package v1
 
 import (
 	"context"
