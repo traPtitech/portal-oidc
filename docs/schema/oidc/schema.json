@@ -1,0 +1,371 @@
+{
+  "name": "oidc",
+  "tables": [
+    {
+      "name": "authorization_codes",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "code",
+          "type": "varchar(64)",
+          "nullable": false
+        },
+        {
+          "name": "client_id",
+          "type": "varchar(64)",
+          "nullable": false
+        },
+        {
+          "name": "user_id",
+          "type": "varchar(32)",
+          "nullable": false
+        },
+        {
+          "name": "redirect_uri",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "scope",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "code_challenge",
+          "type": "varchar(128)",
+          "nullable": false
+        },
+        {
+          "name": "code_challenge_method",
+          "type": "varchar(10)",
+          "nullable": false
+        },
+        {
+          "name": "session_data",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "used",
+          "type": "tinyint(1)",
+          "nullable": false,
+          "default": "0"
+        },
+        {
+          "name": "expires_at",
+          "type": "datetime(6)",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "type": "datetime(6)",
+          "nullable": false,
+          "default": "current_timestamp(6)"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "def": "PRIMARY KEY (code) USING BTREE",
+          "table": "authorization_codes",
+          "columns": [
+            "code"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "PRIMARY",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (code)",
+          "table": "authorization_codes",
+          "columns": [
+            "code"
+          ]
+        }
+      ],
+      "def": "CREATE TABLE `authorization_codes` (\n  `code` varchar(64) NOT NULL,\n  `client_id` varchar(64) NOT NULL,\n  `user_id` varchar(32) NOT NULL,\n  `redirect_uri` text NOT NULL,\n  `scope` text NOT NULL,\n  `code_challenge` varchar(128) NOT NULL,\n  `code_challenge_method` varchar(10) NOT NULL,\n  `session_data` text NOT NULL,\n  `used` tinyint(1) NOT NULL DEFAULT 0,\n  `expires_at` datetime(6) NOT NULL,\n  `created_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),\n  PRIMARY KEY (`code`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
+    },
+    {
+      "name": "authorization_requests",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "char(36)",
+          "nullable": false
+        },
+        {
+          "name": "client_id",
+          "type": "varchar(64)",
+          "nullable": false
+        },
+        {
+          "name": "redirect_uri",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "scope",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "state",
+          "type": "varchar(255)",
+          "nullable": true,
+          "default": "NULL"
+        },
+        {
+          "name": "code_challenge",
+          "type": "varchar(128)",
+          "nullable": false
+        },
+        {
+          "name": "code_challenge_method",
+          "type": "varchar(10)",
+          "nullable": false
+        },
+        {
+          "name": "user_id",
+          "type": "varchar(32)",
+          "nullable": true,
+          "default": "NULL"
+        },
+        {
+          "name": "expires_at",
+          "type": "datetime(6)",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "type": "datetime(6)",
+          "nullable": false,
+          "default": "current_timestamp(6)"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "def": "PRIMARY KEY (id) USING BTREE",
+          "table": "authorization_requests",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "PRIMARY",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "authorization_requests",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "def": "CREATE TABLE `authorization_requests` (\n  `id` char(36) NOT NULL,\n  `client_id` varchar(64) NOT NULL,\n  `redirect_uri` text NOT NULL,\n  `scope` text NOT NULL,\n  `state` varchar(255) DEFAULT NULL,\n  `code_challenge` varchar(128) NOT NULL,\n  `code_challenge_method` varchar(10) NOT NULL,\n  `user_id` varchar(32) DEFAULT NULL,\n  `expires_at` datetime(6) NOT NULL,\n  `created_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),\n  PRIMARY KEY (`id`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
+    },
+    {
+      "name": "sessions",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "char(36)",
+          "nullable": false
+        },
+        {
+          "name": "user_id",
+          "type": "varchar(32)",
+          "nullable": false
+        },
+        {
+          "name": "user_agent",
+          "type": "text",
+          "nullable": true,
+          "default": "NULL"
+        },
+        {
+          "name": "ip_address",
+          "type": "varchar(45)",
+          "nullable": true,
+          "default": "NULL"
+        },
+        {
+          "name": "auth_time",
+          "type": "datetime(6)",
+          "nullable": false
+        },
+        {
+          "name": "last_active_at",
+          "type": "datetime(6)",
+          "nullable": false
+        },
+        {
+          "name": "expires_at",
+          "type": "datetime(6)",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "type": "datetime(6)",
+          "nullable": false,
+          "default": "current_timestamp(6)"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "sessions_user_id_index",
+          "def": "KEY sessions_user_id_index (user_id) USING BTREE",
+          "table": "sessions",
+          "columns": [
+            "user_id"
+          ]
+        },
+        {
+          "name": "PRIMARY",
+          "def": "PRIMARY KEY (id) USING BTREE",
+          "table": "sessions",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "PRIMARY",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "sessions",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "def": "CREATE TABLE `sessions` (\n  `id` char(36) NOT NULL,\n  `user_id` varchar(32) NOT NULL,\n  `user_agent` text DEFAULT NULL,\n  `ip_address` varchar(45) DEFAULT NULL,\n  `auth_time` datetime(6) NOT NULL,\n  `last_active_at` datetime(6) NOT NULL,\n  `expires_at` datetime(6) NOT NULL,\n  `created_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),\n  PRIMARY KEY (`id`),\n  KEY `sessions_user_id_index` (`user_id`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
+    },
+    {
+      "name": "gorp_migrations",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "varchar(255)",
+          "nullable": false
+        },
+        {
+          "name": "applied_at",
+          "type": "datetime",
+          "nullable": true,
+          "default": "NULL"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "def": "PRIMARY KEY (id) USING BTREE",
+          "table": "gorp_migrations",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "PRIMARY",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "gorp_migrations",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "def": "CREATE TABLE `gorp_migrations` (\n  `id` varchar(255) NOT NULL,\n  `applied_at` datetime DEFAULT NULL,\n  PRIMARY KEY (`id`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci"
+    },
+    {
+      "name": "clients",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "client_id",
+          "type": "char(36)",
+          "nullable": false
+        },
+        {
+          "name": "client_secret_hash",
+          "type": "varchar(255)",
+          "nullable": true,
+          "default": "NULL"
+        },
+        {
+          "name": "name",
+          "type": "varchar(255)",
+          "nullable": false
+        },
+        {
+          "name": "client_type",
+          "type": "varchar(20)",
+          "nullable": false
+        },
+        {
+          "name": "redirect_uris",
+          "type": "longtext",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "type": "datetime(6)",
+          "nullable": false,
+          "default": "current_timestamp(6)"
+        },
+        {
+          "name": "updated_at",
+          "type": "datetime(6)",
+          "nullable": false,
+          "default": "current_timestamp(6)",
+          "extra_def": "on update current_timestamp(6)"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "def": "PRIMARY KEY (client_id) USING BTREE",
+          "table": "clients",
+          "columns": [
+            "client_id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "PRIMARY",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (client_id)",
+          "table": "clients",
+          "columns": [
+            "client_id"
+          ]
+        },
+        {
+          "name": "redirect_uris",
+          "type": "CHECK",
+          "def": "CHECK (json_valid(`redirect_uris`))",
+          "table": "clients"
+        }
+      ],
+      "def": "CREATE TABLE `clients` (\n  `client_id` char(36) NOT NULL,\n  `client_secret_hash` varchar(255) DEFAULT NULL,\n  `name` varchar(255) NOT NULL,\n  `client_type` varchar(20) NOT NULL,\n  `redirect_uris` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`redirect_uris`)),\n  `created_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),\n  `updated_at` datetime(6) NOT NULL DEFAULT current_timestamp(6) ON UPDATE current_timestamp(6),\n  PRIMARY KEY (`client_id`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
+    }
+  ],
+  "driver": {
+    "name": "mysql",
+    "database_version": "11.8.5-MariaDB-ubu2404",
+    "meta": {
+      "dict": {
+        "Functions": "Stored procedures and functions"
+      }
+    }
+  }
+}

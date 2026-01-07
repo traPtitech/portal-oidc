@@ -14,7 +14,7 @@ func (p *Portal) GetGrade(ctx context.Context, id domain.TrapID) (string, error)
 		return "", errors.Wrap(err, "Failed to get user")
 	}
 
-	if !user.StudentNumber.Valid || utf8.RuneCountInString(user.StudentNumber.String) < 3 {
+	if !user.StudentNumber.Valid || utf8.RuneCountInString(user.StudentNumber.String) < 8 {
 		return "", errors.New("Invalid student number")
 	}
 
