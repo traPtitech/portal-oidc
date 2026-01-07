@@ -1,24 +1,53 @@
 [tools]
 go = "1.25"
 "golangci-lint" = "latest"
+"atlas" = "latest"
+"aqua:k1LoW/tbls" = "latest"
 
 [tasks."start:server"]
+description = "OIDCサーバーを起動"
 run = "go run ./cmd serve"
 
-[tasks.migrate]
-run = "go tool sql-migrate {{arg(name='cmd')}}"
+[tasks."migrate:diff"]
+description = "スキーマ差分からマイグレーションを生成"
+dir = "db"
+run = "atlas migrate diff --env local"
 
-[tasks."migrate:new"]
-run = "go tool sql-migrate new _"
+[tasks."migrate:apply"]
+description = "マイグレーションを適用"
+dir = "db"
+run = "atlas migrate apply --env local"
 
-[tasks."migrate:up"]
-run = "go tool sql-migrate up"
+[tasks."migrate:status"]
+description = "マイグレーション状態を表示"
+dir = "db"
+run = "atlas migrate status --env local"
 
-[tasks."migrate:down"]
-run = "go tool sql-migrate down"
+[tasks."schema:inspect"]
+description = "データベーススキーマを確認"
+dir = "db"
+run = "atlas schema inspect --env local"
+
+[tasks.sqlc]
+description = "sqlcコードを生成"
+run = "go tool sqlc generate --file ./db/sqlc.yaml"
 
 [tasks.gen]
+description = "コードを生成"
 run = "go generate ./..."
 
 [tasks.lint]
+description = "リンターを実行"
 run = "golangci-lint run"
+
+[tasks."docs:oidc"]
+description = "OIDCデータベースのドキュメントを生成"
+run = "tbls doc mysql://root:password@localhost:3307/oidc docs/schema/oidc --force"
+
+[tasks."docs:portal"]
+description = "Portalデータベースのドキュメントを生成"
+run = "tbls doc mysql://root:password@localhost:3306/portal docs/schema/portal --force"
+
+[tasks.docs]
+description = "全データベースのドキュメントを生成"
+depends = ["docs:oidc", "docs:portal"]

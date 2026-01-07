@@ -1,5 +1,5 @@
 package: gen
-output: internal/handler/v1/gen/server.go
+output: internal/interface/handler/v1/gen/server.go
 generate:
   echo-server: true
   strict-server: true
