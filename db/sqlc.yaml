@@ -1,14 +1,15 @@
 version: "2"
 sql:
-  - engine: "mysql"
+  - engine: "postgresql"
     queries: query/oidc.sql
     schema: schema.sql
     strict_function_checks: true
     gen:
       go:
         package: "gen"
-        out: "../internal/infrastructure/mariadb/gen"
-  - engine: "mysql"
+        out: "../internal/infrastructure/postgres/gen"
+        sql_package: "pgx/v5"
+  - engine: "postgresql"
     queries: query/portal.sql
     schema: portal-schema.sql
     strict_function_checks: true
@@ -16,3 +17,4 @@ sql:
       go:
         package: "gen"
         out: "../internal/infrastructure/portal/gen"
+        sql_package: "pgx/v5"

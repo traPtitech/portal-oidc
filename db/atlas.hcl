@@ -1,7 +1,7 @@
 env "local" {
   src = "file://schema.sql"
-  url = "maria://root:password@localhost:3307/oidc"
-  dev = "docker://mariadb/11.8.5/oidc"
+  url = "postgres://postgres:password@localhost:5433/oidc?sslmode=disable"
+  dev = "docker://postgres/18/oidc"
   migration {
     dir = "file://migrations"
   }

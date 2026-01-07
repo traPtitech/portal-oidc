@@ -1,31 +1,29 @@
 services:
   portal:
-    image: mariadb:11.8.5
+    image: postgres:18.1
     environment:
-      MYSQL_ROOT_PASSWORD: password
-      MYSQL_DATABASE: portal
-    command: mariadbd --character-set-server=utf8mb4 --collation-server=utf8mb4_general_ci
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: portal
     volumes:
       - "./db/portal-schema.sql:/docker-entrypoint-initdb.d/schema.sql"
     ports:
-      - "3306:3306"
+      - "5432:5432"
     healthcheck:
-      test: mysqladmin ping -h 127.0.0.1 -u root -p$$MYSQL_ROOT_PASSWORD
+      test: pg_isready -U postgres
       interval: 1s
       timeout: 10s
       retries: 60
   oidc:
-    image: mariadb:11.8.5
+    image: postgres:18.1
     environment:
-      MYSQL_ROOT_PASSWORD: password
-      MYSQL_DATABASE: oidc
-    command: mariadbd --character-set-server=utf8mb4 --collation-server=utf8mb4_general_ci
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: oidc
     volumes:
       - "./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql"
     ports:
-      - "3307:3306"
+      - "5433:5432"
     healthcheck:
-      test: mysqladmin ping -h 127.0.0.1 -u root -p$$MYSQL_ROOT_PASSWORD
+      test: pg_isready -U postgres
       interval: 1s
       timeout: 10s
       retries: 60

@@ -1,204 +1,290 @@
+-- =============================================================================
+-- Portal Schema (external database - copy for sqlc generation)
+-- =============================================================================
+
+-- Trigger function for updated_at
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = CURRENT_TIMESTAMP;
+  RETURN NEW;
+END;
+$$ language 'plpgsql';
+
 -- Users
-CREATE TABLE `users` (
-  `id` char(36) NOT NULL COMMENT 'UUID v4',
-  `trap_id` varchar(32) NOT NULL COMMENT 'traP ID (unique username)',
-  `password_hash` varchar(255) NOT NULL COMMENT 'PBKDF2-SHA512 hash',
-  `email` varbinary(512) NULL COMMENT 'AES-GCM encrypted email',
-  `personal_info` blob NULL COMMENT 'AES-GCM encrypted JSON (name, phone, address, etc.)',
-  `student_number` varchar(8) NULL COMMENT 'Student number (plaintext for lookup)',
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_users_trap_id` (`trap_id`),
-  UNIQUE KEY `uq_users_student_number` (`student_number`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+CREATE TABLE users (
+  id UUID NOT NULL,
+  trap_id VARCHAR(32) NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  email BYTEA,
+  personal_info BYTEA,
+  student_number VARCHAR(8),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT uq_users_trap_id UNIQUE (trap_id),
+  CONSTRAINT uq_users_student_number UNIQUE (student_number)
+);
+
+CREATE INDEX idx_users_created_at ON users (created_at);
+
+CREATE TRIGGER update_users_updated_at
+  BEFORE UPDATE ON users
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
 
 -- User statuses
-CREATE TABLE `user_statuses` (
-  `user_id` char(36) NOT NULL,
-  `status` varchar(64) NOT NULL COMMENT 'Status type: active, suspended, email-unconfirmed, etc.',
-  `detail` varchar(255) NULL COMMENT 'Additional detail/reason',
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`user_id`, `status`),
-  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+CREATE TABLE user_statuses (
+  user_id UUID NOT NULL,
+  status VARCHAR(64) NOT NULL,
+  detail VARCHAR(255),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, status),
+  CONSTRAINT fk_user_statuses_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_user_statuses_status ON user_statuses (status);
 
 -- User links (SNS connections)
-CREATE TABLE `user_links` (
-  `user_id` char(36) NOT NULL,
-  `service` varchar(64) NOT NULL COMMENT 'Service name: twitter, github, discord, etc.',
-  `external_id` varchar(255) NULL COMMENT 'External service user ID',
-  `account_name` varchar(255) NULL COMMENT 'Display name/handle on the service',
-  `access_token` varbinary(1024) NULL COMMENT 'Encrypted OAuth access token (if stored)',
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`user_id`, `service`),
-  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+CREATE TABLE user_links (
+  user_id UUID NOT NULL,
+  service VARCHAR(64) NOT NULL,
+  external_id VARCHAR(255),
+  account_name VARCHAR(255),
+  access_token BYTEA,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, service),
+  CONSTRAINT uq_user_links_service_external UNIQUE (service, external_id),
+  CONSTRAINT fk_user_links_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TRIGGER update_user_links_updated_at
+  BEFORE UPDATE ON user_links
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
 
 -- Invitations
-CREATE TABLE `invitations` (
-  `id` char(36) NOT NULL COMMENT 'UUID v4',
-  `code` varchar(20) NOT NULL COMMENT 'Invitation code (e.g., XXXX-XXXX-XXXX)',
-  `created_by` char(36) NULL COMMENT 'User who created this invitation',
-  `used_by` char(36) NULL COMMENT 'User who used this invitation',
-  `expires_at` datetime(6) NULL COMMENT 'Expiration time (NULL = never expires)',
-  `used_at` datetime(6) NULL,
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_invitations_code` (`code`),
-  FOREIGN KEY (`created_by`) REFERENCES `users`(`id`) ON DELETE SET NULL,
-  FOREIGN KEY (`used_by`) REFERENCES `users`(`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+CREATE TABLE invitations (
+  id UUID NOT NULL,
+  code VARCHAR(20) NOT NULL,
+  created_by UUID,
+  used_by UUID,
+  expires_at TIMESTAMPTZ,
+  used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT uq_invitations_code UNIQUE (code),
+  CONSTRAINT uq_invitations_used_by UNIQUE (used_by),
+  CONSTRAINT fk_invitations_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+  CONSTRAINT fk_invitations_used_by FOREIGN KEY (used_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_invitations_created_by ON invitations (created_by);
+CREATE INDEX idx_invitations_expires_at ON invitations (expires_at);
 
 -- Groups
-CREATE TABLE `groups` (
-  `id` char(36) NOT NULL COMMENT 'UUID v4',
-  `name` varchar(255) NOT NULL,
-  `description` text NULL,
-  `parent_id` char(36) NULL COMMENT 'Parent group for hierarchical structure',
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  FOREIGN KEY (`parent_id`) REFERENCES `groups`(`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+CREATE TABLE groups (
+  id UUID NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  parent_id UUID,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT uq_groups_name_parent UNIQUE (name, parent_id),
+  CONSTRAINT fk_groups_parent FOREIGN KEY (parent_id) REFERENCES groups(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_groups_parent ON groups (parent_id);
+
+CREATE TRIGGER update_groups_updated_at
+  BEFORE UPDATE ON groups
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
 
 -- Group members
-CREATE TABLE `group_members` (
-  `group_id` char(36) NOT NULL,
-  `user_id` char(36) NOT NULL,
-  `roles` json NOT NULL DEFAULT ('[]') COMMENT 'Member roles within group: ["admin", "owner", "member"]',
-  `joined_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`group_id`, `user_id`),
-  FOREIGN KEY (`group_id`) REFERENCES `groups`(`id`) ON DELETE CASCADE,
-  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+CREATE TABLE group_members (
+  group_id UUID NOT NULL,
+  user_id UUID NOT NULL,
+  roles JSONB NOT NULL DEFAULT '[]',
+  joined_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (group_id, user_id),
+  CONSTRAINT fk_group_members_group FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+  CONSTRAINT fk_group_members_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_group_members_user ON group_members (user_id);
+CREATE INDEX idx_group_members_joined_at ON group_members (joined_at);
 
 -- Group member logs (audit trail)
-CREATE TABLE `group_member_logs` (
-  `id` char(36) NOT NULL COMMENT 'UUID v4',
-  `group_id` char(36) NOT NULL,
-  `user_id` char(36) NOT NULL,
-  `action` varchar(32) NOT NULL COMMENT 'Action: added, removed, role_changed',
-  `actor_id` char(36) NULL COMMENT 'User who performed the action',
-  `old_roles` json NULL,
-  `new_roles` json NULL,
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  KEY `idx_group_member_logs_group` (`group_id`),
-  KEY `idx_group_member_logs_user` (`user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+CREATE TABLE group_member_logs (
+  id UUID NOT NULL,
+  group_id UUID NOT NULL,
+  user_id UUID NOT NULL,
+  action VARCHAR(32) NOT NULL,
+  actor_id UUID,
+  old_roles JSONB,
+  new_roles JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT fk_group_member_logs_group FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+  CONSTRAINT fk_group_member_logs_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_group_member_logs_actor FOREIGN KEY (actor_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_group_member_logs_group ON group_member_logs (group_id);
+CREATE INDEX idx_group_member_logs_user ON group_member_logs (user_id);
+CREATE INDEX idx_group_member_logs_actor ON group_member_logs (actor_id);
+CREATE INDEX idx_group_member_logs_created_at ON group_member_logs (created_at);
 
 -- Group permissions
-CREATE TABLE `group_permissions` (
-  `group_id` char(36) NOT NULL,
-  `permission` varchar(64) NOT NULL COMMENT 'Permission: user:read, user:update, invitation:create, etc.',
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`group_id`, `permission`),
-  FOREIGN KEY (`group_id`) REFERENCES `groups`(`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+CREATE TABLE group_permissions (
+  group_id UUID NOT NULL,
+  permission VARCHAR(64) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (group_id, permission),
+  CONSTRAINT fk_group_permissions_group FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_group_permissions_permission ON group_permissions (permission);
 
 -- User keys (E2E encryption)
-CREATE TABLE `user_keys` (
-  `user_id` char(36) NOT NULL,
-  `key_id` char(36) NOT NULL COMMENT 'UUID v4',
-  `public_key` varbinary(4096) NOT NULL COMMENT 'User public key (DER format)',
-  `encrypted_private_key` blob NOT NULL COMMENT 'Private key encrypted with user password-derived key',
-  `algorithm` varchar(32) NOT NULL DEFAULT 'RSA-OAEP-SHA256' COMMENT 'Key algorithm',
-  `is_active` tinyint(1) NOT NULL DEFAULT 1,
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`user_id`, `key_id`),
-  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+CREATE TABLE user_keys (
+  user_id UUID NOT NULL,
+  key_id UUID NOT NULL,
+  public_key BYTEA NOT NULL,
+  encrypted_private_key BYTEA NOT NULL,
+  algorithm VARCHAR(32) NOT NULL DEFAULT 'RSA-OAEP-SHA256',
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, key_id),
+  CONSTRAINT fk_user_keys_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_user_keys_active ON user_keys (user_id, is_active);
 
 -- Group keys (E2E encryption for group secrets)
-CREATE TABLE `group_keys` (
-  `group_id` char(36) NOT NULL,
-  `user_id` char(36) NOT NULL,
-  `key_id` char(36) NOT NULL COMMENT 'UUID v4',
-  `encrypted_key` blob NOT NULL COMMENT 'Group symmetric key encrypted with user public key',
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`group_id`, `user_id`, `key_id`),
-  FOREIGN KEY (`group_id`) REFERENCES `groups`(`id`) ON DELETE CASCADE,
-  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+CREATE TABLE group_keys (
+  group_id UUID NOT NULL,
+  user_id UUID NOT NULL,
+  key_id UUID NOT NULL,
+  encrypted_key BYTEA NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (group_id, user_id, key_id),
+  CONSTRAINT fk_group_keys_group FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+  CONSTRAINT fk_group_keys_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_group_keys_user_key FOREIGN KEY (user_id, key_id) REFERENCES user_keys(user_id, key_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_group_keys_user ON group_keys (user_id);
 
 -- Secrets (E2E encrypted secrets)
-CREATE TABLE `secrets` (
-  `id` char(36) NOT NULL COMMENT 'UUID v4',
-  `group_id` char(36) NOT NULL COMMENT 'Owning group',
-  `name` varchar(255) NOT NULL,
-  `encrypted_value` blob NOT NULL COMMENT 'AES-GCM encrypted with group key',
-  `created_by` char(36) NULL,
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  KEY `idx_secrets_group` (`group_id`),
-  FOREIGN KEY (`group_id`) REFERENCES `groups`(`id`) ON DELETE CASCADE,
-  FOREIGN KEY (`created_by`) REFERENCES `users`(`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+CREATE TABLE secrets (
+  id UUID NOT NULL,
+  group_id UUID NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  encrypted_value BYTEA NOT NULL,
+  created_by UUID,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT uq_secrets_group_name UNIQUE (group_id, name),
+  CONSTRAINT fk_secrets_group FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+  CONSTRAINT fk_secrets_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_secrets_created_by ON secrets (created_by);
+
+CREATE TRIGGER update_secrets_updated_at
+  BEFORE UPDATE ON secrets
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
 
 -- Secret logs (audit trail)
-CREATE TABLE `secret_logs` (
-  `id` char(36) NOT NULL COMMENT 'UUID v4',
-  `secret_id` char(36) NOT NULL,
-  `action` varchar(32) NOT NULL COMMENT 'Action: created, updated, deleted, accessed',
-  `actor_id` char(36) NULL,
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  KEY `idx_secret_logs_secret` (`secret_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+CREATE TABLE secret_logs (
+  id UUID NOT NULL,
+  secret_id UUID NOT NULL,
+  action VARCHAR(32) NOT NULL,
+  actor_id UUID,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT fk_secret_logs_secret FOREIGN KEY (secret_id) REFERENCES secrets(id) ON DELETE CASCADE,
+  CONSTRAINT fk_secret_logs_actor FOREIGN KEY (actor_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_secret_logs_secret ON secret_logs (secret_id);
+CREATE INDEX idx_secret_logs_actor ON secret_logs (actor_id);
+CREATE INDEX idx_secret_logs_created_at ON secret_logs (created_at);
 
 -- Webhooks
-CREATE TABLE `webhooks` (
-  `id` char(36) NOT NULL COMMENT 'UUID v4',
-  `name` varchar(255) NOT NULL,
-  `url` varchar(2048) NOT NULL,
-  `secret` varbinary(512) NULL COMMENT 'HMAC signing secret (encrypted)',
-  `owner_id` char(36) NULL COMMENT 'User who owns this webhook',
-  `is_active` tinyint(1) NOT NULL DEFAULT 1,
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  FOREIGN KEY (`owner_id`) REFERENCES `users`(`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+CREATE TABLE webhooks (
+  id UUID NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  url VARCHAR(2048) NOT NULL,
+  secret BYTEA,
+  owner_id UUID,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT fk_webhooks_owner FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_webhooks_owner ON webhooks (owner_id);
+CREATE INDEX idx_webhooks_active ON webhooks (is_active);
+
+CREATE TRIGGER update_webhooks_updated_at
+  BEFORE UPDATE ON webhooks
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
 
 -- Webhook subscribe events
-CREATE TABLE `webhook_subscribe_events` (
-  `webhook_id` char(36) NOT NULL,
-  `event_type` varchar(64) NOT NULL COMMENT 'Event type: user.created, group.member_added, etc.',
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`webhook_id`, `event_type`),
-  FOREIGN KEY (`webhook_id`) REFERENCES `webhooks`(`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+CREATE TABLE webhook_subscribe_events (
+  webhook_id UUID NOT NULL,
+  event_type VARCHAR(64) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (webhook_id, event_type),
+  CONSTRAINT fk_webhook_events_webhook FOREIGN KEY (webhook_id) REFERENCES webhooks(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_webhook_events_type ON webhook_subscribe_events (event_type);
 
 -- Namecards
-CREATE TABLE `namecards` (
-  `student_prefix` varchar(32) NOT NULL COMMENT 'Student number prefix (e.g., 15B, 24B)',
-  `color` varchar(32) NULL COMMENT 'Hex color code',
-  PRIMARY KEY (`student_prefix`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+CREATE TABLE namecards (
+  student_prefix VARCHAR(32) NOT NULL,
+  color VARCHAR(7) NOT NULL,
+  PRIMARY KEY (student_prefix),
+  CONSTRAINT chk_namecards_color CHECK (color ~ '^#[0-9A-Fa-f]{6}$')
+);
 
 -- Mails
-CREATE TABLE `mails` (
-  `id` char(36) NOT NULL COMMENT 'UUID v4',
-  `to` text NULL COMMENT 'Recipients (format: @trap_id;@trap_id2)',
-  `subject` varchar(255) NULL,
-  `body` text NULL,
-  `operator_id` char(36) NULL COMMENT 'User who sent this mail',
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  FOREIGN KEY (`operator_id`) REFERENCES `users`(`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+CREATE TABLE mails (
+  id UUID NOT NULL,
+  "to" TEXT NOT NULL,
+  subject VARCHAR(255) NOT NULL,
+  body TEXT NOT NULL,
+  operator_id UUID,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT fk_mails_operator FOREIGN KEY (operator_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_mails_operator ON mails (operator_id);
+CREATE INDEX idx_mails_created_at ON mails (created_at);
 
 -- Mail logs
-CREATE TABLE `mail_logs` (
-  `id` char(36) NOT NULL COMMENT 'UUID v4',
-  `mail_id` char(36) NOT NULL,
-  `status` varchar(32) NOT NULL COMMENT 'Status: unsent, sent, failed',
-  `error` text NULL,
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  KEY `idx_mail_logs_mail` (`mail_id`),
-  FOREIGN KEY (`mail_id`) REFERENCES `mails`(`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+CREATE TABLE mail_logs (
+  id UUID NOT NULL,
+  mail_id UUID NOT NULL,
+  status VARCHAR(32) NOT NULL,
+  error TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT fk_mail_logs_mail FOREIGN KEY (mail_id) REFERENCES mails(id) ON DELETE CASCADE,
+  CONSTRAINT chk_mail_logs_status CHECK (status IN ('unsent', 'sent', 'failed'))
+);
+
+CREATE INDEX idx_mail_logs_mail ON mail_logs (mail_id);
+CREATE INDEX idx_mail_logs_status ON mail_logs (status);
+CREATE INDEX idx_mail_logs_created_at ON mail_logs (created_at);

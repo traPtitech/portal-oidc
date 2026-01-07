@@ -1,5 +1,5 @@
 [tools]
-go = "1.25"
+go = "1.25.5"
 "golangci-lint" = "latest"
 "atlas" = "latest"
 "aqua:k1LoW/tbls" = "latest"
@@ -42,11 +42,11 @@ run = "golangci-lint run"
 
 [tasks."docs:oidc"]
 description = "OIDCデータベースのドキュメントを生成"
-run = "tbls doc mysql://root:password@localhost:3307/oidc docs/schema/oidc --force"
+run = "tbls doc postgres://postgres:password@localhost:5433/oidc?sslmode=disable docs/schema/oidc --force"
 
 [tasks."docs:portal"]
 description = "Portalデータベースのドキュメントを生成"
-run = "tbls doc mysql://root:password@localhost:3306/portal docs/schema/portal --force"
+run = "tbls doc postgres://postgres:password@localhost:5432/portal?sslmode=disable docs/schema/portal --force"
 
 [tasks.docs]
 description = "全データベースのドキュメントを生成"
