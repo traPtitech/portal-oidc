@@ -5,6 +5,5 @@ import (
 )
 
 func setupDefaults() {
-	viper.SetDefault("oidc_secret", "some-cool-secret-that-is-32bytes")
 	viper.SetDefault("host", "localhost")
 }
