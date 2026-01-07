@@ -1,0 +1,9 @@
+package: gen
+output: internal/handler/v1/gen/server.go
+generate:
+  echo-server: true
+  strict-server: true
+output-options:
+  skip-prune: true
+  include-tags:
+    - client
