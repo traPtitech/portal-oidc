@@ -18,6 +18,11 @@ comments:
     constraintComments:
       clients_pkey: "主キー"
       clients_client_id_not_null: "NOT NULL"
+      clients_name_not_null: "NOT NULL"
+      clients_client_type_not_null: "NOT NULL"
+      clients_redirect_uris_not_null: "NOT NULL"
+      clients_created_at_not_null: "NOT NULL"
+      clients_updated_at_not_null: "NOT NULL"
     triggerComments:
       update_clients_updated_at: "updated_atを自動更新"
 
