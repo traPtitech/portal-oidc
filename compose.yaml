@@ -1,16 +1,12 @@
-version: "3"
-
 services:
   portal:
-    image: mariadb:10.11.4
+    image: mariadb:11.8.5
     environment:
       MYSQL_ROOT_PASSWORD: password
       MYSQL_DATABASE: portal
     command: mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_general_ci
     volumes:
-      - "./_dev/init.sql:/docker-entrypoint-initdb.d/init.sql"
-    expose:
-      - "3306"
+      - "./db/portal-schema.sql:/docker-entrypoint-initdb.d/schema.sql"
     ports:
       - "3306:3306"
     healthcheck:
@@ -19,13 +15,13 @@ services:
       timeout: 10s
       retries: 60
   oidc:
-    image: mariadb:10.11.4
+    image: mariadb:11.8.5
     environment:
       MYSQL_ROOT_PASSWORD: password
       MYSQL_DATABASE: oidc
     command: mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_general_ci
-    expose:
-      - "3307"
+    volumes:
+      - "./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql"
     ports:
       - "3307:3306"
     healthcheck:

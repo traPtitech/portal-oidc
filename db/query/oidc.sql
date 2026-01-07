@@ -1,5 +1,3 @@
--- Client queries (OAuthクライアント)
-
 -- name: CreateClient :exec
 INSERT INTO clients (
     client_id,

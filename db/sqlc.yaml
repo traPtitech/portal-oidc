@@ -1,0 +1,18 @@
+version: "2"
+sql:
+  - engine: "mysql"
+    queries: query/oidc.sql
+    schema: schema.sql
+    strict_function_checks: true
+    gen:
+      go:
+        package: "gen"
+        out: "../internal/infrastructure/mariadb/gen"
+  - engine: "mysql"
+    queries: query/portal.sql
+    schema: portal-schema.sql
+    strict_function_checks: true
+    gen:
+      go:
+        package: "gen"
+        out: "../internal/infrastructure/portal/gen"
