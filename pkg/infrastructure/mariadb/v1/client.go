@@ -2,14 +2,14 @@ package v1
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/traPtitech/portal-oidc/pkg/domain"
 	"github.com/traPtitech/portal-oidc/pkg/domain/repository"
-	postgres "github.com/traPtitech/portal-oidc/pkg/infrastructure/postgres/v1/gen"
+	mariadb "github.com/traPtitech/portal-oidc/pkg/infrastructure/mariadb/v1/gen"
 )
 
 func (r *Repository) CreateClient(ctx context.Context, params repository.CreateClientParams) (domain.Client, error) {
@@ -18,9 +18,9 @@ func (r *Repository) CreateClient(ctx context.Context, params repository.CreateC
 		return domain.Client{}, err
 	}
 
-	err = r.q.CreateClient(ctx, postgres.CreateClientParams{
-		ClientID:         toPgUUID(uuid.UUID(params.ID)),
-		ClientSecretHash: toPgText(params.SecretHash),
+	err = r.q.CreateClient(ctx, mariadb.CreateClientParams{
+		ClientID:         uuid.UUID(params.ID).String(),
+		ClientSecretHash: toNullString(params.SecretHash),
 		Name:             params.Name,
 		ClientType:       params.Type.String(),
 		RedirectUris:     redirectURIs,
@@ -33,7 +33,7 @@ func (r *Repository) CreateClient(ctx context.Context, params repository.CreateC
 }
 
 func (r *Repository) GetClient(ctx context.Context, id domain.ClientID) (domain.Client, error) {
-	c, err := r.q.GetClient(ctx, toPgUUID(uuid.UUID(id)))
+	c, err := r.q.GetClient(ctx, uuid.UUID(id).String())
 	if err != nil {
 		return domain.Client{}, err
 	}
@@ -63,11 +63,11 @@ func (r *Repository) UpdateClient(ctx context.Context, id domain.ClientID, param
 		return domain.Client{}, err
 	}
 
-	err = r.q.UpdateClient(ctx, postgres.UpdateClientParams{
-		ClientID:     toPgUUID(uuid.UUID(id)),
+	err = r.q.UpdateClient(ctx, mariadb.UpdateClientParams{
 		Name:         params.Name,
 		ClientType:   params.Type.String(),
 		RedirectUris: redirectURIs,
+		ClientID:     uuid.UUID(id).String(),
 	})
 	if err != nil {
 		return domain.Client{}, err
@@ -77,9 +77,9 @@ func (r *Repository) UpdateClient(ctx context.Context, id domain.ClientID, param
 }
 
 func (r *Repository) UpdateClientSecret(ctx context.Context, id domain.ClientID, secretHash *string) (domain.Client, error) {
-	err := r.q.UpdateClientSecret(ctx, postgres.UpdateClientSecretParams{
-		ClientID:         toPgUUID(uuid.UUID(id)),
-		ClientSecretHash: toPgText(secretHash),
+	err := r.q.UpdateClientSecret(ctx, mariadb.UpdateClientSecretParams{
+		ClientSecretHash: toNullString(secretHash),
+		ClientID:         uuid.UUID(id).String(),
 	})
 	if err != nil {
 		return domain.Client{}, err
@@ -89,11 +89,11 @@ func (r *Repository) UpdateClientSecret(ctx context.Context, id domain.ClientID,
 }
 
 func (r *Repository) DeleteClient(ctx context.Context, id domain.ClientID) error {
-	return r.q.DeleteClient(ctx, toPgUUID(uuid.UUID(id)))
+	return r.q.DeleteClient(ctx, uuid.UUID(id).String())
 }
 
-func toDomainClient(c postgres.Client) (domain.Client, error) {
-	clientID, err := uuid.FromBytes(c.ClientID.Bytes[:])
+func toDomainClient(c mariadb.Client) (domain.Client, error) {
+	clientID, err := uuid.Parse(c.ClientID)
 	if err != nil {
 		return domain.Client{}, err
 	}
@@ -110,29 +110,25 @@ func toDomainClient(c postgres.Client) (domain.Client, error) {
 
 	return domain.Client{
 		ID:           domain.ClientID(clientID),
-		SecretHash:   fromPgText(c.ClientSecretHash),
+		SecretHash:   fromNullString(c.ClientSecretHash),
 		Name:         c.Name,
 		Type:         clientType,
 		RedirectURIs: redirectURIs,
-		CreatedAt:    c.CreatedAt.Time,
-		UpdatedAt:    c.UpdatedAt.Time,
+		CreatedAt:    c.CreatedAt,
+		UpdatedAt:    c.UpdatedAt,
 	}, nil
 }
 
-func toPgUUID(u uuid.UUID) pgtype.UUID {
-	return pgtype.UUID{Bytes: u, Valid: true}
-}
-
-func toPgText(s *string) pgtype.Text {
+func toNullString(s *string) sql.NullString {
 	if s == nil {
-		return pgtype.Text{}
+		return sql.NullString{}
 	}
-	return pgtype.Text{String: *s, Valid: true}
+	return sql.NullString{String: *s, Valid: true}
 }
 
-func fromPgText(t pgtype.Text) *string {
-	if !t.Valid {
+func fromNullString(s sql.NullString) *string {
+	if !s.Valid {
 		return nil
 	}
-	return &t.String
+	return &s.String
 }

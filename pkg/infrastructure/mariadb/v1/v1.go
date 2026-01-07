@@ -1,20 +1,20 @@
 package v1
 
 import (
-	"context"
+	"database/sql"
 	"fmt"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-	postgres "github.com/traPtitech/portal-oidc/pkg/infrastructure/postgres/v1/gen"
+	_ "github.com/go-sql-driver/mysql"
+	mariadb "github.com/traPtitech/portal-oidc/pkg/infrastructure/mariadb/v1/gen"
 )
 
 type Repository struct {
-	q *postgres.Queries
+	q *mariadb.Queries
 }
 
 func NewRepository(conf Config) (*Repository, error) {
 	connStr := fmt.Sprintf(
-		"postgres://%s:%s@%s:%d/%s?sslmode=disable",
+		"%s:%s@tcp(%s:%d)/%s?parseTime=true",
 		conf.User,
 		conf.Password,
 		conf.Host,
@@ -22,12 +22,12 @@ func NewRepository(conf Config) (*Repository, error) {
 		conf.Name,
 	)
 
-	pool, err := pgxpool.New(context.Background(), connStr)
+	db, err := sql.Open("mysql", connStr)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Repository{
-		q: postgres.New(pool),
+		q: mariadb.New(db),
 	}, nil
 }

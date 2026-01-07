@@ -6,14 +6,13 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/rs/cors"
 
-	repov1 "github.com/traPtitech/portal-oidc/pkg/infrastructure/postgres/v1"
+	repov1 "github.com/traPtitech/portal-oidc/pkg/infrastructure/mariadb/v1"
 	portalv1 "github.com/traPtitech/portal-oidc/pkg/infrastructure/portal/v1"
 	v1 "github.com/traPtitech/portal-oidc/pkg/interface/handler/v1"
 	"github.com/traPtitech/portal-oidc/pkg/usecase"
 )
 
 func NewServer(config Config) http.Handler {
-	// Use injected dependencies if provided, otherwise create from config
 	repo := config.Repository
 	if repo == nil {
 		var err error
@@ -23,16 +22,12 @@ func NewServer(config Config) http.Handler {
 		}
 	}
 
-	po := config.PortalImpl
-	if po == nil {
-		var err error
-		po, err = portalv1.NewPortal(config.Portal.DB)
-		if err != nil {
-			panic(err)
-		}
+	portalImpl := config.PortalImpl
+	if portalImpl == nil {
+		portalImpl = portalv1.NewPortal(config.Portal)
 	}
 
-	uc := usecase.NewUseCase(repo, po)
+	uc := usecase.NewUseCase(repo, portalImpl)
 	handler := v1.NewHandler(uc)
 
 	e := echo.New()

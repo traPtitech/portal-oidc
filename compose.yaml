@@ -1,29 +1,15 @@
 services:
-  portal:
-    image: postgres:18.1
-    environment:
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: portal
-    volumes:
-      - "./db/portal-schema.sql:/docker-entrypoint-initdb.d/schema.sql"
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: pg_isready -U postgres
-      interval: 1s
-      timeout: 10s
-      retries: 60
   oidc:
-    image: postgres:18.1
+    image: mariadb:11
     environment:
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: oidc
+      MARIADB_ROOT_PASSWORD: password
+      MARIADB_DATABASE: oidc
     volumes:
       - "./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql"
     ports:
-      - "5433:5432"
+      - "3306:3306"
     healthcheck:
-      test: pg_isready -U postgres
+      test: mariadb-admin ping -h localhost -ppassword
       interval: 1s
       timeout: 10s
       retries: 60

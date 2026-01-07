@@ -6,16 +6,13 @@ import (
 )
 
 type UseCase struct {
-	repo repository.Repository
-	po   portal.Portal
+	repo   repository.Repository
+	portal portal.Portal
 }
 
-func NewUseCase(
-	repo repository.Repository,
-	po portal.Portal,
-) UseCase {
+func NewUseCase(repo repository.Repository, portal portal.Portal) UseCase {
 	return UseCase{
-		repo: repo,
-		po:   po,
+		repo:   repo,
+		portal: portal,
 	}
 }

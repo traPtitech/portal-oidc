@@ -13,12 +13,16 @@ import (
 
 // Repository implements repository.Repository for testing
 type Repository struct {
-	Clients map[string]domain.Client
+	Clients       map[string]domain.Client
+	Sessions      map[string]domain.Session
+	LoginSessions map[string]domain.LoginSession
 }
 
 func NewRepository() *Repository {
 	return &Repository{
-		Clients: make(map[string]domain.Client),
+		Clients:       make(map[string]domain.Client),
+		Sessions:      make(map[string]domain.Session),
+		LoginSessions: make(map[string]domain.LoginSession),
 	}
 }
 
@@ -80,5 +84,86 @@ func (m *Repository) UpdateClientSecret(_ context.Context, id domain.ClientID, s
 
 func (m *Repository) DeleteClient(_ context.Context, id domain.ClientID) error {
 	delete(m.Clients, uuid.UUID(id).String())
+	return nil
+}
+
+// SessionRepository methods
+
+func (m *Repository) CreateSession(_ context.Context, params repository.CreateSessionParams) (domain.Session, error) {
+	session := domain.Session{
+		ID:            params.ID,
+		UserID:        params.UserID,
+		ClientID:      params.ClientID,
+		AllowedScopes: params.AllowedScopes,
+		CreatedAt:     time.Now(),
+		ExpiresAt:     params.ExpiresAt,
+	}
+	m.Sessions[uuid.UUID(params.ID).String()] = session
+	return session, nil
+}
+
+func (m *Repository) GetSession(_ context.Context, id domain.SessionID) (domain.Session, error) {
+	session, ok := m.Sessions[uuid.UUID(id).String()]
+	if !ok {
+		return domain.Session{}, sql.ErrNoRows
+	}
+	if session.ExpiresAt.Before(time.Now()) {
+		return domain.Session{}, sql.ErrNoRows
+	}
+	return session, nil
+}
+
+func (m *Repository) DeleteSession(_ context.Context, id domain.SessionID) error {
+	delete(m.Sessions, uuid.UUID(id).String())
+	return nil
+}
+
+func (m *Repository) DeleteExpiredSessions(_ context.Context) error {
+	now := time.Now()
+	for id, session := range m.Sessions {
+		if session.ExpiresAt.Before(now) {
+			delete(m.Sessions, id)
+		}
+	}
+	return nil
+}
+
+func (m *Repository) CreateLoginSession(_ context.Context, params repository.CreateLoginSessionParams) (domain.LoginSession, error) {
+	session := domain.LoginSession{
+		ID:            params.ID,
+		Forms:         params.Forms,
+		AllowedScopes: params.AllowedScopes,
+		UserID:        params.UserID,
+		ClientID:      params.ClientID,
+		CreatedAt:     time.Now(),
+		ExpiresAt:     params.ExpiresAt,
+	}
+	m.LoginSessions[uuid.UUID(params.ID).String()] = session
+	return session, nil
+}
+
+func (m *Repository) GetLoginSession(_ context.Context, id domain.LoginSessionID) (domain.LoginSession, error) {
+	session, ok := m.LoginSessions[uuid.UUID(id).String()]
+	if !ok {
+		return domain.LoginSession{}, sql.ErrNoRows
+	}
+	if session.ExpiresAt.Before(time.Now()) {
+		return domain.LoginSession{}, sql.ErrNoRows
+	}
+	return session, nil
+}
+
+func (m *Repository) DeleteLoginSession(_ context.Context, id domain.LoginSessionID) error {
+	delete(m.LoginSessions, uuid.UUID(id).String())
+	return nil
+}
+
+func (m *Repository) DeleteExpiredLoginSessions(_ context.Context) error {
+	now := time.Now()
+	for id, session := range m.LoginSessions {
+		if session.ExpiresAt.Before(now) {
+			delete(m.LoginSessions, id)
+		}
+	}
 	return nil
 }
