@@ -36,13 +36,21 @@ run = "go tool sqlc generate --file ./db/sqlc.yaml"
 description = "コードを生成"
 run = "go generate ./..."
 
-[tasks.lint]
-description = "リンターを実行"
+[tasks."lint:go"]
+description = "Goリンターを実行"
 run = "golangci-lint run"
+
+[tasks."lint:schema"]
+description = "スキーマリンターを実行"
+run = "tbls lint -c db/tbls.yml"
+
+[tasks.lint]
+description = "全リンターを実行"
+depends = ["lint:go", "lint:schema"]
 
 [tasks."docs:oidc"]
 description = "OIDCデータベースのドキュメントを生成"
-run = "tbls doc postgres://postgres:password@localhost:5433/oidc?sslmode=disable docs/schema/oidc --force"
+run = "tbls doc -c db/tbls.yml --force"
 
 [tasks."docs:portal"]
 description = "Portalデータベースのドキュメントを生成"

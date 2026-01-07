@@ -1,0 +1,34 @@
+dsn: postgres://postgres:password@localhost:5433/oidc?sslmode=disable
+docPath: docs/schema/oidc
+desc: "OIDCサーバー用データベース"
+
+comments:
+  - table: public.clients
+    tableComment: "OIDCクライアント"
+    columnComments:
+      client_id: "クライアントID (UUID)"
+      client_secret_hash: "クライアントシークレットのハッシュ (publicクライアントはNULL)"
+      name: "クライアント名"
+      client_type: "クライアントタイプ (confidential/public)"
+      redirect_uris: "許可されたリダイレクトURI一覧"
+      created_at: "作成日時"
+      updated_at: "更新日時"
+    indexComments:
+      clients_pkey: "主キーインデックス"
+    constraintComments:
+      clients_pkey: "主キー"
+      clients_client_id_not_null: "NOT NULL"
+    triggerComments:
+      update_clients_updated_at: "updated_atを自動更新"
+
+lint:
+  requireColumnComment:
+    enabled: true
+  requireTableComment:
+    enabled: true
+  requireIndexComment:
+    enabled: true
+  requireConstraintComment:
+    enabled: true
+  requireTriggerComment:
+    enabled: true
