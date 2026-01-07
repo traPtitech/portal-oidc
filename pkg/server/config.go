@@ -1,10 +1,10 @@
 package server
 
 import (
-	"github.com/traPtitech/portal-oidc/internal/domain/portal"
-	"github.com/traPtitech/portal-oidc/internal/domain/repository"
-	repov1 "github.com/traPtitech/portal-oidc/internal/infrastructure/postgres"
-	portalv1 "github.com/traPtitech/portal-oidc/internal/infrastructure/portal"
+	"github.com/traPtitech/portal-oidc/pkg/domain/portal"
+	"github.com/traPtitech/portal-oidc/pkg/domain/repository"
+	repov1 "github.com/traPtitech/portal-oidc/pkg/infrastructure/postgres"
+	portalv1 "github.com/traPtitech/portal-oidc/pkg/infrastructure/portal"
 )
 
 type Config struct {

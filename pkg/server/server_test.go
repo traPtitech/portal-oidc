@@ -11,9 +11,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/traPtitech/portal-oidc/internal/domain"
-	"github.com/traPtitech/portal-oidc/internal/mock"
-	models "github.com/traPtitech/portal-oidc/internal/interface/handler/v1/gen"
+	"github.com/traPtitech/portal-oidc/pkg/domain"
+	"github.com/traPtitech/portal-oidc/pkg/mock"
+	models "github.com/traPtitech/portal-oidc/pkg/interface/handler/v1/gen"
 )
 
 func newTestConfig(repo *mock.Repository, portal *mock.Portal) Config {

@@ -7,9 +7,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/traPtitech/portal-oidc/internal/domain"
-	"github.com/traPtitech/portal-oidc/internal/domain/repository"
-	postgres "github.com/traPtitech/portal-oidc/internal/infrastructure/postgres/gen"
+	"github.com/traPtitech/portal-oidc/pkg/domain"
+	"github.com/traPtitech/portal-oidc/pkg/domain/repository"
+	postgres "github.com/traPtitech/portal-oidc/pkg/infrastructure/postgres/gen"
 )
 
 func (r *Repository) CreateClient(ctx context.Context, params repository.CreateClientParams) (domain.Client, error) {

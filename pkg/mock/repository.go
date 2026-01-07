@@ -7,8 +7,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/traPtitech/portal-oidc/internal/domain"
-	"github.com/traPtitech/portal-oidc/internal/domain/repository"
+	"github.com/traPtitech/portal-oidc/pkg/domain"
+	"github.com/traPtitech/portal-oidc/pkg/domain/repository"
 )
 
 // Repository implements repository.Repository for testing

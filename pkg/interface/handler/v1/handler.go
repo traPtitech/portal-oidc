@@ -1,7 +1,7 @@
 package v1
 
 import (
-	"github.com/traPtitech/portal-oidc/internal/usecase"
+	"github.com/traPtitech/portal-oidc/pkg/usecase"
 )
 
 type Handler struct {

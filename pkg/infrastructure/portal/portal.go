@@ -5,7 +5,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/cockroachdb/errors"
-	"github.com/traPtitech/portal-oidc/internal/domain"
+	"github.com/traPtitech/portal-oidc/pkg/domain"
 )
 
 func (p *Portal) GetGrade(ctx context.Context, id domain.TrapID) (string, error) {

@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/traPtitech/portal-oidc/internal/server"
-	"github.com/traPtitech/portal-oidc/internal/util"
+	"github.com/traPtitech/portal-oidc/pkg/server"
+	"github.com/traPtitech/portal-oidc/pkg/util"
 )
 
 var (

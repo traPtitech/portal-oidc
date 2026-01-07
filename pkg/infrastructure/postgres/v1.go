@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	postgres "github.com/traPtitech/portal-oidc/internal/infrastructure/postgres/gen"
+	postgres "github.com/traPtitech/portal-oidc/pkg/infrastructure/postgres/gen"
 )
 
 type Repository struct {

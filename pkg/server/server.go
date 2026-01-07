@@ -6,10 +6,10 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/rs/cors"
 
-	repov1 "github.com/traPtitech/portal-oidc/internal/infrastructure/postgres"
-	portalv1 "github.com/traPtitech/portal-oidc/internal/infrastructure/portal"
-	v1 "github.com/traPtitech/portal-oidc/internal/interface/handler/v1"
-	"github.com/traPtitech/portal-oidc/internal/usecase"
+	repov1 "github.com/traPtitech/portal-oidc/pkg/infrastructure/postgres"
+	portalv1 "github.com/traPtitech/portal-oidc/pkg/infrastructure/portal"
+	v1 "github.com/traPtitech/portal-oidc/pkg/interface/handler/v1"
+	"github.com/traPtitech/portal-oidc/pkg/usecase"
 )
 
 func NewServer(config Config) http.Handler {

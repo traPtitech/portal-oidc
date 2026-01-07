@@ -7,9 +7,9 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
-	"github.com/traPtitech/portal-oidc/internal/domain"
-	"github.com/traPtitech/portal-oidc/internal/domain/random"
-	"github.com/traPtitech/portal-oidc/internal/domain/repository"
+	"github.com/traPtitech/portal-oidc/pkg/domain"
+	"github.com/traPtitech/portal-oidc/pkg/domain/random"
+	"github.com/traPtitech/portal-oidc/pkg/domain/repository"
 )
 
 // CreateClientResult contains the created client and the raw secret (only returned on creation)

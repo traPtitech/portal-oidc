@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/traPtitech/portal-oidc/internal/domain/portal"
-	portalgen "github.com/traPtitech/portal-oidc/internal/infrastructure/portal/gen"
+	"github.com/traPtitech/portal-oidc/pkg/domain/portal"
+	portalgen "github.com/traPtitech/portal-oidc/pkg/infrastructure/portal/gen"
 )
 
 type Portal struct {

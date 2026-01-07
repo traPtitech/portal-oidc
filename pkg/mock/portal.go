@@ -3,7 +3,7 @@ package mock
 import (
 	"context"
 
-	"github.com/traPtitech/portal-oidc/internal/domain"
+	"github.com/traPtitech/portal-oidc/pkg/domain"
 )
 
 // Portal implements portal.Portal for testing

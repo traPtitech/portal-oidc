@@ -3,7 +3,7 @@ package usecase
 import (
 	"context"
 
-	"github.com/traPtitech/portal-oidc/internal/domain"
+	"github.com/traPtitech/portal-oidc/pkg/domain"
 )
 
 func (u *UseCase) CreateSession(ctx context.Context, userID domain.TrapID, clientID domain.ClientID, scopes []string) (domain.Session, error) {

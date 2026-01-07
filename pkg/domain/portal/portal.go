@@ -3,7 +3,7 @@ package portal
 import (
 	"context"
 
-	"github.com/traPtitech/portal-oidc/internal/domain"
+	"github.com/traPtitech/portal-oidc/pkg/domain"
 )
 
 type Portal interface {

@@ -1,8 +1,8 @@
 package usecase
 
 import (
-	"github.com/traPtitech/portal-oidc/internal/domain/portal"
-	"github.com/traPtitech/portal-oidc/internal/domain/repository"
+	"github.com/traPtitech/portal-oidc/pkg/domain/portal"
+	"github.com/traPtitech/portal-oidc/pkg/domain/repository"
 )
 
 type UseCase struct {

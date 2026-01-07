@@ -5,9 +5,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
-	"github.com/traPtitech/portal-oidc/internal/domain"
-	models "github.com/traPtitech/portal-oidc/internal/interface/handler/v1/gen"
-	"github.com/traPtitech/portal-oidc/internal/usecase"
+	"github.com/traPtitech/portal-oidc/pkg/domain"
+	models "github.com/traPtitech/portal-oidc/pkg/interface/handler/v1/gen"
+	"github.com/traPtitech/portal-oidc/pkg/usecase"
 )
 
 func clientToResponse(c domain.Client, secret *string) models.Client {
