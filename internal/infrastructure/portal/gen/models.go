@@ -5,199 +5,151 @@
 package gen
 
 import (
-	"database/sql"
-	"encoding/json"
-	"time"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Group struct {
-	// UUID v4
-	ID          string
+	ID          pgtype.UUID
 	Name        string
-	Description sql.NullString
-	// Parent group for hierarchical structure
-	ParentID  sql.NullString
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	Description pgtype.Text
+	ParentID    pgtype.UUID
+	CreatedAt   pgtype.Timestamptz
+	UpdatedAt   pgtype.Timestamptz
 }
 
 type GroupKey struct {
-	GroupID string
-	UserID  string
-	// UUID v4
-	KeyID string
-	// Group symmetric key encrypted with user public key
+	GroupID      pgtype.UUID
+	UserID       pgtype.UUID
+	KeyID        pgtype.UUID
 	EncryptedKey []byte
-	CreatedAt    time.Time
+	CreatedAt    pgtype.Timestamptz
 }
 
 type GroupMember struct {
-	GroupID string
-	UserID  string
-	// Member roles within group: ["admin", "owner", "member"]
-	Roles    json.RawMessage
-	JoinedAt time.Time
+	GroupID  pgtype.UUID
+	UserID   pgtype.UUID
+	Roles    []byte
+	JoinedAt pgtype.Timestamptz
 }
 
 type GroupMemberLog struct {
-	// UUID v4
-	ID      string
-	GroupID string
-	UserID  string
-	// Action: added, removed, role_changed
-	Action string
-	// User who performed the action
-	ActorID   sql.NullString
-	OldRoles  json.RawMessage
-	NewRoles  json.RawMessage
-	CreatedAt time.Time
+	ID        pgtype.UUID
+	GroupID   pgtype.UUID
+	UserID    pgtype.UUID
+	Action    string
+	ActorID   pgtype.UUID
+	OldRoles  []byte
+	NewRoles  []byte
+	CreatedAt pgtype.Timestamptz
 }
 
 type GroupPermission struct {
-	GroupID string
-	// Permission: user:read, user:update, invitation:create, etc.
+	GroupID    pgtype.UUID
 	Permission string
-	CreatedAt  time.Time
+	CreatedAt  pgtype.Timestamptz
 }
 
 type Invitation struct {
-	// UUID v4
-	ID string
-	// Invitation code (e.g., XXXX-XXXX-XXXX)
-	Code string
-	// User who created this invitation
-	CreatedBy sql.NullString
-	// User who used this invitation
-	UsedBy sql.NullString
-	// Expiration time (NULL = never expires)
-	ExpiresAt sql.NullTime
-	UsedAt    sql.NullTime
-	CreatedAt time.Time
+	ID        pgtype.UUID
+	Code      string
+	CreatedBy pgtype.UUID
+	UsedBy    pgtype.UUID
+	ExpiresAt pgtype.Timestamptz
+	UsedAt    pgtype.Timestamptz
+	CreatedAt pgtype.Timestamptz
 }
 
 type Mail struct {
-	// UUID v4
-	ID string
-	// Recipients (format: @trap_id;@trap_id2)
-	To      sql.NullString
-	Subject sql.NullString
-	Body    sql.NullString
-	// User who sent this mail
-	OperatorID sql.NullString
-	CreatedAt  time.Time
+	ID         pgtype.UUID
+	To         string
+	Subject    string
+	Body       string
+	OperatorID pgtype.UUID
+	CreatedAt  pgtype.Timestamptz
 }
 
 type MailLog struct {
-	// UUID v4
-	ID     string
-	MailID string
-	// Status: unsent, sent, failed
+	ID        pgtype.UUID
+	MailID    pgtype.UUID
 	Status    string
-	Error     sql.NullString
-	CreatedAt time.Time
+	Error     pgtype.Text
+	CreatedAt pgtype.Timestamptz
 }
 
 type Namecard struct {
-	// Student number prefix (e.g., 15B, 24B)
 	StudentPrefix string
-	// Hex color code
-	Color sql.NullString
+	Color         string
 }
 
 type Secret struct {
-	// UUID v4
-	ID string
-	// Owning group
-	GroupID string
-	Name    string
-	// AES-GCM encrypted with group key
+	ID             pgtype.UUID
+	GroupID        pgtype.UUID
+	Name           string
 	EncryptedValue []byte
-	CreatedBy      sql.NullString
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	CreatedBy      pgtype.UUID
+	CreatedAt      pgtype.Timestamptz
+	UpdatedAt      pgtype.Timestamptz
 }
 
 type SecretLog struct {
-	// UUID v4
-	ID       string
-	SecretID string
-	// Action: created, updated, deleted, accessed
+	ID        pgtype.UUID
+	SecretID  pgtype.UUID
 	Action    string
-	ActorID   sql.NullString
-	CreatedAt time.Time
+	ActorID   pgtype.UUID
+	CreatedAt pgtype.Timestamptz
 }
 
 type User struct {
-	// UUID v4
-	ID string
-	// traP ID (unique username)
-	TrapID string
-	// PBKDF2-SHA512 hash
-	PasswordHash string
-	// AES-GCM encrypted email
-	Email sql.NullString
-	// AES-GCM encrypted JSON (name, phone, address, etc.)
-	PersonalInfo sql.NullString
-	// Student number (plaintext for lookup)
-	StudentNumber sql.NullString
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	ID            pgtype.UUID
+	TrapID        string
+	PasswordHash  string
+	Email         []byte
+	PersonalInfo  []byte
+	StudentNumber pgtype.Text
+	CreatedAt     pgtype.Timestamptz
+	UpdatedAt     pgtype.Timestamptz
 }
 
 type UserKey struct {
-	UserID string
-	// UUID v4
-	KeyID string
-	// User public key (DER format)
-	PublicKey []byte
-	// Private key encrypted with user password-derived key
+	UserID              pgtype.UUID
+	KeyID               pgtype.UUID
+	PublicKey           []byte
 	EncryptedPrivateKey []byte
-	// Key algorithm
-	Algorithm string
-	IsActive  bool
-	CreatedAt time.Time
+	Algorithm           string
+	IsActive            bool
+	CreatedAt           pgtype.Timestamptz
 }
 
 type UserLink struct {
-	UserID string
-	// Service name: twitter, github, discord, etc.
-	Service string
-	// External service user ID
-	ExternalID sql.NullString
-	// Display name/handle on the service
-	AccountName sql.NullString
-	// Encrypted OAuth access token (if stored)
-	AccessToken sql.NullString
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	UserID      pgtype.UUID
+	Service     string
+	ExternalID  pgtype.Text
+	AccountName pgtype.Text
+	AccessToken []byte
+	CreatedAt   pgtype.Timestamptz
+	UpdatedAt   pgtype.Timestamptz
 }
 
 type UserStatus struct {
-	UserID string
-	// Status type: active, suspended, email-unconfirmed, etc.
-	Status string
-	// Additional detail/reason
-	Detail    sql.NullString
-	CreatedAt time.Time
+	UserID    pgtype.UUID
+	Status    string
+	Detail    pgtype.Text
+	CreatedAt pgtype.Timestamptz
 }
 
 type Webhook struct {
-	// UUID v4
-	ID   string
-	Name string
-	Url  string
-	// HMAC signing secret (encrypted)
-	Secret sql.NullString
-	// User who owns this webhook
-	OwnerID   sql.NullString
+	ID        pgtype.UUID
+	Name      string
+	Url       string
+	Secret    []byte
+	OwnerID   pgtype.UUID
 	IsActive  bool
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
 }
 
 type WebhookSubscribeEvent struct {
-	WebhookID string
-	// Event type: user.created, group.member_added, etc.
+	WebhookID pgtype.UUID
 	EventType string
-	CreatedAt time.Time
+	CreatedAt pgtype.Timestamptz
 }

@@ -3,7 +3,7 @@ package server
 import (
 	"github.com/traPtitech/portal-oidc/internal/domain/portal"
 	"github.com/traPtitech/portal-oidc/internal/domain/repository"
-	repov1 "github.com/traPtitech/portal-oidc/internal/infrastructure/mariadb"
+	repov1 "github.com/traPtitech/portal-oidc/internal/infrastructure/postgres"
 	portalv1 "github.com/traPtitech/portal-oidc/internal/infrastructure/portal"
 )
 

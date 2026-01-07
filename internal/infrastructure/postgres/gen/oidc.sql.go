@@ -7,8 +7,8 @@ package gen
 
 import (
 	"context"
-	"database/sql"
-	"encoding/json"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createClient = `-- name: CreateClient :exec
@@ -18,19 +18,19 @@ INSERT INTO clients (
     name,
     client_type,
     redirect_uris
-) VALUES (?, ?, ?, ?, ?)
+) VALUES ($1, $2, $3, $4, $5)
 `
 
 type CreateClientParams struct {
-	ClientID         string
-	ClientSecretHash sql.NullString
+	ClientID         pgtype.UUID
+	ClientSecretHash pgtype.Text
 	Name             string
 	ClientType       string
-	RedirectUris     json.RawMessage
+	RedirectUris     []byte
 }
 
 func (q *Queries) CreateClient(ctx context.Context, arg CreateClientParams) error {
-	_, err := q.db.ExecContext(ctx, createClient,
+	_, err := q.db.Exec(ctx, createClient,
 		arg.ClientID,
 		arg.ClientSecretHash,
 		arg.Name,
@@ -41,20 +41,20 @@ func (q *Queries) CreateClient(ctx context.Context, arg CreateClientParams) erro
 }
 
 const deleteClient = `-- name: DeleteClient :exec
-DELETE FROM clients WHERE client_id = ?
+DELETE FROM clients WHERE client_id = $1
 `
 
-func (q *Queries) DeleteClient(ctx context.Context, clientID string) error {
-	_, err := q.db.ExecContext(ctx, deleteClient, clientID)
+func (q *Queries) DeleteClient(ctx context.Context, clientID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteClient, clientID)
 	return err
 }
 
 const getClient = `-- name: GetClient :one
-SELECT client_id, client_secret_hash, name, client_type, redirect_uris, created_at, updated_at FROM clients WHERE client_id = ?
+SELECT client_id, client_secret_hash, name, client_type, redirect_uris, created_at, updated_at FROM clients WHERE client_id = $1
 `
 
-func (q *Queries) GetClient(ctx context.Context, clientID string) (Client, error) {
-	row := q.db.QueryRowContext(ctx, getClient, clientID)
+func (q *Queries) GetClient(ctx context.Context, clientID pgtype.UUID) (Client, error) {
+	row := q.db.QueryRow(ctx, getClient, clientID)
 	var i Client
 	err := row.Scan(
 		&i.ClientID,
@@ -73,7 +73,7 @@ SELECT client_id, client_secret_hash, name, client_type, redirect_uris, created_
 `
 
 func (q *Queries) ListClients(ctx context.Context) ([]Client, error) {
-	rows, err := q.db.QueryContext(ctx, listClients)
+	rows, err := q.db.Query(ctx, listClients)
 	if err != nil {
 		return nil, err
 	}
@@ -94,9 +94,6 @@ func (q *Queries) ListClients(ctx context.Context) ([]Client, error) {
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -105,41 +102,41 @@ func (q *Queries) ListClients(ctx context.Context) ([]Client, error) {
 
 const updateClient = `-- name: UpdateClient :exec
 UPDATE clients SET
-    name = ?,
-    client_type = ?,
-    redirect_uris = ?
-WHERE client_id = ?
+    name = $2,
+    client_type = $3,
+    redirect_uris = $4
+WHERE client_id = $1
 `
 
 type UpdateClientParams struct {
+	ClientID     pgtype.UUID
 	Name         string
 	ClientType   string
-	RedirectUris json.RawMessage
-	ClientID     string
+	RedirectUris []byte
 }
 
 func (q *Queries) UpdateClient(ctx context.Context, arg UpdateClientParams) error {
-	_, err := q.db.ExecContext(ctx, updateClient,
+	_, err := q.db.Exec(ctx, updateClient,
+		arg.ClientID,
 		arg.Name,
 		arg.ClientType,
 		arg.RedirectUris,
-		arg.ClientID,
 	)
 	return err
 }
 
 const updateClientSecret = `-- name: UpdateClientSecret :exec
 UPDATE clients SET
-    client_secret_hash = ?
-WHERE client_id = ?
+    client_secret_hash = $2
+WHERE client_id = $1
 `
 
 type UpdateClientSecretParams struct {
-	ClientSecretHash sql.NullString
-	ClientID         string
+	ClientID         pgtype.UUID
+	ClientSecretHash pgtype.Text
 }
 
 func (q *Queries) UpdateClientSecret(ctx context.Context, arg UpdateClientSecretParams) error {
-	_, err := q.db.ExecContext(ctx, updateClientSecret, arg.ClientSecretHash, arg.ClientID)
+	_, err := q.db.Exec(ctx, updateClientSecret, arg.ClientID, arg.ClientSecretHash)
 	return err
 }

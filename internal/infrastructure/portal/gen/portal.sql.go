@@ -7,26 +7,26 @@ package gen
 
 import (
 	"context"
-	"database/sql"
-	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const getUserByID = `-- name: GetUserByID :one
 SELECT id, trap_id, password_hash, student_number, created_at, updated_at
-FROM users WHERE id = ?
+FROM users WHERE id = $1
 `
 
 type GetUserByIDRow struct {
-	ID            string
+	ID            pgtype.UUID
 	TrapID        string
 	PasswordHash  string
-	StudentNumber sql.NullString
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	StudentNumber pgtype.Text
+	CreatedAt     pgtype.Timestamptz
+	UpdatedAt     pgtype.Timestamptz
 }
 
-func (q *Queries) GetUserByID(ctx context.Context, id string) (GetUserByIDRow, error) {
-	row := q.db.QueryRowContext(ctx, getUserByID, id)
+func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (GetUserByIDRow, error) {
+	row := q.db.QueryRow(ctx, getUserByID, id)
 	var i GetUserByIDRow
 	err := row.Scan(
 		&i.ID,
@@ -41,20 +41,20 @@ func (q *Queries) GetUserByID(ctx context.Context, id string) (GetUserByIDRow, e
 
 const getUserByStudentNumber = `-- name: GetUserByStudentNumber :one
 SELECT id, trap_id, password_hash, student_number, created_at, updated_at
-FROM users WHERE student_number = ?
+FROM users WHERE student_number = $1
 `
 
 type GetUserByStudentNumberRow struct {
-	ID            string
+	ID            pgtype.UUID
 	TrapID        string
 	PasswordHash  string
-	StudentNumber sql.NullString
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	StudentNumber pgtype.Text
+	CreatedAt     pgtype.Timestamptz
+	UpdatedAt     pgtype.Timestamptz
 }
 
-func (q *Queries) GetUserByStudentNumber(ctx context.Context, studentNumber sql.NullString) (GetUserByStudentNumberRow, error) {
-	row := q.db.QueryRowContext(ctx, getUserByStudentNumber, studentNumber)
+func (q *Queries) GetUserByStudentNumber(ctx context.Context, studentNumber pgtype.Text) (GetUserByStudentNumberRow, error) {
+	row := q.db.QueryRow(ctx, getUserByStudentNumber, studentNumber)
 	var i GetUserByStudentNumberRow
 	err := row.Scan(
 		&i.ID,
@@ -69,20 +69,20 @@ func (q *Queries) GetUserByStudentNumber(ctx context.Context, studentNumber sql.
 
 const getUserByTrapID = `-- name: GetUserByTrapID :one
 SELECT id, trap_id, password_hash, student_number, created_at, updated_at
-FROM users WHERE trap_id = ?
+FROM users WHERE trap_id = $1
 `
 
 type GetUserByTrapIDRow struct {
-	ID            string
+	ID            pgtype.UUID
 	TrapID        string
 	PasswordHash  string
-	StudentNumber sql.NullString
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	StudentNumber pgtype.Text
+	CreatedAt     pgtype.Timestamptz
+	UpdatedAt     pgtype.Timestamptz
 }
 
 func (q *Queries) GetUserByTrapID(ctx context.Context, trapID string) (GetUserByTrapIDRow, error) {
-	row := q.db.QueryRowContext(ctx, getUserByTrapID, trapID)
+	row := q.db.QueryRow(ctx, getUserByTrapID, trapID)
 	var i GetUserByTrapIDRow
 	err := row.Scan(
 		&i.ID,
@@ -97,11 +97,11 @@ func (q *Queries) GetUserByTrapID(ctx context.Context, trapID string) (GetUserBy
 
 const listUserStatuses = `-- name: ListUserStatuses :many
 SELECT user_id, status, detail, created_at
-FROM user_statuses WHERE user_id = ?
+FROM user_statuses WHERE user_id = $1
 `
 
-func (q *Queries) ListUserStatuses(ctx context.Context, userID string) ([]UserStatus, error) {
-	rows, err := q.db.QueryContext(ctx, listUserStatuses, userID)
+func (q *Queries) ListUserStatuses(ctx context.Context, userID pgtype.UUID) ([]UserStatus, error) {
+	rows, err := q.db.Query(ctx, listUserStatuses, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -118,9 +118,6 @@ func (q *Queries) ListUserStatuses(ctx context.Context, userID string) ([]UserSt
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
