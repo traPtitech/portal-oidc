@@ -1,0 +1,36 @@
+version: "2"
+# NOTE: UUID は未対応 (sqlc が MySQL のみに対応していて MariaDB の char(36) や uuid 型を認識できない)
+overrides:
+  go:
+    overrides:
+      - db_type: "json"
+        go_type: "encoding/json.RawMessage"
+      - db_type: "datetime"
+        go_type: "time.Time"
+sql:
+  - engine: "mysql"
+    queries: "query/oidc.sql"
+    schema: "schema.sql"
+    strict_function_checks: true
+    gen:
+      go:
+        package: "gen"
+        out: "../pkg/infrastructure/oidc/gen"
+        emit_json_tags: true
+        emit_prepared_queries: true
+        emit_interface: true
+        emit_exact_table_names: false
+        emit_empty_slices: true
+  - engine: "mysql"
+    queries: "query/portal.sql"
+    schema: "portal-schema.sql"
+    strict_function_checks: true
+    gen:
+      go:
+        package: "gen"
+        out: "../pkg/infrastructure/portal/gen"
+        emit_json_tags: true
+        emit_prepared_queries: true
+        emit_interface: true
+        emit_exact_table_names: false
+        emit_empty_slices: true

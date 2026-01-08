@@ -41,6 +41,7 @@ run = "go generate ./..."
 
 [tasks.sqlc]
 description = "sqlcコード生成"
+dir = "db"
 run = "go tool sqlc generate"
 
 [tasks.lint]
