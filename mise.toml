@@ -1,24 +1,47 @@
 [tools]
 go = "1.25"
 "golangci-lint" = "latest"
+atlas = "latest"
 
 [tasks."start:server"]
 run = "go run ./cmd serve"
 
-[tasks.migrate]
-run = "go tool sql-migrate {{arg(name='cmd')}}"
+[tasks."schema:apply:oidc"]
+description = "OIDCスキーマを適用"
+dir = "db"
+run = "atlas schema apply --env oidc --auto-approve"
 
-[tasks."migrate:new"]
-run = "go tool sql-migrate new _"
+[tasks."schema:apply:portal"]
+description = "Portalスキーマを適用"
+dir = "db"
+run = "atlas schema apply --env portal --auto-approve"
 
-[tasks."migrate:up"]
-run = "go tool sql-migrate up"
+[tasks."schema:apply"]
+description = "全スキーマを適用"
+depends = ["schema:apply:oidc", "schema:apply:portal"]
 
-[tasks."migrate:down"]
-run = "go tool sql-migrate down"
+[tasks."schema:plan:oidc"]
+description = "OIDCスキーマ変更計画を表示"
+dir = "db"
+run = "atlas schema apply --env oidc --dry-run"
+
+[tasks."schema:plan:portal"]
+description = "Portalスキーマ変更計画を表示"
+dir = "db"
+run = "atlas schema apply --env portal --dry-run"
+
+[tasks."schema:plan"]
+description = "全スキーマ変更計画を表示"
+depends = ["schema:plan:oidc", "schema:plan:portal"]
 
 [tasks.gen]
+description = "コード生成"
 run = "go generate ./..."
 
+[tasks.sqlc]
+description = "sqlcコード生成"
+run = "go tool sqlc generate"
+
 [tasks.lint]
+description = "リンター実行"
 run = "golangci-lint run"
