@@ -3,6 +3,7 @@ go = "1.25"
 "golangci-lint" = "latest"
 atlas = "latest"
 tbls = "latest"
+sqlc = "latest"
 
 [tasks."start:server"]
 run = "go run ./cmd serve"
@@ -42,7 +43,7 @@ run = "go generate ./..."
 [tasks.sqlc]
 description = "sqlcコード生成"
 dir = "db"
-run = "go tool sqlc generate"
+run = "sqlc generate"
 
 [tasks.lint]
 description = "リンター実行"

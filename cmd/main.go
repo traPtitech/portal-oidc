@@ -3,45 +3,47 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 	"time"
 
-	"github.com/spf13/cobra"
+	"github.com/alecthomas/kong"
 
 	"github.com/traPtitech/portal-oidc/internal/server"
-	"github.com/traPtitech/portal-oidc/internal/util"
 )
 
-var (
-	configFilePath string
-	config         server.Config
-)
+type CLI struct {
+	Config string   `short:"c" help:"Config file path (default: ./config.yaml)" type:"path"`
+	Serve  ServeCmd `cmd:"" help:"Start the server"`
+}
 
-var rootCommand = &cobra.Command{
-	Use:   "portal-oidc",
-	Short: "Potal OIDC Server",
+type ServeCmd struct{}
+
+func (s *ServeCmd) Run(cfg *server.Config) error {
+	srv := &http.Server{
+		Addr:              ":8080",
+		Handler:           server.NewServer(*cfg),
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+	return srv.ListenAndServe()
 }
 
 func main() {
-	cobra.OnInitialize(util.CobraOnInitializeFunc(&configFilePath, "OIDC", &config))
+	var cli CLI
+	parser := kong.Must(&cli,
+		kong.Name("portal-oidc"),
+		kong.Description("Portal OIDC Server"),
+		kong.UsageOnError(),
+	)
 
-	rootCommand.AddCommand(&cobra.Command{
-		Use:   "serve",
-		Short: "Starts the server",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			srv := &http.Server{
-				Addr:              ":8080",
-				Handler:           server.NewServer(config),
-				ReadHeaderTimeout: 10 * time.Second,
-			}
-			return srv.ListenAndServe()
-		},
-	})
-
-	flags := rootCommand.PersistentFlags()
-	flags.StringVarP(&configFilePath, "config", "c", "", "config file path (default: ./config.*)")
-	setupDefaults()
-
-	if err := rootCommand.Execute(); err != nil {
-		log.Fatal(err)
+	ctx, err := parser.Parse(os.Args[1:])
+	if err != nil {
+		parser.FatalIfErrorf(err)
 	}
+
+	cfg, err := loadConfig(cli.Config)
+	if err != nil {
+		log.Fatalf("failed to load config: %v", err)
+	}
+
+	ctx.FatalIfErrorf(ctx.Run(cfg))
 }
