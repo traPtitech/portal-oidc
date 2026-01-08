@@ -10,6 +10,7 @@ require (
 	github.com/knadh/koanf/providers/file v1.2.1
 	github.com/knadh/koanf/v2 v2.3.0
 	github.com/labstack/echo/v4 v4.15.0
+	github.com/oapi-codegen/runtime v1.1.2
 	github.com/rs/cors v1.11.1
 )
 
