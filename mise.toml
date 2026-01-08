@@ -2,6 +2,7 @@
 go = "1.25"
 "golangci-lint" = "latest"
 atlas = "latest"
+tbls = "latest"
 
 [tasks."start:server"]
 run = "go run ./cmd serve"
@@ -45,3 +46,17 @@ run = "go tool sqlc generate"
 [tasks.lint]
 description = "リンター実行"
 run = "golangci-lint run"
+
+[tasks."docs:oidc"]
+description = "OIDCスキーマドキュメント生成"
+dir = "db"
+run = "tbls doc mariadb://root:password@localhost:3307/oidc docs/oidc --force"
+
+[tasks."docs:portal"]
+description = "Portalスキーマドキュメント生成"
+dir = "db"
+run = "tbls doc mariadb://root:password@localhost:3306/portal docs/portal --force"
+
+[tasks.docs]
+description = "全スキーマドキュメント生成"
+depends = ["docs:oidc", "docs:portal"]
