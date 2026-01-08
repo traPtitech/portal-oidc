@@ -1,12 +1,5 @@
 version: "2"
-# NOTE: UUID は未対応 (sqlc が MySQL のみに対応していて MariaDB の char(36) や uuid 型を認識できない)
-overrides:
-  go:
-    overrides:
-      - db_type: "json"
-        go_type: "encoding/json.RawMessage"
-      - db_type: "datetime"
-        go_type: "time.Time"
+# NOTE: UUID override は未対応 (sqlc が MariaDB の char(36) や uuid 型に非対応)
 sql:
   - engine: "mysql"
     queries: "query/oidc.sql"
