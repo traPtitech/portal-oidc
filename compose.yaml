@@ -28,3 +28,12 @@ services:
       interval: 5s
       timeout: 5s
       retries: 12
+
+  adminer:
+    image: adminer:standalone
+    restart: always
+    environment:
+      ADMINER_DEFAULT_SERVER: portal
+      ADMINER_DESIGN: pepa-linha
+    ports:
+      - "3001:8080"
