@@ -1,0 +1,2027 @@
+{
+  "name": "portal",
+  "desc": "traPortal v2 - traP 部員管理システム。\nユーザー管理、グループ機能、シークレット管理、メール送受信、Webhook連携を提供する。\n",
+  "tables": [
+    {
+      "name": "groups",
+      "type": "BASE TABLE",
+      "comment": "グループテーブル。\n行動を共にする集団を表現。traQ, knoQ, traPortal で統一されたグループ機能を提供。\n通常グループ (管理者あり) と公開グループ (自由参加) の2種類がある。\n",
+      "columns": [
+        {
+          "name": "id",
+          "type": "char(36)",
+          "nullable": false,
+          "comment": "グループUUID"
+        },
+        {
+          "name": "name",
+          "type": "varchar(255)",
+          "nullable": false,
+          "comment": "グループ名 (メンション対象)"
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "nullable": true,
+          "default": "NULL",
+          "comment": "グループ説明"
+        },
+        {
+          "name": "parent_id",
+          "type": "char(36)",
+          "nullable": true,
+          "default": "NULL",
+          "comment": "親グループUUID (階層構造用)"
+        },
+        {
+          "name": "created_at",
+          "type": "datetime(6)",
+          "nullable": false,
+          "default": "current_timestamp(6)",
+          "comment": "作成日時"
+        },
+        {
+          "name": "updated_at",
+          "type": "datetime(6)",
+          "nullable": false,
+          "default": "current_timestamp(6)",
+          "extra_def": "on update current_timestamp(6)",
+          "comment": "更新日時"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "fk_groups_parent",
+          "def": "KEY fk_groups_parent (parent_id) USING BTREE",
+          "table": "groups",
+          "columns": [
+            "parent_id"
+          ],
+          "comment": "親グループインデックス"
+        },
+        {
+          "name": "PRIMARY",
+          "def": "PRIMARY KEY (id) USING BTREE",
+          "table": "groups",
+          "columns": [
+            "id"
+          ],
+          "comment": "主キー"
+        }
+      ],
+      "constraints": [
+        {
+          "name": "fk_groups_parent",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (parent_id) REFERENCES groups (id)",
+          "table": "groups",
+          "referenced_table": "groups",
+          "columns": [
+            "parent_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ],
+          "comment": "親グループ外部キー"
+        },
+        {
+          "name": "PRIMARY",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "groups",
+          "columns": [
+            "id"
+          ],
+          "comment": "主キー"
+        }
+      ],
+      "def": "CREATE TABLE `groups` (\n  `id` char(36) NOT NULL COMMENT 'UUID v4',\n  `name` varchar(255) NOT NULL,\n  `description` text DEFAULT NULL,\n  `parent_id` char(36) DEFAULT NULL COMMENT 'Parent group for hierarchical structure',\n  `created_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),\n  `updated_at` datetime(6) NOT NULL DEFAULT current_timestamp(6) ON UPDATE current_timestamp(6),\n  PRIMARY KEY (`id`),\n  KEY `fk_groups_parent` (`parent_id`),\n  CONSTRAINT `fk_groups_parent` FOREIGN KEY (`parent_id`) REFERENCES `groups` (`id`) ON DELETE SET NULL ON UPDATE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+      "labels": [
+        {
+          "name": "グループ機能",
+          "virtual": true
+        }
+      ]
+    },
+    {
+      "name": "group_keys",
+      "type": "BASE TABLE",
+      "comment": "グループ暗号鍵テーブル (E2E暗号化用)。\nグループ対称鍵を各メンバーの公開鍵で暗号化して保存。\nメンバー全員がパスワードを忘れるとシークレットは復号不可。\n",
+      "columns": [
+        {
+          "name": "group_id",
+          "type": "char(36)",
+          "nullable": false,
+          "comment": "グループUUID"
+        },
+        {
+          "name": "user_id",
+          "type": "char(36)",
+          "nullable": false,
+          "comment": "ユーザーUUID"
+        },
+        {
+          "name": "key_id",
+          "type": "char(36)",
+          "nullable": false,
+          "comment": "鍵UUID (user_keysのkey_idに対応)"
+        },
+        {
+          "name": "encrypted_key",
+          "type": "blob",
+          "nullable": false,
+          "comment": "ユーザー公開鍵で暗号化されたグループ対称鍵"
+        },
+        {
+          "name": "created_at",
+          "type": "datetime(6)",
+          "nullable": false,
+          "default": "current_timestamp(6)",
+          "comment": "作成日時"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "fk_group_keys_user",
+          "def": "KEY fk_group_keys_user (user_id) USING BTREE",
+          "table": "group_keys",
+          "columns": [
+            "user_id"
+          ],
+          "comment": "ユーザーインデックス"
+        },
+        {
+          "name": "PRIMARY",
+          "def": "PRIMARY KEY (group_id, user_id, key_id) USING BTREE",
+          "table": "group_keys",
+          "columns": [
+            "group_id",
+            "user_id",
+            "key_id"
+          ],
+          "comment": "主キー"
+        }
+      ],
+      "constraints": [
+        {
+          "name": "fk_group_keys_group",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (group_id) REFERENCES groups (id)",
+          "table": "group_keys",
+          "referenced_table": "groups",
+          "columns": [
+            "group_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ],
+          "comment": "グループ外部キー"
+        },
+        {
+          "name": "fk_group_keys_user",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (user_id) REFERENCES users (id)",
+          "table": "group_keys",
+          "referenced_table": "users",
+          "columns": [
+            "user_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ],
+          "comment": "ユーザー外部キー"
+        },
+        {
+          "name": "PRIMARY",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (group_id, user_id, key_id)",
+          "table": "group_keys",
+          "columns": [
+            "group_id",
+            "user_id",
+            "key_id"
+          ],
+          "comment": "主キー"
+        }
+      ],
+      "def": "CREATE TABLE `group_keys` (\n  `group_id` char(36) NOT NULL,\n  `user_id` char(36) NOT NULL,\n  `key_id` char(36) NOT NULL COMMENT 'UUID v4',\n  `encrypted_key` blob NOT NULL COMMENT 'Group symmetric key encrypted with user public key',\n  `created_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),\n  PRIMARY KEY (`group_id`,`user_id`,`key_id`),\n  KEY `fk_group_keys_user` (`user_id`),\n  CONSTRAINT `fk_group_keys_group` FOREIGN KEY (`group_id`) REFERENCES `groups` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,\n  CONSTRAINT `fk_group_keys_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+      "labels": [
+        {
+          "name": "グループ機能",
+          "virtual": true
+        }
+      ]
+    },
+    {
+      "name": "group_members",
+      "type": "BASE TABLE",
+      "comment": "グループメンバーテーブル。\nグループに所属するユーザーとそのロールを管理。\n",
+      "columns": [
+        {
+          "name": "group_id",
+          "type": "char(36)",
+          "nullable": false,
+          "comment": "グループUUID"
+        },
+        {
+          "name": "user_id",
+          "type": "char(36)",
+          "nullable": false,
+          "comment": "ユーザーUUID (メンション対象)"
+        },
+        {
+          "name": "roles",
+          "type": "longtext",
+          "nullable": false,
+          "default": "'[]'",
+          "comment": "メンバーロール (JSON配列):\n- role_assign: ロール付与権限 (実質管理者)\n- member_edit: メンバー追加/削除権限\n- group_edit: グループ名/説明編集権限\n- group_delete: グループ削除権限\n- secret_edit: シークレット編集権限\n"
+        },
+        {
+          "name": "joined_at",
+          "type": "datetime(6)",
+          "nullable": false,
+          "default": "current_timestamp(6)",
+          "comment": "参加日時"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "fk_group_members_user",
+          "def": "KEY fk_group_members_user (user_id) USING BTREE",
+          "table": "group_members",
+          "columns": [
+            "user_id"
+          ],
+          "comment": "ユーザーインデックス"
+        },
+        {
+          "name": "PRIMARY",
+          "def": "PRIMARY KEY (group_id, user_id) USING BTREE",
+          "table": "group_members",
+          "columns": [
+            "group_id",
+            "user_id"
+          ],
+          "comment": "主キー"
+        }
+      ],
+      "constraints": [
+        {
+          "name": "fk_group_members_group",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (group_id) REFERENCES groups (id)",
+          "table": "group_members",
+          "referenced_table": "groups",
+          "columns": [
+            "group_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ],
+          "comment": "グループ外部キー"
+        },
+        {
+          "name": "fk_group_members_user",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (user_id) REFERENCES users (id)",
+          "table": "group_members",
+          "referenced_table": "users",
+          "columns": [
+            "user_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ],
+          "comment": "ユーザー外部キー"
+        },
+        {
+          "name": "PRIMARY",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (group_id, user_id)",
+          "table": "group_members",
+          "columns": [
+            "group_id",
+            "user_id"
+          ],
+          "comment": "主キー"
+        },
+        {
+          "name": "roles",
+          "type": "CHECK",
+          "def": "CHECK (json_valid(`roles`))",
+          "table": "group_members",
+          "comment": "JSONバリデーション"
+        }
+      ],
+      "def": "CREATE TABLE `group_members` (\n  `group_id` char(36) NOT NULL,\n  `user_id` char(36) NOT NULL,\n  `roles` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '[]' COMMENT 'Member roles within group: [\"admin\", \"owner\", \"member\"]' CHECK (json_valid(`roles`)),\n  `joined_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),\n  PRIMARY KEY (`group_id`,`user_id`),\n  KEY `fk_group_members_user` (`user_id`),\n  CONSTRAINT `fk_group_members_group` FOREIGN KEY (`group_id`) REFERENCES `groups` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,\n  CONSTRAINT `fk_group_members_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+      "labels": [
+        {
+          "name": "グループ機能",
+          "virtual": true
+        }
+      ]
+    },
+    {
+      "name": "group_member_logs",
+      "type": "BASE TABLE",
+      "comment": "グループメンバー変更ログテーブル。\n卒業時の属人化防止と監査のため、メンバー変更履歴を記録。\n",
+      "columns": [
+        {
+          "name": "id",
+          "type": "char(36)",
+          "nullable": false,
+          "comment": "ログUUID"
+        },
+        {
+          "name": "group_id",
+          "type": "char(36)",
+          "nullable": false,
+          "comment": "グループUUID"
+        },
+        {
+          "name": "user_id",
+          "type": "char(36)",
+          "nullable": false,
+          "comment": "対象ユーザーUUID"
+        },
+        {
+          "name": "action",
+          "type": "varchar(32)",
+          "nullable": false,
+          "comment": "アクション (added, removed, role_changed)"
+        },
+        {
+          "name": "actor_id",
+          "type": "char(36)",
+          "nullable": true,
+          "default": "NULL",
+          "comment": "操作者UUID"
+        },
+        {
+          "name": "old_roles",
+          "type": "longtext",
+          "nullable": true,
+          "default": "NULL",
+          "comment": "変更前ロール"
+        },
+        {
+          "name": "new_roles",
+          "type": "longtext",
+          "nullable": true,
+          "default": "NULL",
+          "comment": "変更後ロール"
+        },
+        {
+          "name": "created_at",
+          "type": "datetime(6)",
+          "nullable": false,
+          "default": "current_timestamp(6)",
+          "comment": "作成日時"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_group_member_logs_group",
+          "def": "KEY idx_group_member_logs_group (group_id) USING BTREE",
+          "table": "group_member_logs",
+          "columns": [
+            "group_id"
+          ],
+          "comment": "グループインデックス"
+        },
+        {
+          "name": "idx_group_member_logs_user",
+          "def": "KEY idx_group_member_logs_user (user_id) USING BTREE",
+          "table": "group_member_logs",
+          "columns": [
+            "user_id"
+          ],
+          "comment": "ユーザーインデックス"
+        },
+        {
+          "name": "PRIMARY",
+          "def": "PRIMARY KEY (id) USING BTREE",
+          "table": "group_member_logs",
+          "columns": [
+            "id"
+          ],
+          "comment": "主キー"
+        }
+      ],
+      "constraints": [
+        {
+          "name": "PRIMARY",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "group_member_logs",
+          "columns": [
+            "id"
+          ],
+          "comment": "主キー"
+        },
+        {
+          "name": "old_roles",
+          "type": "CHECK",
+          "def": "CHECK (json_valid(`old_roles`))",
+          "table": "group_member_logs",
+          "comment": "JSONバリデーション"
+        },
+        {
+          "name": "new_roles",
+          "type": "CHECK",
+          "def": "CHECK (json_valid(`new_roles`))",
+          "table": "group_member_logs",
+          "comment": "JSONバリデーション"
+        }
+      ],
+      "def": "CREATE TABLE `group_member_logs` (\n  `id` char(36) NOT NULL COMMENT 'UUID v4',\n  `group_id` char(36) NOT NULL,\n  `user_id` char(36) NOT NULL,\n  `action` varchar(32) NOT NULL COMMENT 'Action: added, removed, role_changed',\n  `actor_id` char(36) DEFAULT NULL COMMENT 'User who performed the action',\n  `old_roles` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`old_roles`)),\n  `new_roles` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`new_roles`)),\n  `created_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),\n  PRIMARY KEY (`id`),\n  KEY `idx_group_member_logs_group` (`group_id`),\n  KEY `idx_group_member_logs_user` (`user_id`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+      "labels": [
+        {
+          "name": "グループ機能",
+          "virtual": true
+        }
+      ]
+    },
+    {
+      "name": "group_permissions",
+      "type": "BASE TABLE",
+      "comment": "グループ権限テーブル。\nグループに権限を付与し、OAuth認可時にclaimできる。\n例: 庶務→ユーザー個人情報閲覧/編集、サービス管理者→admin権限\n",
+      "columns": [
+        {
+          "name": "group_id",
+          "type": "char(36)",
+          "nullable": false,
+          "comment": "グループUUID"
+        },
+        {
+          "name": "permission",
+          "type": "varchar(64)",
+          "nullable": false,
+          "comment": "権限 (例):\n- user:read, user:write: ユーザー情報\n- invitation:create: 招待コード発行\n- mail:send: メール送信\n- admin:*: 管理者権限\n"
+        },
+        {
+          "name": "created_at",
+          "type": "datetime(6)",
+          "nullable": false,
+          "default": "current_timestamp(6)",
+          "comment": "作成日時"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "def": "PRIMARY KEY (group_id, permission) USING BTREE",
+          "table": "group_permissions",
+          "columns": [
+            "group_id",
+            "permission"
+          ],
+          "comment": "主キー"
+        }
+      ],
+      "constraints": [
+        {
+          "name": "fk_group_permissions_group",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (group_id) REFERENCES groups (id)",
+          "table": "group_permissions",
+          "referenced_table": "groups",
+          "columns": [
+            "group_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ],
+          "comment": "グループ外部キー"
+        },
+        {
+          "name": "PRIMARY",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (group_id, permission)",
+          "table": "group_permissions",
+          "columns": [
+            "group_id",
+            "permission"
+          ],
+          "comment": "主キー"
+        }
+      ],
+      "def": "CREATE TABLE `group_permissions` (\n  `group_id` char(36) NOT NULL,\n  `permission` varchar(64) NOT NULL COMMENT 'Permission: user:read, user:update, invitation:create, etc.',\n  `created_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),\n  PRIMARY KEY (`group_id`,`permission`),\n  CONSTRAINT `fk_group_permissions_group` FOREIGN KEY (`group_id`) REFERENCES `groups` (`id`) ON DELETE CASCADE ON UPDATE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+      "labels": [
+        {
+          "name": "グループ機能",
+          "virtual": true
+        }
+      ]
+    },
+    {
+      "name": "invitations",
+      "type": "BASE TABLE",
+      "comment": "招待コードテーブル。\n新入生やex-traP移行用の登録招待コードを管理。\n",
+      "columns": [
+        {
+          "name": "id",
+          "type": "char(36)",
+          "nullable": false,
+          "comment": "招待UUID"
+        },
+        {
+          "name": "code",
+          "type": "varchar(20)",
+          "nullable": false,
+          "comment": "招待コード (署名付きURL用)"
+        },
+        {
+          "name": "created_by",
+          "type": "char(36)",
+          "nullable": true,
+          "default": "NULL",
+          "comment": "作成者UUID (庶務)"
+        },
+        {
+          "name": "used_by",
+          "type": "char(36)",
+          "nullable": true,
+          "default": "NULL",
+          "comment": "使用者UUID"
+        },
+        {
+          "name": "expires_at",
+          "type": "datetime(6)",
+          "nullable": true,
+          "default": "NULL",
+          "comment": "有効期限"
+        },
+        {
+          "name": "used_at",
+          "type": "datetime(6)",
+          "nullable": true,
+          "default": "NULL",
+          "comment": "使用日時"
+        },
+        {
+          "name": "created_at",
+          "type": "datetime(6)",
+          "nullable": false,
+          "default": "current_timestamp(6)",
+          "comment": "作成日時"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "fk_invitations_created_by",
+          "def": "KEY fk_invitations_created_by (created_by) USING BTREE",
+          "table": "invitations",
+          "columns": [
+            "created_by"
+          ],
+          "comment": "作成者インデックス"
+        },
+        {
+          "name": "fk_invitations_used_by",
+          "def": "KEY fk_invitations_used_by (used_by) USING BTREE",
+          "table": "invitations",
+          "columns": [
+            "used_by"
+          ],
+          "comment": "使用者インデックス"
+        },
+        {
+          "name": "PRIMARY",
+          "def": "PRIMARY KEY (id) USING BTREE",
+          "table": "invitations",
+          "columns": [
+            "id"
+          ],
+          "comment": "主キー"
+        },
+        {
+          "name": "uq_invitations_code",
+          "def": "UNIQUE KEY uq_invitations_code (code) USING BTREE",
+          "table": "invitations",
+          "columns": [
+            "code"
+          ],
+          "comment": "招待コードユニーク制約"
+        }
+      ],
+      "constraints": [
+        {
+          "name": "fk_invitations_created_by",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (created_by) REFERENCES users (id)",
+          "table": "invitations",
+          "referenced_table": "users",
+          "columns": [
+            "created_by"
+          ],
+          "referenced_columns": [
+            "id"
+          ],
+          "comment": "作成者外部キー"
+        },
+        {
+          "name": "fk_invitations_used_by",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (used_by) REFERENCES users (id)",
+          "table": "invitations",
+          "referenced_table": "users",
+          "columns": [
+            "used_by"
+          ],
+          "referenced_columns": [
+            "id"
+          ],
+          "comment": "使用者外部キー"
+        },
+        {
+          "name": "PRIMARY",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "invitations",
+          "columns": [
+            "id"
+          ],
+          "comment": "主キー"
+        },
+        {
+          "name": "uq_invitations_code",
+          "type": "UNIQUE",
+          "def": "UNIQUE KEY uq_invitations_code (code)",
+          "table": "invitations",
+          "columns": [
+            "code"
+          ],
+          "comment": "招待コードユニーク制約"
+        }
+      ],
+      "def": "CREATE TABLE `invitations` (\n  `id` char(36) NOT NULL COMMENT 'UUID v4',\n  `code` varchar(20) NOT NULL COMMENT 'Invitation code (e.g., XXXX-XXXX-XXXX)',\n  `created_by` char(36) DEFAULT NULL COMMENT 'User who created this invitation',\n  `used_by` char(36) DEFAULT NULL COMMENT 'User who used this invitation',\n  `expires_at` datetime(6) DEFAULT NULL COMMENT 'Expiration time (NULL = never expires)',\n  `used_at` datetime(6) DEFAULT NULL,\n  `created_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),\n  PRIMARY KEY (`id`),\n  UNIQUE KEY `uq_invitations_code` (`code`),\n  KEY `fk_invitations_created_by` (`created_by`),\n  KEY `fk_invitations_used_by` (`used_by`),\n  CONSTRAINT `fk_invitations_created_by` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,\n  CONSTRAINT `fk_invitations_used_by` FOREIGN KEY (`used_by`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+      "labels": [
+        {
+          "name": "ユーザー管理",
+          "virtual": true
+        }
+      ]
+    },
+    {
+      "name": "mails",
+      "type": "BASE TABLE",
+      "comment": "送信メールテーブル。\nSendGrid経由で複数人に同時にメールを送信。庶務・渉外が利用。\n",
+      "columns": [
+        {
+          "name": "id",
+          "type": "char(36)",
+          "nullable": false,
+          "comment": "メールUUID"
+        },
+        {
+          "name": "to",
+          "type": "text",
+          "nullable": true,
+          "default": "NULL",
+          "comment": "宛先 (@trap_id形式、複数可)"
+        },
+        {
+          "name": "subject",
+          "type": "varchar(255)",
+          "nullable": true,
+          "default": "NULL",
+          "comment": "件名"
+        },
+        {
+          "name": "body",
+          "type": "text",
+          "nullable": true,
+          "default": "NULL",
+          "comment": "本文"
+        },
+        {
+          "name": "operator_id",
+          "type": "char(36)",
+          "nullable": true,
+          "default": "NULL",
+          "comment": "送信者UUID (庶務/渉外)"
+        },
+        {
+          "name": "created_at",
+          "type": "datetime(6)",
+          "nullable": false,
+          "default": "current_timestamp(6)",
+          "comment": "作成日時"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "fk_mails_operator",
+          "def": "KEY fk_mails_operator (operator_id) USING BTREE",
+          "table": "mails",
+          "columns": [
+            "operator_id"
+          ],
+          "comment": "送信者インデックス"
+        },
+        {
+          "name": "PRIMARY",
+          "def": "PRIMARY KEY (id) USING BTREE",
+          "table": "mails",
+          "columns": [
+            "id"
+          ],
+          "comment": "主キー"
+        }
+      ],
+      "constraints": [
+        {
+          "name": "fk_mails_operator",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (operator_id) REFERENCES users (id)",
+          "table": "mails",
+          "referenced_table": "users",
+          "columns": [
+            "operator_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ],
+          "comment": "送信者外部キー"
+        },
+        {
+          "name": "PRIMARY",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "mails",
+          "columns": [
+            "id"
+          ],
+          "comment": "主キー"
+        }
+      ],
+      "def": "CREATE TABLE `mails` (\n  `id` char(36) NOT NULL COMMENT 'UUID v4',\n  `to` text DEFAULT NULL COMMENT 'Recipients (format: @trap_id;@trap_id2)',\n  `subject` varchar(255) DEFAULT NULL,\n  `body` text DEFAULT NULL,\n  `operator_id` char(36) DEFAULT NULL COMMENT 'User who sent this mail',\n  `created_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),\n  PRIMARY KEY (`id`),\n  KEY `fk_mails_operator` (`operator_id`),\n  CONSTRAINT `fk_mails_operator` FOREIGN KEY (`operator_id`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+      "labels": [
+        {
+          "name": "メール送受信",
+          "virtual": true
+        }
+      ]
+    },
+    {
+      "name": "mail_logs",
+      "type": "BASE TABLE",
+      "comment": "メール送信ログテーブル。\nSendGridからの送信結果を記録。\n",
+      "columns": [
+        {
+          "name": "id",
+          "type": "char(36)",
+          "nullable": false,
+          "comment": "ログUUID"
+        },
+        {
+          "name": "mail_id",
+          "type": "char(36)",
+          "nullable": false,
+          "comment": "メールUUID"
+        },
+        {
+          "name": "status",
+          "type": "varchar(32)",
+          "nullable": false,
+          "comment": "ステータス (unsent, sent, failed)"
+        },
+        {
+          "name": "error",
+          "type": "text",
+          "nullable": true,
+          "default": "NULL",
+          "comment": "エラー内容 (failed時)"
+        },
+        {
+          "name": "created_at",
+          "type": "datetime(6)",
+          "nullable": false,
+          "default": "current_timestamp(6)",
+          "comment": "作成日時"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_mail_logs_mail",
+          "def": "KEY idx_mail_logs_mail (mail_id) USING BTREE",
+          "table": "mail_logs",
+          "columns": [
+            "mail_id"
+          ],
+          "comment": "メールインデックス"
+        },
+        {
+          "name": "PRIMARY",
+          "def": "PRIMARY KEY (id) USING BTREE",
+          "table": "mail_logs",
+          "columns": [
+            "id"
+          ],
+          "comment": "主キー"
+        }
+      ],
+      "constraints": [
+        {
+          "name": "fk_mail_logs_mail",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (mail_id) REFERENCES mails (id)",
+          "table": "mail_logs",
+          "referenced_table": "mails",
+          "columns": [
+            "mail_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ],
+          "comment": "メール外部キー"
+        },
+        {
+          "name": "PRIMARY",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "mail_logs",
+          "columns": [
+            "id"
+          ],
+          "comment": "主キー"
+        }
+      ],
+      "def": "CREATE TABLE `mail_logs` (\n  `id` char(36) NOT NULL COMMENT 'UUID v4',\n  `mail_id` char(36) NOT NULL,\n  `status` varchar(32) NOT NULL COMMENT 'Status: unsent, sent, failed',\n  `error` text DEFAULT NULL,\n  `created_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),\n  PRIMARY KEY (`id`),\n  KEY `idx_mail_logs_mail` (`mail_id`),\n  CONSTRAINT `fk_mail_logs_mail` FOREIGN KEY (`mail_id`) REFERENCES `mails` (`id`) ON DELETE CASCADE ON UPDATE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+      "labels": [
+        {
+          "name": "メール送受信",
+          "virtual": true
+        }
+      ]
+    },
+    {
+      "name": "namecards",
+      "type": "BASE TABLE",
+      "comment": "名札色設定テーブル。\n学年ごとの名札色を管理。\n",
+      "columns": [
+        {
+          "name": "student_prefix",
+          "type": "varchar(32)",
+          "nullable": false,
+          "comment": "学籍番号プレフィックス (例: 15B, 24B)"
+        },
+        {
+          "name": "color",
+          "type": "varchar(32)",
+          "nullable": true,
+          "default": "NULL",
+          "comment": "色コード (HEX形式、例: #FF5733)"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "def": "PRIMARY KEY (student_prefix) USING BTREE",
+          "table": "namecards",
+          "columns": [
+            "student_prefix"
+          ],
+          "comment": "主キー"
+        }
+      ],
+      "constraints": [
+        {
+          "name": "PRIMARY",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (student_prefix)",
+          "table": "namecards",
+          "columns": [
+            "student_prefix"
+          ],
+          "comment": "主キー"
+        }
+      ],
+      "def": "CREATE TABLE `namecards` (\n  `student_prefix` varchar(32) NOT NULL COMMENT 'Student number prefix (e.g., 15B, 24B)',\n  `color` varchar(32) DEFAULT NULL COMMENT 'Hex color code',\n  PRIMARY KEY (`student_prefix`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+      "labels": [
+        {
+          "name": "その他",
+          "virtual": true
+        }
+      ]
+    },
+    {
+      "name": "secrets",
+      "type": "BASE TABLE",
+      "comment": "シークレットテーブル (E2E暗号化)。\nプロジェクトで使用する共用アカウント (Twitter, GitHub等) のパスワードやAPIキーを、\n現在のグループメンバーだけが閲覧できるように暗号化して保存。\nDB漏洩してもサーバー運用者でも閲覧不可。\n",
+      "columns": [
+        {
+          "name": "id",
+          "type": "char(36)",
+          "nullable": false,
+          "comment": "シークレットUUID"
+        },
+        {
+          "name": "group_id",
+          "type": "char(36)",
+          "nullable": false,
+          "comment": "所有グループUUID"
+        },
+        {
+          "name": "name",
+          "type": "varchar(255)",
+          "nullable": false,
+          "comment": "シークレット名 (Twitter共用アカウント、GitHub PAT等)"
+        },
+        {
+          "name": "encrypted_value",
+          "type": "blob",
+          "nullable": false,
+          "comment": "グループ対称鍵でAES-GCM暗号化された値"
+        },
+        {
+          "name": "created_by",
+          "type": "char(36)",
+          "nullable": true,
+          "default": "NULL",
+          "comment": "作成者UUID"
+        },
+        {
+          "name": "created_at",
+          "type": "datetime(6)",
+          "nullable": false,
+          "default": "current_timestamp(6)",
+          "comment": "作成日時"
+        },
+        {
+          "name": "updated_at",
+          "type": "datetime(6)",
+          "nullable": false,
+          "default": "current_timestamp(6)",
+          "extra_def": "on update current_timestamp(6)",
+          "comment": "更新日時"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "fk_secrets_created_by",
+          "def": "KEY fk_secrets_created_by (created_by) USING BTREE",
+          "table": "secrets",
+          "columns": [
+            "created_by"
+          ],
+          "comment": "作成者インデックス"
+        },
+        {
+          "name": "idx_secrets_group",
+          "def": "KEY idx_secrets_group (group_id) USING BTREE",
+          "table": "secrets",
+          "columns": [
+            "group_id"
+          ],
+          "comment": "グループインデックス"
+        },
+        {
+          "name": "PRIMARY",
+          "def": "PRIMARY KEY (id) USING BTREE",
+          "table": "secrets",
+          "columns": [
+            "id"
+          ],
+          "comment": "主キー"
+        }
+      ],
+      "constraints": [
+        {
+          "name": "fk_secrets_created_by",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (created_by) REFERENCES users (id)",
+          "table": "secrets",
+          "referenced_table": "users",
+          "columns": [
+            "created_by"
+          ],
+          "referenced_columns": [
+            "id"
+          ],
+          "comment": "作成者外部キー"
+        },
+        {
+          "name": "fk_secrets_group",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (group_id) REFERENCES groups (id)",
+          "table": "secrets",
+          "referenced_table": "groups",
+          "columns": [
+            "group_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ],
+          "comment": "グループ外部キー"
+        },
+        {
+          "name": "PRIMARY",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "secrets",
+          "columns": [
+            "id"
+          ],
+          "comment": "主キー"
+        }
+      ],
+      "def": "CREATE TABLE `secrets` (\n  `id` char(36) NOT NULL COMMENT 'UUID v4',\n  `group_id` char(36) NOT NULL COMMENT 'Owning group',\n  `name` varchar(255) NOT NULL,\n  `encrypted_value` blob NOT NULL COMMENT 'AES-GCM encrypted with group key',\n  `created_by` char(36) DEFAULT NULL,\n  `created_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),\n  `updated_at` datetime(6) NOT NULL DEFAULT current_timestamp(6) ON UPDATE current_timestamp(6),\n  PRIMARY KEY (`id`),\n  KEY `idx_secrets_group` (`group_id`),\n  KEY `fk_secrets_created_by` (`created_by`),\n  CONSTRAINT `fk_secrets_created_by` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,\n  CONSTRAINT `fk_secrets_group` FOREIGN KEY (`group_id`) REFERENCES `groups` (`id`) ON DELETE CASCADE ON UPDATE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+      "labels": [
+        {
+          "name": "シークレット管理",
+          "virtual": true
+        }
+      ]
+    },
+    {
+      "name": "secret_logs",
+      "type": "BASE TABLE",
+      "comment": "シークレット操作ログテーブル。\n監査とセキュリティのため、シークレットへのアクセス履歴を記録。\n",
+      "columns": [
+        {
+          "name": "id",
+          "type": "char(36)",
+          "nullable": false,
+          "comment": "ログUUID"
+        },
+        {
+          "name": "secret_id",
+          "type": "char(36)",
+          "nullable": false,
+          "comment": "シークレットUUID"
+        },
+        {
+          "name": "action",
+          "type": "varchar(32)",
+          "nullable": false,
+          "comment": "アクション (created, updated, deleted, accessed)"
+        },
+        {
+          "name": "actor_id",
+          "type": "char(36)",
+          "nullable": true,
+          "default": "NULL",
+          "comment": "操作者UUID"
+        },
+        {
+          "name": "created_at",
+          "type": "datetime(6)",
+          "nullable": false,
+          "default": "current_timestamp(6)",
+          "comment": "作成日時"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_secret_logs_secret",
+          "def": "KEY idx_secret_logs_secret (secret_id) USING BTREE",
+          "table": "secret_logs",
+          "columns": [
+            "secret_id"
+          ],
+          "comment": "シークレットインデックス"
+        },
+        {
+          "name": "PRIMARY",
+          "def": "PRIMARY KEY (id) USING BTREE",
+          "table": "secret_logs",
+          "columns": [
+            "id"
+          ],
+          "comment": "主キー"
+        }
+      ],
+      "constraints": [
+        {
+          "name": "PRIMARY",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "secret_logs",
+          "columns": [
+            "id"
+          ],
+          "comment": "主キー"
+        }
+      ],
+      "def": "CREATE TABLE `secret_logs` (\n  `id` char(36) NOT NULL COMMENT 'UUID v4',\n  `secret_id` char(36) NOT NULL,\n  `action` varchar(32) NOT NULL COMMENT 'Action: created, updated, deleted, accessed',\n  `actor_id` char(36) DEFAULT NULL,\n  `created_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),\n  PRIMARY KEY (`id`),\n  KEY `idx_secret_logs_secret` (`secret_id`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+      "labels": [
+        {
+          "name": "シークレット管理",
+          "virtual": true
+        }
+      ]
+    },
+    {
+      "name": "users",
+      "type": "BASE TABLE",
+      "comment": "ユーザーテーブル。\ntraP 部員のアカウントと個人情報を管理する。\n個人情報は高度な暗号化 (AES-256) で保護され、DB漏洩時も閲覧不可。\n",
+      "columns": [
+        {
+          "name": "id",
+          "type": "char(36)",
+          "nullable": false,
+          "comment": "ユーザーUUID"
+        },
+        {
+          "name": "trap_id",
+          "type": "varchar(32)",
+          "nullable": false,
+          "comment": "traP ID (ユニークなユーザー名、各サービスでの識別子)"
+        },
+        {
+          "name": "password_hash",
+          "type": "varchar(255)",
+          "nullable": false,
+          "comment": "PBKDF2-SHA512ハッシュ (10万回イテレーション)"
+        },
+        {
+          "name": "email",
+          "type": "varbinary(512)",
+          "nullable": true,
+          "default": "NULL",
+          "comment": "AES-GCM暗号化されたメールアドレス (パスワードリセット用にサーバー側暗号化)"
+        },
+        {
+          "name": "personal_info",
+          "type": "blob",
+          "nullable": true,
+          "default": "NULL",
+          "comment": "AES-GCM暗号化された個人情報JSON (E2E暗号化、庶務のみ閲覧可)"
+        },
+        {
+          "name": "student_number",
+          "type": "varchar(8)",
+          "nullable": true,
+          "default": "NULL",
+          "comment": "学籍番号 (科学大の正規生であることを証明)"
+        },
+        {
+          "name": "created_at",
+          "type": "datetime(6)",
+          "nullable": false,
+          "default": "current_timestamp(6)",
+          "comment": "作成日時"
+        },
+        {
+          "name": "updated_at",
+          "type": "datetime(6)",
+          "nullable": false,
+          "default": "current_timestamp(6)",
+          "extra_def": "on update current_timestamp(6)",
+          "comment": "更新日時"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "def": "PRIMARY KEY (id) USING BTREE",
+          "table": "users",
+          "columns": [
+            "id"
+          ],
+          "comment": "主キー"
+        },
+        {
+          "name": "uq_users_student_number",
+          "def": "UNIQUE KEY uq_users_student_number (student_number) USING BTREE",
+          "table": "users",
+          "columns": [
+            "student_number"
+          ],
+          "comment": "学籍番号ユニーク制約"
+        },
+        {
+          "name": "uq_users_trap_id",
+          "def": "UNIQUE KEY uq_users_trap_id (trap_id) USING BTREE",
+          "table": "users",
+          "columns": [
+            "trap_id"
+          ],
+          "comment": "traP IDユニーク制約"
+        }
+      ],
+      "constraints": [
+        {
+          "name": "PRIMARY",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "users",
+          "columns": [
+            "id"
+          ],
+          "comment": "主キー"
+        },
+        {
+          "name": "uq_users_student_number",
+          "type": "UNIQUE",
+          "def": "UNIQUE KEY uq_users_student_number (student_number)",
+          "table": "users",
+          "columns": [
+            "student_number"
+          ],
+          "comment": "学籍番号ユニーク制約"
+        },
+        {
+          "name": "uq_users_trap_id",
+          "type": "UNIQUE",
+          "def": "UNIQUE KEY uq_users_trap_id (trap_id)",
+          "table": "users",
+          "columns": [
+            "trap_id"
+          ],
+          "comment": "traP IDユニーク制約"
+        }
+      ],
+      "def": "CREATE TABLE `users` (\n  `id` char(36) NOT NULL COMMENT 'UUID v4',\n  `trap_id` varchar(32) NOT NULL COMMENT 'traP ID (unique username)',\n  `password_hash` varchar(255) NOT NULL COMMENT 'PBKDF2-SHA512 hash',\n  `email` varbinary(512) DEFAULT NULL COMMENT 'AES-GCM encrypted email',\n  `personal_info` blob DEFAULT NULL COMMENT 'AES-GCM encrypted JSON (name, phone, address, etc.)',\n  `student_number` varchar(8) DEFAULT NULL COMMENT 'Student number (plaintext for lookup)',\n  `created_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),\n  `updated_at` datetime(6) NOT NULL DEFAULT current_timestamp(6) ON UPDATE current_timestamp(6),\n  PRIMARY KEY (`id`),\n  UNIQUE KEY `uq_users_trap_id` (`trap_id`),\n  UNIQUE KEY `uq_users_student_number` (`student_number`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+      "labels": [
+        {
+          "name": "ユーザー管理",
+          "virtual": true
+        }
+      ]
+    },
+    {
+      "name": "user_keys",
+      "type": "BASE TABLE",
+      "comment": "ユーザー暗号鍵テーブル (E2E暗号化用)。\nPassword → Master Key → Symmetric Key → Private Key の鍵階層で管理。\nMaster Key はサーバーに送信されない。\n",
+      "columns": [
+        {
+          "name": "user_id",
+          "type": "char(36)",
+          "nullable": false,
+          "comment": "ユーザーUUID"
+        },
+        {
+          "name": "key_id",
+          "type": "char(36)",
+          "nullable": false,
+          "comment": "鍵UUID"
+        },
+        {
+          "name": "public_key",
+          "type": "varbinary(4096)",
+          "nullable": false,
+          "comment": "公開鍵 (DER形式、グループ鍵の暗号化に使用)"
+        },
+        {
+          "name": "encrypted_private_key",
+          "type": "blob",
+          "nullable": false,
+          "comment": "Symmetric Key で暗号化された秘密鍵"
+        },
+        {
+          "name": "algorithm",
+          "type": "varchar(32)",
+          "nullable": false,
+          "default": "'RSA-OAEP-SHA256'",
+          "comment": "鍵アルゴリズム (RSA-OAEP, ECDH等)"
+        },
+        {
+          "name": "is_active",
+          "type": "tinyint(1)",
+          "nullable": false,
+          "default": "1",
+          "comment": "アクティブかどうか"
+        },
+        {
+          "name": "created_at",
+          "type": "datetime(6)",
+          "nullable": false,
+          "default": "current_timestamp(6)",
+          "comment": "作成日時"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "def": "PRIMARY KEY (user_id, key_id) USING BTREE",
+          "table": "user_keys",
+          "columns": [
+            "user_id",
+            "key_id"
+          ],
+          "comment": "主キー"
+        }
+      ],
+      "constraints": [
+        {
+          "name": "fk_user_keys_user",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (user_id) REFERENCES users (id)",
+          "table": "user_keys",
+          "referenced_table": "users",
+          "columns": [
+            "user_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ],
+          "comment": "ユーザー外部キー"
+        },
+        {
+          "name": "PRIMARY",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (user_id, key_id)",
+          "table": "user_keys",
+          "columns": [
+            "user_id",
+            "key_id"
+          ],
+          "comment": "主キー"
+        }
+      ],
+      "def": "CREATE TABLE `user_keys` (\n  `user_id` char(36) NOT NULL,\n  `key_id` char(36) NOT NULL COMMENT 'UUID v4',\n  `public_key` varbinary(4096) NOT NULL COMMENT 'User public key (DER format)',\n  `encrypted_private_key` blob NOT NULL COMMENT 'Private key encrypted with user password-derived key',\n  `algorithm` varchar(32) NOT NULL DEFAULT 'RSA-OAEP-SHA256' COMMENT 'Key algorithm',\n  `is_active` tinyint(1) NOT NULL DEFAULT 1,\n  `created_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),\n  PRIMARY KEY (`user_id`,`key_id`),\n  CONSTRAINT `fk_user_keys_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+      "labels": [
+        {
+          "name": "ユーザー管理",
+          "virtual": true
+        }
+      ]
+    },
+    {
+      "name": "user_links",
+      "type": "BASE TABLE",
+      "comment": "ユーザー外部サービス連携テーブル。\nTwitter, GitHub, Discord等の外部アカウントと連携。\n",
+      "columns": [
+        {
+          "name": "user_id",
+          "type": "char(36)",
+          "nullable": false,
+          "comment": "ユーザーUUID"
+        },
+        {
+          "name": "service",
+          "type": "varchar(64)",
+          "nullable": false,
+          "comment": "サービス名 (twitter, github, discord等)"
+        },
+        {
+          "name": "external_id",
+          "type": "varchar(255)",
+          "nullable": true,
+          "default": "NULL",
+          "comment": "外部サービスのユーザーID"
+        },
+        {
+          "name": "account_name",
+          "type": "varchar(255)",
+          "nullable": true,
+          "default": "NULL",
+          "comment": "外部サービスでの表示名"
+        },
+        {
+          "name": "access_token",
+          "type": "varbinary(1024)",
+          "nullable": true,
+          "default": "NULL",
+          "comment": "暗号化されたOAuthアクセストークン"
+        },
+        {
+          "name": "created_at",
+          "type": "datetime(6)",
+          "nullable": false,
+          "default": "current_timestamp(6)",
+          "comment": "作成日時"
+        },
+        {
+          "name": "updated_at",
+          "type": "datetime(6)",
+          "nullable": false,
+          "default": "current_timestamp(6)",
+          "extra_def": "on update current_timestamp(6)",
+          "comment": "更新日時"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "def": "PRIMARY KEY (user_id, service) USING BTREE",
+          "table": "user_links",
+          "columns": [
+            "user_id",
+            "service"
+          ],
+          "comment": "主キー"
+        }
+      ],
+      "constraints": [
+        {
+          "name": "fk_user_links_user",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (user_id) REFERENCES users (id)",
+          "table": "user_links",
+          "referenced_table": "users",
+          "columns": [
+            "user_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ],
+          "comment": "ユーザー外部キー"
+        },
+        {
+          "name": "PRIMARY",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (user_id, service)",
+          "table": "user_links",
+          "columns": [
+            "user_id",
+            "service"
+          ],
+          "comment": "主キー"
+        }
+      ],
+      "def": "CREATE TABLE `user_links` (\n  `user_id` char(36) NOT NULL,\n  `service` varchar(64) NOT NULL COMMENT 'Service name: twitter, github, discord, etc.',\n  `external_id` varchar(255) DEFAULT NULL COMMENT 'External service user ID',\n  `account_name` varchar(255) DEFAULT NULL COMMENT 'Display name/handle on the service',\n  `access_token` varbinary(1024) DEFAULT NULL COMMENT 'Encrypted OAuth access token (if stored)',\n  `created_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),\n  `updated_at` datetime(6) NOT NULL DEFAULT current_timestamp(6) ON UPDATE current_timestamp(6),\n  PRIMARY KEY (`user_id`,`service`),\n  CONSTRAINT `fk_user_links_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+      "labels": [
+        {
+          "name": "ユーザー管理",
+          "virtual": true
+        }
+      ]
+    },
+    {
+      "name": "user_statuses",
+      "type": "BASE TABLE",
+      "comment": "ユーザーステータステーブル。\n会員期限管理により凍結処理を自動化。支払うと年度末までのアカウント使用権が与えられる。\n",
+      "columns": [
+        {
+          "name": "user_id",
+          "type": "char(36)",
+          "nullable": false,
+          "comment": "ユーザーUUID"
+        },
+        {
+          "name": "status",
+          "type": "varchar(64)",
+          "nullable": false,
+          "comment": "ステータス:\n- active: アクティブ\n- suspended: 凍結 (未支払い/卒業/除名)\n- email-unconfirmed: メール未認証\n"
+        },
+        {
+          "name": "detail",
+          "type": "varchar(255)",
+          "nullable": true,
+          "default": "NULL",
+          "comment": "詳細/理由"
+        },
+        {
+          "name": "created_at",
+          "type": "datetime(6)",
+          "nullable": false,
+          "default": "current_timestamp(6)",
+          "comment": "作成日時"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "def": "PRIMARY KEY (user_id, status) USING BTREE",
+          "table": "user_statuses",
+          "columns": [
+            "user_id",
+            "status"
+          ],
+          "comment": "主キー"
+        }
+      ],
+      "constraints": [
+        {
+          "name": "fk_user_statuses_user",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (user_id) REFERENCES users (id)",
+          "table": "user_statuses",
+          "referenced_table": "users",
+          "columns": [
+            "user_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ],
+          "comment": "ユーザー外部キー"
+        },
+        {
+          "name": "PRIMARY",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (user_id, status)",
+          "table": "user_statuses",
+          "columns": [
+            "user_id",
+            "status"
+          ],
+          "comment": "主キー"
+        }
+      ],
+      "def": "CREATE TABLE `user_statuses` (\n  `user_id` char(36) NOT NULL,\n  `status` varchar(64) NOT NULL COMMENT 'Status type: active, suspended, email-unconfirmed, etc.',\n  `detail` varchar(255) DEFAULT NULL COMMENT 'Additional detail/reason',\n  `created_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),\n  PRIMARY KEY (`user_id`,`status`),\n  CONSTRAINT `fk_user_statuses_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+      "labels": [
+        {
+          "name": "ユーザー管理",
+          "virtual": true
+        }
+      ]
+    },
+    {
+      "name": "webhooks",
+      "type": "BASE TABLE",
+      "comment": "Webhookテーブル。\ntraPortal内データの変更イベントを各サービスに通知。\nグループメンバー変更時にtraQやknoQに自動同期。\n",
+      "columns": [
+        {
+          "name": "id",
+          "type": "char(36)",
+          "nullable": false,
+          "comment": "WebhookUUID"
+        },
+        {
+          "name": "name",
+          "type": "varchar(255)",
+          "nullable": false,
+          "comment": "Webhook名"
+        },
+        {
+          "name": "url",
+          "type": "varchar(2048)",
+          "nullable": false,
+          "comment": "送信先URL (HTTPS必須)"
+        },
+        {
+          "name": "secret",
+          "type": "varbinary(512)",
+          "nullable": true,
+          "default": "NULL",
+          "comment": "HMAC-SHA256署名用シークレット (暗号化)"
+        },
+        {
+          "name": "owner_id",
+          "type": "char(36)",
+          "nullable": true,
+          "default": "NULL",
+          "comment": "所有者UUID"
+        },
+        {
+          "name": "is_active",
+          "type": "tinyint(1)",
+          "nullable": false,
+          "default": "1",
+          "comment": "アクティブかどうか"
+        },
+        {
+          "name": "created_at",
+          "type": "datetime(6)",
+          "nullable": false,
+          "default": "current_timestamp(6)",
+          "comment": "作成日時"
+        },
+        {
+          "name": "updated_at",
+          "type": "datetime(6)",
+          "nullable": false,
+          "default": "current_timestamp(6)",
+          "extra_def": "on update current_timestamp(6)",
+          "comment": "更新日時"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "fk_webhooks_owner",
+          "def": "KEY fk_webhooks_owner (owner_id) USING BTREE",
+          "table": "webhooks",
+          "columns": [
+            "owner_id"
+          ],
+          "comment": "所有者インデックス"
+        },
+        {
+          "name": "PRIMARY",
+          "def": "PRIMARY KEY (id) USING BTREE",
+          "table": "webhooks",
+          "columns": [
+            "id"
+          ],
+          "comment": "主キー"
+        }
+      ],
+      "constraints": [
+        {
+          "name": "fk_webhooks_owner",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (owner_id) REFERENCES users (id)",
+          "table": "webhooks",
+          "referenced_table": "users",
+          "columns": [
+            "owner_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ],
+          "comment": "所有者外部キー"
+        },
+        {
+          "name": "PRIMARY",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "webhooks",
+          "columns": [
+            "id"
+          ],
+          "comment": "主キー"
+        }
+      ],
+      "def": "CREATE TABLE `webhooks` (\n  `id` char(36) NOT NULL COMMENT 'UUID v4',\n  `name` varchar(255) NOT NULL,\n  `url` varchar(2048) NOT NULL,\n  `secret` varbinary(512) DEFAULT NULL COMMENT 'HMAC signing secret (encrypted)',\n  `owner_id` char(36) DEFAULT NULL COMMENT 'User who owns this webhook',\n  `is_active` tinyint(1) NOT NULL DEFAULT 1,\n  `created_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),\n  `updated_at` datetime(6) NOT NULL DEFAULT current_timestamp(6) ON UPDATE current_timestamp(6),\n  PRIMARY KEY (`id`),\n  KEY `fk_webhooks_owner` (`owner_id`),\n  CONSTRAINT `fk_webhooks_owner` FOREIGN KEY (`owner_id`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+      "labels": [
+        {
+          "name": "Webhook連携",
+          "virtual": true
+        }
+      ]
+    },
+    {
+      "name": "webhook_subscribe_events",
+      "type": "BASE TABLE",
+      "comment": "Webhook購読イベントテーブル。\n各Webhookが購読するイベントタイプを管理。\n",
+      "columns": [
+        {
+          "name": "webhook_id",
+          "type": "char(36)",
+          "nullable": false,
+          "comment": "WebhookUUID"
+        },
+        {
+          "name": "event_type",
+          "type": "varchar(64)",
+          "nullable": false,
+          "comment": "イベントタイプ (例):\n- user.created, user.updated, user.deleted\n- group.created, group.member_added, group.member_removed\n"
+        },
+        {
+          "name": "created_at",
+          "type": "datetime(6)",
+          "nullable": false,
+          "default": "current_timestamp(6)",
+          "comment": "作成日時"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "PRIMARY",
+          "def": "PRIMARY KEY (webhook_id, event_type) USING BTREE",
+          "table": "webhook_subscribe_events",
+          "columns": [
+            "webhook_id",
+            "event_type"
+          ],
+          "comment": "主キー"
+        }
+      ],
+      "constraints": [
+        {
+          "name": "fk_webhook_events_webhook",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (webhook_id) REFERENCES webhooks (id)",
+          "table": "webhook_subscribe_events",
+          "referenced_table": "webhooks",
+          "columns": [
+            "webhook_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ],
+          "comment": "Webhook外部キー"
+        },
+        {
+          "name": "PRIMARY",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (webhook_id, event_type)",
+          "table": "webhook_subscribe_events",
+          "columns": [
+            "webhook_id",
+            "event_type"
+          ],
+          "comment": "主キー"
+        }
+      ],
+      "def": "CREATE TABLE `webhook_subscribe_events` (\n  `webhook_id` char(36) NOT NULL,\n  `event_type` varchar(64) NOT NULL COMMENT 'Event type: user.created, group.member_added, etc.',\n  `created_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),\n  PRIMARY KEY (`webhook_id`,`event_type`),\n  CONSTRAINT `fk_webhook_events_webhook` FOREIGN KEY (`webhook_id`) REFERENCES `webhooks` (`id`) ON DELETE CASCADE ON UPDATE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+      "labels": [
+        {
+          "name": "Webhook連携",
+          "virtual": true
+        }
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "table": "groups",
+      "columns": [
+        "parent_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "groups",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (parent_id) REFERENCES groups (id)"
+    },
+    {
+      "table": "group_keys",
+      "columns": [
+        "group_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "groups",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (group_id) REFERENCES groups (id)"
+    },
+    {
+      "table": "group_keys",
+      "columns": [
+        "user_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "users",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (user_id) REFERENCES users (id)"
+    },
+    {
+      "table": "group_members",
+      "columns": [
+        "group_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "groups",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (group_id) REFERENCES groups (id)"
+    },
+    {
+      "table": "group_members",
+      "columns": [
+        "user_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "users",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (user_id) REFERENCES users (id)"
+    },
+    {
+      "table": "group_permissions",
+      "columns": [
+        "group_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "groups",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (group_id) REFERENCES groups (id)"
+    },
+    {
+      "table": "invitations",
+      "columns": [
+        "created_by"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "users",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (created_by) REFERENCES users (id)"
+    },
+    {
+      "table": "invitations",
+      "columns": [
+        "used_by"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "users",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (used_by) REFERENCES users (id)"
+    },
+    {
+      "table": "mails",
+      "columns": [
+        "operator_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "users",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (operator_id) REFERENCES users (id)"
+    },
+    {
+      "table": "mail_logs",
+      "columns": [
+        "mail_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "mails",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (mail_id) REFERENCES mails (id)"
+    },
+    {
+      "table": "secrets",
+      "columns": [
+        "created_by"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "users",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (created_by) REFERENCES users (id)"
+    },
+    {
+      "table": "secrets",
+      "columns": [
+        "group_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "groups",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (group_id) REFERENCES groups (id)"
+    },
+    {
+      "table": "user_keys",
+      "columns": [
+        "user_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "users",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (user_id) REFERENCES users (id)"
+    },
+    {
+      "table": "user_links",
+      "columns": [
+        "user_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "users",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (user_id) REFERENCES users (id)"
+    },
+    {
+      "table": "user_statuses",
+      "columns": [
+        "user_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "users",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (user_id) REFERENCES users (id)"
+    },
+    {
+      "table": "webhooks",
+      "columns": [
+        "owner_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "users",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (owner_id) REFERENCES users (id)"
+    },
+    {
+      "table": "webhook_subscribe_events",
+      "columns": [
+        "webhook_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "webhooks",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (webhook_id) REFERENCES webhooks (id)"
+    },
+    {
+      "table": "groups",
+      "columns": [
+        "parent_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "groups",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "Additional Relation",
+      "virtual": true
+    },
+    {
+      "table": "invitations",
+      "columns": [
+        "created_by",
+        "used_by"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "users",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "Additional Relation",
+      "virtual": true
+    },
+    {
+      "table": "secrets",
+      "columns": [
+        "created_by"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "users",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "Additional Relation",
+      "virtual": true
+    },
+    {
+      "table": "webhooks",
+      "columns": [
+        "owner_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "users",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "Additional Relation",
+      "virtual": true
+    },
+    {
+      "table": "mails",
+      "columns": [
+        "operator_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "users",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "Additional Relation",
+      "virtual": true
+    },
+    {
+      "table": "group_member_logs",
+      "columns": [
+        "actor_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "users",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "Additional Relation",
+      "virtual": true
+    }
+  ],
+  "driver": {
+    "name": "mariadb",
+    "database_version": "12.1.2-MariaDB-ubu2404",
+    "meta": {
+      "dict": {
+        "Functions": "Stored procedures and functions"
+      }
+    }
+  }
+}
