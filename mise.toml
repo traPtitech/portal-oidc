@@ -60,12 +60,12 @@ run = "golangci-lint run"
 [tasks."docs:oidc"]
 description = "OIDCスキーマドキュメント生成"
 dir = "db"
-run = "tbls doc mariadb://root:password@localhost:3307/oidc docs/oidc --force"
+run = "tbls doc --config tbls.oidc.yaml --rm-dist"
 
 [tasks."docs:portal"]
 description = "Portalスキーマドキュメント生成"
 dir = "db"
-run = "tbls doc mariadb://root:password@localhost:3306/portal docs/portal --force"
+run = "tbls doc --config tbls.portal.yaml --rm-dist"
 
 [tasks.docs]
 description = "全スキーマドキュメント生成"
