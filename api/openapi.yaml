@@ -298,7 +298,7 @@ components:
         - public
         - confidential
       description: |
-        - public: クライアントシークレットを安全に保持できないクライアント (SPA, モバイルアプリ等)
+        - public: クライアントシークレットを安全に保持できないクライアント (SPA, モバイルアプリ等) <将来実装>
         - confidential: クライアントシークレットを安全に保持できるクライアント (サーバーサイドアプリ)
 
     Client:
