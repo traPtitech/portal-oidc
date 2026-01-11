@@ -15,9 +15,8 @@ OAuth 2.1 / OpenID Connect provider for traP, providing SSO for traP services.
 Requires [mise](https://mise.jdx.dev/) and Docker.
 
 ```bash
-mise install            # Install tools
-docker compose up -d    # Start DB
-mise run start:server   # Start server
+mise install     # Install tools
+mise run start   # Start DB and server
 ```
 
 Now you can access to
@@ -38,10 +37,10 @@ Now you can access to
 ## Development
 
 ```bash
-mise run           # Run tasks (with fuzzy search)
-mise run gen       # Generate code
-mise run lint      # Run linter
-mise run docs      # Generate DB schema docs
+mise run         # Run tasks (with fuzzy search)
+mise run gen     # Generate code
+mise run lint    # Run linter
+mise run docs    # Generate DB schema docs
 ```
 
 ## License
