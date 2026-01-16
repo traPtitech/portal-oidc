@@ -1,4 +1,4 @@
-name: Golang CI
+name: CI
 
 on:
   push:
@@ -49,5 +49,11 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-      - name: Test with the Go CLI
-        run: go test -v ./...
+      - name: Test with coverage
+        run: go test -v -coverprofile=coverage.out ./...
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        continue-on-error: true
+        with:
+          files: coverage.out
+          token: ${{ secrets.CODECOV_TOKEN }}
