@@ -19,9 +19,14 @@ type CLI struct {
 type ServeCmd struct{}
 
 func (s *ServeCmd) Run(cfg *server.Config) error {
+	handler, err := server.NewServer(*cfg)
+	if err != nil {
+		return err
+	}
+
 	srv := &http.Server{
 		Addr:              ":8080",
-		Handler:           server.NewServer(*cfg),
+		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	return srv.ListenAndServe()

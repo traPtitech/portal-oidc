@@ -13,79 +13,112 @@ import (
 	"testing"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/knadh/koanf/parsers/yaml"
-	"github.com/knadh/koanf/providers/file"
+	"github.com/knadh/koanf/providers/confmap"
+	"github.com/knadh/koanf/providers/env"
 	"github.com/knadh/koanf/v2"
 	"github.com/labstack/echo/v4"
 
 	"github.com/traPtitech/portal-oidc/internal/adapter/handler/v1/gen"
 	oidcgen "github.com/traPtitech/portal-oidc/internal/infrastructure/oidc/gen"
 	"github.com/traPtitech/portal-oidc/internal/repository"
+	"github.com/traPtitech/portal-oidc/internal/testutil"
 	"github.com/traPtitech/portal-oidc/internal/usecase"
 )
 
-type testConfig struct {
-	Database struct {
-		Host     string `koanf:"host"`
-		Port     int    `koanf:"port"`
-		User     string `koanf:"user"`
-		Password string `koanf:"password"`
-		Name     string `koanf:"name"`
-	} `koanf:"database"`
-}
+const (
+	testDBName = "oidc_test"
+)
 
-func loadTestConfig(t *testing.T) testConfig {
-	t.Helper()
+var testDB *sql.DB
 
-	// Find project root
-	dir, _ := os.Getwd()
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			break
-		}
-		dir = filepath.Dir(dir)
-	}
-
+func TestMain(m *testing.M) {
 	k := koanf.New(".")
-	if err := k.Load(file.Provider(filepath.Join(dir, "config.yaml")), yaml.Parser()); err != nil {
-		t.Fatalf("failed to load config: %v", err)
+
+	// デフォルト値
+	k.Load(confmap.Provider(map[string]any{
+		"mariadb.username": "root",
+		"mariadb.password": "password",
+		"mariadb.hostname": "127.0.0.1",
+		"mariadb.port":     "3307",
+	}, "."), nil)
+
+	// 環境変数で上書き (MARIADB_USERNAME など)
+	k.Load(env.Provider("MARIADB_", ".", func(s string) string {
+		return strings.ToLower(strings.TrimPrefix(s, "MARIADB_"))
+	}), nil)
+
+	user := k.String("mariadb.username")
+	pass := k.String("mariadb.password")
+	host := k.String("mariadb.hostname")
+	port := k.String("mariadb.port")
+
+	// Connect without database to create test database
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/?parseTime=true", user, pass, host, port)
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		fmt.Printf("failed to connect to database: %v\n", err)
+		os.Exit(1)
 	}
 
-	var cfg testConfig
-	if err := k.Unmarshal("", &cfg); err != nil {
-		t.Fatalf("failed to unmarshal config: %v", err)
+	if err := db.Ping(); err != nil {
+		fmt.Printf("failed to ping database: %v\n", err)
+		os.Exit(1)
 	}
-	return cfg
+
+	// Create test database
+	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%s`", testDBName))
+	if err != nil {
+		fmt.Printf("failed to create test database: %v\n", err)
+		os.Exit(1)
+	}
+	db.Close()
+
+	// Connect to test database
+	dsn = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true", user, pass, host, port, testDBName)
+	testDB, err = sql.Open("mysql", dsn)
+	if err != nil {
+		fmt.Printf("failed to connect to test database: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Load and execute schema
+	root, err := testutil.FindProjectRoot()
+	if err != nil {
+		fmt.Printf("failed to find project root: %v\n", err)
+		os.Exit(1)
+	}
+	schemaPath := filepath.Join(root, "db", "schema.sql")
+	schemaSQL, err := os.ReadFile(schemaPath)
+	if err != nil {
+		fmt.Printf("failed to read schema file: %v\n", err)
+		os.Exit(1)
+	}
+
+	_, err = testDB.Exec(string(schemaSQL))
+	if err != nil {
+		fmt.Printf("failed to create schema: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Run tests
+	code := m.Run()
+
+	// Cleanup
+	testDB.Close()
+
+	os.Exit(code)
 }
 
 func setupTestHandler(t *testing.T) (*Handler, func()) {
 	t.Helper()
 
-	cfg := loadTestConfig(t)
-
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
-		cfg.Database.User,
-		cfg.Database.Password,
-		cfg.Database.Host,
-		cfg.Database.Port,
-		cfg.Database.Name,
-	)
-	db, err := sql.Open("mysql", dsn)
-	if err != nil {
-		t.Skipf("failed to open database: %v", err)
-	}
-
-	if err := db.Ping(); err != nil {
-		t.Skipf("failed to ping database: %v", err)
-	}
-
 	// Clean up clients table before test
-	_, err = db.Exec("DELETE FROM clients")
+	_, err := testDB.Exec("DELETE FROM clients")
 	if err != nil {
 		t.Fatalf("failed to clean up clients table: %v", err)
 	}
 
-	queries, err := oidcgen.Prepare(context.Background(), db)
+	queries, err := oidcgen.Prepare(context.Background(), testDB)
 	if err != nil {
 		t.Fatalf("failed to prepare queries: %v", err)
 	}
@@ -95,9 +128,8 @@ func setupTestHandler(t *testing.T) (*Handler, func()) {
 	handler := NewHandler(clientUseCase)
 
 	cleanup := func() {
-		db.Exec("DELETE FROM clients")
+		testDB.Exec("DELETE FROM clients")
 		queries.Close()
-		db.Close()
 	}
 
 	return handler, cleanup

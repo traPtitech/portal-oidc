@@ -14,7 +14,12 @@ import (
 )
 
 var defaults = map[string]any{
-	"host": "localhost",
+	"host":              "localhost",
+	"database.host":     "localhost",
+	"database.port":     3307,
+	"database.user":     "root",
+	"database.password": "password",
+	"database.name":     "oidc",
 }
 
 func loadConfig(configPath string) (*server.Config, error) {
