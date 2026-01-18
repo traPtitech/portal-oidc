@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"html"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -14,7 +15,7 @@ func (h *Handler) GetLogin(ctx echo.Context) error {
 		returnURL = "/"
 	}
 
-	html := `<!DOCTYPE html>
+	page := `<!DOCTYPE html>
 <html>
 <head>
     <title>Login</title>
@@ -29,7 +30,7 @@ func (h *Handler) GetLogin(ctx echo.Context) error {
 <body>
     <h1>Login</h1>
     <form method="POST" action="/login">
-        <input type="hidden" name="return_url" value="` + returnURL + `">
+        <input type="hidden" name="return_url" value="` + html.EscapeString(returnURL) + `">
         <input type="text" name="username" placeholder="Username" required>
         <input type="password" name="password" placeholder="Password" required>
         <button type="submit">Login</button>
@@ -38,7 +39,7 @@ func (h *Handler) GetLogin(ctx echo.Context) error {
 </body>
 </html>`
 
-	return ctx.HTML(http.StatusOK, html)
+	return ctx.HTML(http.StatusOK, page)
 }
 
 func (h *Handler) PostLogin(ctx echo.Context) error {
@@ -53,7 +54,7 @@ func (h *Handler) PostLogin(ctx echo.Context) error {
 <body>
     <h1>Login Failed</h1>
     <p>Invalid username or password.</p>
-    <a href="/login?return_url=`+returnURL+`">Try again</a>
+    <a href="/login?return_url=`+html.EscapeString(returnURL)+`">Try again</a>
 </body>
 </html>`)
 	}
