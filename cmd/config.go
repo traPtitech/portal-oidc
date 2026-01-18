@@ -9,9 +9,20 @@ import (
 	"github.com/knadh/koanf/providers/env"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
-
-	"github.com/traPtitech/portal-oidc/internal/server"
 )
+
+type Config struct {
+	Host     string         `koanf:"host"`
+	Database DatabaseConfig `koanf:"database"`
+}
+
+type DatabaseConfig struct {
+	Host     string `koanf:"host"`
+	Port     int    `koanf:"port"`
+	User     string `koanf:"user"`
+	Password string `koanf:"password"`
+	Name     string `koanf:"name"`
+}
 
 var defaults = map[string]any{
 	"host":              "localhost",
@@ -22,7 +33,7 @@ var defaults = map[string]any{
 	"database.name":     "oidc",
 }
 
-func loadConfig(configPath string) (*server.Config, error) {
+func loadConfig(configPath string) (*Config, error) {
 	k := koanf.New(".")
 
 	// 1. Load defaults
@@ -52,7 +63,7 @@ func loadConfig(configPath string) (*server.Config, error) {
 	}
 
 	// 4. Unmarshal to struct
-	var cfg server.Config
+	var cfg Config
 	if err := k.Unmarshal("", &cfg); err != nil {
 		return nil, err
 	}

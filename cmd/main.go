@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
-
-	"github.com/traPtitech/portal-oidc/internal/server"
 )
 
 type CLI struct {
@@ -18,8 +16,8 @@ type CLI struct {
 
 type ServeCmd struct{}
 
-func (s *ServeCmd) Run(cfg *server.Config) error {
-	handler, err := server.NewServer(*cfg)
+func (s *ServeCmd) Run(cfg *Config) error {
+	handler, err := newServer(*cfg)
 	if err != nil {
 		return err
 	}

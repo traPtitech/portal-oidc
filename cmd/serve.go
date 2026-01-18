@@ -1,4 +1,4 @@
-package server
+package main
 
 import (
 	"context"
@@ -17,20 +17,7 @@ import (
 	"github.com/traPtitech/portal-oidc/internal/usecase"
 )
 
-type Config struct {
-	Host     string         `koanf:"host"`
-	Database DatabaseConfig `koanf:"database"`
-}
-
-type DatabaseConfig struct {
-	Host     string `koanf:"host"`
-	Port     int    `koanf:"port"`
-	User     string `koanf:"user"`
-	Password string `koanf:"password"`
-	Name     string `koanf:"name"`
-}
-
-func NewServer(cfg Config) (http.Handler, error) {
+func newServer(cfg Config) (http.Handler, error) {
 	db, err := sql.Open("mysql", fmt.Sprintf(
 		"%s:%s@tcp(%s:%d)/%s?parseTime=true",
 		cfg.Database.User,
