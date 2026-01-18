@@ -10,8 +10,8 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/rs/cors"
 
-	v1 "github.com/traPtitech/portal-oidc/internal/adapter/handler/v1"
-	"github.com/traPtitech/portal-oidc/internal/adapter/handler/v1/gen"
+	v1 "github.com/traPtitech/portal-oidc/internal/router/v1"
+	"github.com/traPtitech/portal-oidc/internal/router/v1/gen"
 	"github.com/traPtitech/portal-oidc/internal/repository"
 	"github.com/traPtitech/portal-oidc/internal/repository/oidc"
 	"github.com/traPtitech/portal-oidc/internal/usecase"

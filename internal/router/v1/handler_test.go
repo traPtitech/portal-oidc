@@ -18,7 +18,7 @@ import (
 	"github.com/knadh/koanf/v2"
 	"github.com/labstack/echo/v4"
 
-	"github.com/traPtitech/portal-oidc/internal/adapter/handler/v1/gen"
+	"github.com/traPtitech/portal-oidc/internal/router/v1/gen"
 	"github.com/traPtitech/portal-oidc/internal/repository"
 	"github.com/traPtitech/portal-oidc/internal/repository/oidc"
 	"github.com/traPtitech/portal-oidc/internal/testutil"

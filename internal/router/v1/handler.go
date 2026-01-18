@@ -7,7 +7,7 @@ import (
 	"github.com/labstack/echo/v4"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
-	"github.com/traPtitech/portal-oidc/internal/adapter/handler/v1/gen"
+	"github.com/traPtitech/portal-oidc/internal/router/v1/gen"
 	"github.com/traPtitech/portal-oidc/internal/domain"
 	"github.com/traPtitech/portal-oidc/internal/usecase"
 )
