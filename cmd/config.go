@@ -14,6 +14,7 @@ import (
 type Config struct {
 	Host     string         `koanf:"host"`
 	Database DatabaseConfig `koanf:"database"`
+	OAuth    OAuthConfig    `koanf:"oauth"`
 }
 
 type DatabaseConfig struct {
@@ -24,13 +25,20 @@ type DatabaseConfig struct {
 	Name     string `koanf:"name"`
 }
 
+type OAuthConfig struct {
+	Secret  string `koanf:"secret"`
+	KeyFile string `koanf:"key_file"`
+}
+
 var defaults = map[string]any{
-	"host":              "localhost",
+	"host":              "http://localhost:8080",
 	"database.host":     "localhost",
 	"database.port":     3307,
 	"database.user":     "root",
 	"database.password": "password",
 	"database.name":     "oidc",
+	"oauth.secret":      "my-super-secret-signing-key-32!!", // 32 bytes
+	"oauth.key_file":    "data/private.pem",
 }
 
 func loadConfig(configPath string) (*Config, error) {
