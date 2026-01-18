@@ -93,6 +93,15 @@ func (r *mockClientRepository) getSecretHash(clientID uuid.UUID) string {
 	return ""
 }
 
+func (r *mockClientRepository) GetWithSecretHash(ctx context.Context, clientID uuid.UUID) (*domain.Client, string, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if c, ok := r.clients[clientID]; ok {
+		return c.client, c.secretHash, nil
+	}
+	return nil, "", repository.ErrClientNotFound
+}
+
 func TestClientUseCase_Create(t *testing.T) {
 	repo := newMockClientRepository()
 	uc := NewClientUseCase(repo)
@@ -166,8 +175,14 @@ func TestClientUseCase_List(t *testing.T) {
 	}
 
 	// Create clients
-	uc.Create(ctx, "client1", domain.ClientTypeConfidential, []string{"http://localhost:3000/callback"})
-	uc.Create(ctx, "client2", domain.ClientTypePublic, []string{"http://localhost:3001/callback"})
+	_, err = uc.Create(ctx, "client1", domain.ClientTypeConfidential, []string{"http://localhost:3000/callback"})
+	if err != nil {
+		t.Fatalf("Create client1 failed: %v", err)
+	}
+	_, err = uc.Create(ctx, "client2", domain.ClientTypePublic, []string{"http://localhost:3001/callback"})
+	if err != nil {
+		t.Fatalf("Create client2 failed: %v", err)
+	}
 
 	list, err = uc.List(ctx)
 	if err != nil {
