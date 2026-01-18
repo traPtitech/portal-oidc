@@ -24,22 +24,22 @@ type ServerInterface interface {
 	// (GET /.well-known/openid-configuration)
 	GetOpenIDConfiguration(ctx echo.Context) error
 	// クライアント一覧取得
-	// (GET /clients)
+	// (GET /api/v1/admin/clients)
 	GetClients(ctx echo.Context) error
 	// クライアント作成
-	// (POST /clients)
+	// (POST /api/v1/admin/clients)
 	CreateClient(ctx echo.Context) error
 	// クライアント削除
-	// (DELETE /clients/{clientId})
+	// (DELETE /api/v1/admin/clients/{clientId})
 	DeleteClient(ctx echo.Context, clientId openapi_types.UUID) error
 	// クライアント取得
-	// (GET /clients/{clientId})
+	// (GET /api/v1/admin/clients/{clientId})
 	GetClient(ctx echo.Context, clientId openapi_types.UUID) error
 	// クライアント更新
-	// (PUT /clients/{clientId})
+	// (PUT /api/v1/admin/clients/{clientId})
 	UpdateClient(ctx echo.Context, clientId openapi_types.UUID) error
 	// クライアントシークレット再生成
-	// (POST /clients/{clientId}/secret)
+	// (POST /api/v1/admin/clients/{clientId}/secret)
 	RegenerateClientSecret(ctx echo.Context, clientId openapi_types.UUID) error
 	// 認可エンドポイント
 	// (GET /oauth2/authorize)
@@ -274,12 +274,12 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 
 	router.GET(baseURL+"/.well-known/jwks.json", wrapper.GetJWKS)
 	router.GET(baseURL+"/.well-known/openid-configuration", wrapper.GetOpenIDConfiguration)
-	router.GET(baseURL+"/clients", wrapper.GetClients)
-	router.POST(baseURL+"/clients", wrapper.CreateClient)
-	router.DELETE(baseURL+"/clients/:clientId", wrapper.DeleteClient)
-	router.GET(baseURL+"/clients/:clientId", wrapper.GetClient)
-	router.PUT(baseURL+"/clients/:clientId", wrapper.UpdateClient)
-	router.POST(baseURL+"/clients/:clientId/secret", wrapper.RegenerateClientSecret)
+	router.GET(baseURL+"/api/v1/admin/clients", wrapper.GetClients)
+	router.POST(baseURL+"/api/v1/admin/clients", wrapper.CreateClient)
+	router.DELETE(baseURL+"/api/v1/admin/clients/:clientId", wrapper.DeleteClient)
+	router.GET(baseURL+"/api/v1/admin/clients/:clientId", wrapper.GetClient)
+	router.PUT(baseURL+"/api/v1/admin/clients/:clientId", wrapper.UpdateClient)
+	router.POST(baseURL+"/api/v1/admin/clients/:clientId/secret", wrapper.RegenerateClientSecret)
 	router.GET(baseURL+"/oauth2/authorize", wrapper.Authorize)
 	router.POST(baseURL+"/oauth2/token", wrapper.Token)
 	router.GET(baseURL+"/oauth2/userinfo", wrapper.GetUserInfo)
@@ -608,22 +608,22 @@ type StrictServerInterface interface {
 	// (GET /.well-known/openid-configuration)
 	GetOpenIDConfiguration(ctx context.Context, request GetOpenIDConfigurationRequestObject) (GetOpenIDConfigurationResponseObject, error)
 	// クライアント一覧取得
-	// (GET /clients)
+	// (GET /api/v1/admin/clients)
 	GetClients(ctx context.Context, request GetClientsRequestObject) (GetClientsResponseObject, error)
 	// クライアント作成
-	// (POST /clients)
+	// (POST /api/v1/admin/clients)
 	CreateClient(ctx context.Context, request CreateClientRequestObject) (CreateClientResponseObject, error)
 	// クライアント削除
-	// (DELETE /clients/{clientId})
+	// (DELETE /api/v1/admin/clients/{clientId})
 	DeleteClient(ctx context.Context, request DeleteClientRequestObject) (DeleteClientResponseObject, error)
 	// クライアント取得
-	// (GET /clients/{clientId})
+	// (GET /api/v1/admin/clients/{clientId})
 	GetClient(ctx context.Context, request GetClientRequestObject) (GetClientResponseObject, error)
 	// クライアント更新
-	// (PUT /clients/{clientId})
+	// (PUT /api/v1/admin/clients/{clientId})
 	UpdateClient(ctx context.Context, request UpdateClientRequestObject) (UpdateClientResponseObject, error)
 	// クライアントシークレット再生成
-	// (POST /clients/{clientId}/secret)
+	// (POST /api/v1/admin/clients/{clientId}/secret)
 	RegenerateClientSecret(ctx context.Context, request RegenerateClientSecretRequestObject) (RegenerateClientSecretResponseObject, error)
 	// 認可エンドポイント
 	// (GET /oauth2/authorize)

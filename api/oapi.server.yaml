@@ -1,5 +1,5 @@
 package: gen
-output: ../internal/adapter/handler/gen/server.go
+output: ../internal/router/v1/gen/server.go
 generate:
   echo-server: true
   strict-server: true

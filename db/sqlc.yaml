@@ -7,8 +7,8 @@ sql:
     strict_function_checks: true
     gen:
       go:
-        package: "gen"
-        out: "../internal/infrastructure/oidc/gen"
+        package: "oidc"
+        out: "../internal/repository/oidc"
         emit_json_tags: true
         emit_prepared_queries: true
         emit_interface: true
@@ -20,8 +20,8 @@ sql:
     strict_function_checks: true
     gen:
       go:
-        package: "gen"
-        out: "../internal/infrastructure/portal/gen"
+        package: "portal"
+        out: "../internal/repository/portal"
         emit_json_tags: true
         emit_prepared_queries: true
         emit_interface: true

@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
-
-	"github.com/traPtitech/portal-oidc/internal/server"
 )
 
 type CLI struct {
@@ -18,10 +16,15 @@ type CLI struct {
 
 type ServeCmd struct{}
 
-func (s *ServeCmd) Run(cfg *server.Config) error {
+func (s *ServeCmd) Run(cfg *Config) error {
+	handler, err := newServer(*cfg)
+	if err != nil {
+		return err
+	}
+
 	srv := &http.Server{
 		Addr:              ":8080",
-		Handler:           server.NewServer(*cfg),
+		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	return srv.ListenAndServe()

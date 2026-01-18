@@ -1,0 +1,8 @@
+host: localhost
+
+database:
+  host: localhost
+  port: 3307
+  user: root
+  password: password
+  name: oidc

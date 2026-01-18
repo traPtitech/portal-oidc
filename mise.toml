@@ -59,8 +59,8 @@ sources = [
   "query/*.sql",
 ]
 outputs = [
-  "../internal/infrastructure/oidc/gen/",
-  "../internal/infrastructure/portal/gen/",
+  "../internal/repository/oidc/",
+  "../internal/repository/portal/",
 ]
 
 [tasks."gen:oapi"]
@@ -76,8 +76,8 @@ sources = [
   "oapi.models.yaml",
 ]
 outputs = [
-  "../internal/interface/handler/v1/gen/server.go",
-  "../internal/interface/handler/v1/gen/models.go",
+  "../internal/router/v1/gen/server.go",
+  "../internal/router/v1/gen/models.go",
 ]
 
 # =============================================================================
