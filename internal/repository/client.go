@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/traPtitech/portal-oidc/internal/domain"
-	"github.com/traPtitech/portal-oidc/internal/infrastructure/oidc/gen"
+	"github.com/traPtitech/portal-oidc/internal/repository/oidc"
 )
 
 var ErrClientNotFound = errors.New("client not found")
@@ -24,10 +24,10 @@ type ClientRepository interface {
 }
 
 type clientRepository struct {
-	queries *gen.Queries
+	queries *oidc.Queries
 }
 
-func NewClientRepository(queries *gen.Queries) ClientRepository {
+func NewClientRepository(queries *oidc.Queries) ClientRepository {
 	return &clientRepository{queries: queries}
 }
 
@@ -37,7 +37,7 @@ func (r *clientRepository) Create(ctx context.Context, client *domain.Client, se
 		return err
 	}
 
-	return r.queries.CreateClient(ctx, gen.CreateClientParams{
+	return r.queries.CreateClient(ctx, oidc.CreateClientParams{
 		ClientID: client.ClientID.String(),
 		ClientSecretHash: sql.NullString{
 			String: secretHash,
@@ -85,7 +85,7 @@ func (r *clientRepository) Update(ctx context.Context, client *domain.Client) er
 		return err
 	}
 
-	return r.queries.UpdateClient(ctx, gen.UpdateClientParams{
+	return r.queries.UpdateClient(ctx, oidc.UpdateClientParams{
 		ClientID:     client.ClientID.String(),
 		Name:         client.Name,
 		ClientType:   string(client.ClientType),
@@ -94,7 +94,7 @@ func (r *clientRepository) Update(ctx context.Context, client *domain.Client) er
 }
 
 func (r *clientRepository) UpdateSecret(ctx context.Context, clientID uuid.UUID, secretHash string) error {
-	return r.queries.UpdateClientSecret(ctx, gen.UpdateClientSecretParams{
+	return r.queries.UpdateClientSecret(ctx, oidc.UpdateClientSecretParams{
 		ClientID: clientID.String(),
 		ClientSecretHash: sql.NullString{
 			String: secretHash,
@@ -107,7 +107,7 @@ func (r *clientRepository) Delete(ctx context.Context, clientID uuid.UUID) error
 	return r.queries.DeleteClient(ctx, clientID.String())
 }
 
-func (r *clientRepository) toDomain(dbClient gen.Client) (*domain.Client, error) {
+func (r *clientRepository) toDomain(dbClient oidc.Client) (*domain.Client, error) {
 	clientID, err := uuid.Parse(dbClient.ClientID)
 	if err != nil {
 		return nil, err

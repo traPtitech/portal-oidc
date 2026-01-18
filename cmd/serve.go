@@ -12,8 +12,8 @@ import (
 
 	v1 "github.com/traPtitech/portal-oidc/internal/adapter/handler/v1"
 	"github.com/traPtitech/portal-oidc/internal/adapter/handler/v1/gen"
-	oidcgen "github.com/traPtitech/portal-oidc/internal/infrastructure/oidc/gen"
 	"github.com/traPtitech/portal-oidc/internal/repository"
+	"github.com/traPtitech/portal-oidc/internal/repository/oidc"
 	"github.com/traPtitech/portal-oidc/internal/usecase"
 )
 
@@ -34,7 +34,7 @@ func newServer(cfg Config) (http.Handler, error) {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	queries, err := oidcgen.Prepare(context.Background(), db)
+	queries, err := oidc.Prepare(context.Background(), db)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare queries: %w", err)
 	}

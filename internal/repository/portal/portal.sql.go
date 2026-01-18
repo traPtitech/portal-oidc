@@ -3,7 +3,7 @@
 //   sqlc v1.30.0
 // source: portal.sql
 
-package gen
+package portal
 
 import (
 	"context"

@@ -19,8 +19,8 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/traPtitech/portal-oidc/internal/adapter/handler/v1/gen"
-	oidcgen "github.com/traPtitech/portal-oidc/internal/infrastructure/oidc/gen"
 	"github.com/traPtitech/portal-oidc/internal/repository"
+	"github.com/traPtitech/portal-oidc/internal/repository/oidc"
 	"github.com/traPtitech/portal-oidc/internal/testutil"
 	"github.com/traPtitech/portal-oidc/internal/usecase"
 )
@@ -118,7 +118,7 @@ func setupTestHandler(t *testing.T) (*Handler, func()) {
 		t.Fatalf("failed to clean up clients table: %v", err)
 	}
 
-	queries, err := oidcgen.Prepare(context.Background(), testDB)
+	queries, err := oidc.Prepare(context.Background(), testDB)
 	if err != nil {
 		t.Fatalf("failed to prepare queries: %v", err)
 	}
