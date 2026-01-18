@@ -1,5 +1,5 @@
 package: gen
-output: ../internal/adapter/handler/gen/models.go
+output: ../internal/adapter/handler/v1/gen/models.go
 generate:
   models: true
 output-options:

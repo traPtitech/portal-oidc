@@ -76,8 +76,8 @@ sources = [
   "oapi.models.yaml",
 ]
 outputs = [
-  "../internal/interface/handler/v1/gen/server.go",
-  "../internal/interface/handler/v1/gen/models.go",
+  "../internal/adapter/handler/v1/gen/server.go",
+  "../internal/adapter/handler/v1/gen/models.go",
 ]
 
 # =============================================================================

@@ -63,7 +63,7 @@ const (
 type Client struct {
 	ClientId openapi_types.UUID `json:"client_id"`
 
-	// ClientType - public: クライアントシークレットを安全に保持できないクライアント (SPA, モバイルアプリ等)
+	// ClientType - public: クライアントシークレットを安全に保持できないクライアント (SPA, モバイルアプリ等) <将来実装>
 	// - confidential: クライアントシークレットを安全に保持できるクライアント (サーバーサイドアプリ)
 	ClientType   ClientType `json:"client_type"`
 	CreatedAt    time.Time  `json:"created_at"`
@@ -74,7 +74,7 @@ type Client struct {
 
 // ClientCreate defines model for ClientCreate.
 type ClientCreate struct {
-	// ClientType - public: クライアントシークレットを安全に保持できないクライアント (SPA, モバイルアプリ等)
+	// ClientType - public: クライアントシークレットを安全に保持できないクライアント (SPA, モバイルアプリ等) <将来実装>
 	// - confidential: クライアントシークレットを安全に保持できるクライアント (サーバーサイドアプリ)
 	ClientType   ClientType `json:"client_type"`
 	Name         string     `json:"name"`
@@ -87,13 +87,13 @@ type ClientSecret struct {
 	ClientSecret string `json:"client_secret"`
 }
 
-// ClientType - public: クライアントシークレットを安全に保持できないクライアント (SPA, モバイルアプリ等)
+// ClientType - public: クライアントシークレットを安全に保持できないクライアント (SPA, モバイルアプリ等) <将来実装>
 // - confidential: クライアントシークレットを安全に保持できるクライアント (サーバーサイドアプリ)
 type ClientType string
 
 // ClientUpdate defines model for ClientUpdate.
 type ClientUpdate struct {
-	// ClientType - public: クライアントシークレットを安全に保持できないクライアント (SPA, モバイルアプリ等)
+	// ClientType - public: クライアントシークレットを安全に保持できないクライアント (SPA, モバイルアプリ等) <将来実装>
 	// - confidential: クライアントシークレットを安全に保持できるクライアント (サーバーサイドアプリ)
 	ClientType   ClientType `json:"client_type"`
 	Name         string     `json:"name"`
@@ -107,7 +107,7 @@ type ClientWithSecret struct {
 	// ClientSecret クライアントシークレット (作成時のみ返却、再取得不可)
 	ClientSecret string `json:"client_secret"`
 
-	// ClientType - public: クライアントシークレットを安全に保持できないクライアント (SPA, モバイルアプリ等)
+	// ClientType - public: クライアントシークレットを安全に保持できないクライアント (SPA, モバイルアプリ等) <将来実装>
 	// - confidential: クライアントシークレットを安全に保持できるクライアント (サーバーサイドアプリ)
 	ClientType   ClientType `json:"client_type"`
 	CreatedAt    time.Time  `json:"created_at"`

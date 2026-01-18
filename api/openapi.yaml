@@ -14,7 +14,7 @@ servers:
     description: local
 
 paths:
-  /clients:
+  /api/v1/admin/clients:
     get:
       operationId: getClients
       summary: クライアント一覧取得
@@ -54,7 +54,7 @@ paths:
         "401":
           description: Unauthorized
 
-  /clients/{clientId}:
+  /api/v1/admin/clients/{clientId}:
     parameters:
       - name: clientId
         in: path
@@ -115,7 +115,7 @@ paths:
         "404":
           description: Not Found
 
-  /clients/{clientId}/secret:
+  /api/v1/admin/clients/{clientId}/secret:
     parameters:
       - name: clientId
         in: path
