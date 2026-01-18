@@ -11,16 +11,19 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/knadh/koanf/providers/confmap"
 	"github.com/knadh/koanf/providers/env"
 	"github.com/knadh/koanf/v2"
 	"github.com/labstack/echo/v4"
+	"github.com/ory/fosite"
+	"github.com/ory/fosite/compose"
 
-	"github.com/traPtitech/portal-oidc/internal/router/v1/gen"
 	"github.com/traPtitech/portal-oidc/internal/repository"
 	"github.com/traPtitech/portal-oidc/internal/repository/oidc"
+	"github.com/traPtitech/portal-oidc/internal/router/v1/gen"
 	"github.com/traPtitech/portal-oidc/internal/testutil"
 	"github.com/traPtitech/portal-oidc/internal/usecase"
 )
@@ -33,9 +36,10 @@ var testDB *sql.DB
 
 func TestMain(m *testing.M) {
 	k := koanf.New(".")
+	ctx := context.Background()
 
 	// デフォルト値
-	k.Load(confmap.Provider(map[string]any{
+	_ = k.Load(confmap.Provider(map[string]any{
 		"mariadb.username": "root",
 		"mariadb.password": "password",
 		"mariadb.hostname": "127.0.0.1",
@@ -43,7 +47,7 @@ func TestMain(m *testing.M) {
 	}, "."), nil)
 
 	// 環境変数で上書き (MARIADB_USERNAME など)
-	k.Load(env.Provider("MARIADB_", ".", func(s string) string {
+	_ = k.Load(env.Provider("MARIADB_", ".", func(s string) string {
 		return strings.ToLower(strings.TrimPrefix(s, "MARIADB_"))
 	}), nil)
 
@@ -60,21 +64,21 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	if err := db.Ping(); err != nil {
+	if err := db.PingContext(ctx); err != nil {
 		fmt.Printf("failed to ping database: %v\n", err)
 		os.Exit(1)
 	}
 
 	// Create test database
-	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%s`", testDBName))
+	_, err = db.ExecContext(ctx, fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%s`", testDBName))
 	if err != nil {
 		fmt.Printf("failed to create test database: %v\n", err)
 		os.Exit(1)
 	}
-	db.Close()
+	_ = db.Close()
 
 	// Connect to test database
-	dsn = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true", user, pass, host, port, testDBName)
+	dsn = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&multiStatements=true", user, pass, host, port, testDBName)
 	testDB, err = sql.Open("mysql", dsn)
 	if err != nil {
 		fmt.Printf("failed to connect to test database: %v\n", err)
@@ -88,13 +92,13 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 	schemaPath := filepath.Join(root, "db", "schema.sql")
-	schemaSQL, err := os.ReadFile(schemaPath)
+	schemaSQL, err := os.ReadFile(schemaPath) //nolint:gosec
 	if err != nil {
 		fmt.Printf("failed to read schema file: %v\n", err)
 		os.Exit(1)
 	}
 
-	_, err = testDB.Exec(string(schemaSQL))
+	_, err = testDB.ExecContext(ctx, string(schemaSQL))
 	if err != nil {
 		fmt.Printf("failed to create schema: %v\n", err)
 		os.Exit(1)
@@ -104,7 +108,7 @@ func TestMain(m *testing.M) {
 	code := m.Run()
 
 	// Cleanup
-	testDB.Close()
+	_ = testDB.Close()
 
 	os.Exit(code)
 }
@@ -112,24 +116,64 @@ func TestMain(m *testing.M) {
 func setupTestHandler(t *testing.T) (*Handler, func()) {
 	t.Helper()
 
-	// Clean up clients table before test
-	_, err := testDB.Exec("DELETE FROM clients")
-	if err != nil {
-		t.Fatalf("failed to clean up clients table: %v", err)
-	}
+	ctx := context.Background()
 
-	queries, err := oidc.Prepare(context.Background(), testDB)
+	queries, err := oidc.Prepare(ctx, testDB)
 	if err != nil {
 		t.Fatalf("failed to prepare queries: %v", err)
 	}
 
+	// Clean up tables before test
+	if err := queries.DeleteAllClients(ctx); err != nil {
+		t.Fatalf("failed to clean up clients table: %v", err)
+	}
+	if err := queries.DeleteAllAuthorizationCodes(ctx); err != nil {
+		t.Fatalf("failed to clean up authorization_codes table: %v", err)
+	}
+	if err := queries.DeleteAllTokens(ctx); err != nil {
+		t.Fatalf("failed to clean up tokens table: %v", err)
+	}
+
 	clientRepo := repository.NewClientRepository(queries)
 	clientUseCase := usecase.NewClientUseCase(clientRepo)
-	handler := NewHandler(clientUseCase)
+
+	// Create OAuth2 provider for testing
+	oauthStorage := repository.NewOAuthStorage(queries)
+	fositeConfig := &fosite.Config{
+		AccessTokenLifespan:            time.Hour,
+		RefreshTokenLifespan:           30 * 24 * time.Hour,
+		AuthorizeCodeLifespan:          5 * time.Minute,
+		IDTokenLifespan:                time.Hour,
+		GlobalSecret:                   []byte("test-secret-key-32-characters!!"),
+		ScopeStrategy:                  fosite.ExactScopeStrategy,
+		AudienceMatchingStrategy:       fosite.DefaultAudienceMatchingStrategy,
+		SendDebugMessagesToClients:     false,
+		EnforcePKCE:                    true,
+		EnforcePKCEForPublicClients:    true,
+		EnablePKCEPlainChallengeMethod: true,
+		AccessTokenIssuer:              "http://localhost:8080",
+		IDTokenIssuer:                  "http://localhost:8080",
+	}
+	oauth2Provider := compose.Compose(
+		fositeConfig,
+		oauthStorage,
+		compose.NewOAuth2HMACStrategy(fositeConfig),
+		compose.OAuth2AuthorizeExplicitFactory,
+		compose.OAuth2PKCEFactory,
+		compose.OAuth2RefreshTokenGrantFactory,
+		compose.OAuth2TokenIntrospectionFactory,
+		compose.OAuth2TokenRevocationFactory,
+	)
+
+	handler := NewHandler(clientUseCase, oauth2Provider, OAuthConfig{
+		Issuer: "http://localhost:8080",
+	})
 
 	cleanup := func() {
-		testDB.Exec("DELETE FROM clients")
-		queries.Close()
+		_ = queries.DeleteAllTokens(ctx)
+		_ = queries.DeleteAllAuthorizationCodes(ctx)
+		_ = queries.DeleteAllClients(ctx)
+		_ = queries.Close()
 	}
 
 	return handler, cleanup
@@ -220,7 +264,9 @@ func TestIntegration_GetClient(t *testing.T) {
 	e.ServeHTTP(rec, req)
 
 	var created gen.ClientWithSecret
-	json.Unmarshal(rec.Body.Bytes(), &created)
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
 
 	// Get client by ID
 	req = httptest.NewRequest(http.MethodGet, "/api/v1/admin/clients/"+created.ClientId.String(), nil)
@@ -275,7 +321,9 @@ func TestIntegration_UpdateClient(t *testing.T) {
 	e.ServeHTTP(rec, req)
 
 	var created gen.ClientWithSecret
-	json.Unmarshal(rec.Body.Bytes(), &created)
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
 
 	// Update client
 	updateBody := `{"name":"updated","client_type":"public","redirect_uris":["http://localhost:4000/callback"]}`
@@ -319,7 +367,9 @@ func TestIntegration_DeleteClient(t *testing.T) {
 	e.ServeHTTP(rec, req)
 
 	var created gen.ClientWithSecret
-	json.Unmarshal(rec.Body.Bytes(), &created)
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
 
 	// Delete client
 	req = httptest.NewRequest(http.MethodDelete, "/api/v1/admin/clients/"+created.ClientId.String(), nil)
@@ -355,7 +405,9 @@ func TestIntegration_RegenerateClientSecret(t *testing.T) {
 	e.ServeHTTP(rec, req)
 
 	var created gen.ClientWithSecret
-	json.Unmarshal(rec.Body.Bytes(), &created)
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
 
 	// Regenerate secret
 	req = httptest.NewRequest(http.MethodPost, "/api/v1/admin/clients/"+created.ClientId.String()+"/secret", nil)
@@ -398,7 +450,9 @@ func TestIntegration_FullWorkflow(t *testing.T) {
 	}
 
 	var created gen.ClientWithSecret
-	json.Unmarshal(rec.Body.Bytes(), &created)
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
 
 	// 2. Verify in list
 	req = httptest.NewRequest(http.MethodGet, "/api/v1/admin/clients", nil)
@@ -406,7 +460,9 @@ func TestIntegration_FullWorkflow(t *testing.T) {
 	e.ServeHTTP(rec, req)
 
 	var clients []gen.Client
-	json.Unmarshal(rec.Body.Bytes(), &clients)
+	if err := json.Unmarshal(rec.Body.Bytes(), &clients); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
 	if len(clients) != 1 {
 		t.Errorf("List: len = %d, want 1", len(clients))
 	}
@@ -445,7 +501,9 @@ func TestIntegration_FullWorkflow(t *testing.T) {
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
-	json.Unmarshal(rec.Body.Bytes(), &clients)
+	if err := json.Unmarshal(rec.Body.Bytes(), &clients); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
 	if len(clients) != 0 {
 		t.Errorf("Final List: len = %d, want 0", len(clients))
 	}

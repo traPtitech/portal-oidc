@@ -41,6 +41,7 @@ linters:
       - path: _test.go
         linters:
           - funlen
+          - errorlint
 formatters:
   enable:
     - gofmt
