@@ -20,10 +20,15 @@ func (h *Handler) Authorize(ctx echo.Context, params gen.AuthorizeParams) error 
 	rw := ctx.Response()
 	req := ctx.Request()
 
-	userID := h.getAuthenticatedUser(ctx)
-	if userID == "" {
-		returnURL := req.URL.String()
-		return ctx.Redirect(http.StatusFound, "/login?return_url="+url.QueryEscape(returnURL))
+	var userID string
+	if h.config.TestMode {
+		userID = h.config.TestUserID
+	} else {
+		userID = h.getAuthenticatedUser(ctx)
+		if userID == "" {
+			returnURL := req.URL.String()
+			return ctx.Redirect(http.StatusFound, "/login?return_url="+url.QueryEscape(returnURL))
+		}
 	}
 
 	ar, err := h.oauth2.NewAuthorizeRequest(c, req)

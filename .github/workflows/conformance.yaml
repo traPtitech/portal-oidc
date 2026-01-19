@@ -1,0 +1,212 @@
+name: OIDC Conformance
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+jobs:
+  conformance:
+    name: OIDC Conformance Suite
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: password
+          MARIADB_DATABASE: oidc
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build portal-oidc
+        run: go build -o portal-oidc ./cmd
+
+      - name: Run database migrations
+        run: |
+          mysql -h 127.0.0.1 -u root -ppassword oidc < db/schema/001_initial.sql
+
+      - name: Create config file
+        run: |
+          cat > config.yaml << 'EOF'
+          host: http://localhost:8080
+          database:
+            host: 127.0.0.1
+            port: 3306
+            user: root
+            password: password
+            name: oidc
+          oauth:
+            test_mode: true
+            test_user_id: testuser
+          EOF
+
+      - name: Start portal-oidc
+        run: |
+          ./portal-oidc serve &
+          sleep 3
+          curl -sf http://localhost:8080/.well-known/openid-configuration
+
+      - name: Create test client
+        id: create-client
+        run: |
+          RESPONSE=$(curl -sf -X POST http://localhost:8080/api/v1/admin/clients \
+            -H "Content-Type: application/json" \
+            -d '{
+              "name": "conformance-suite",
+              "client_type": "confidential",
+              "redirect_uris": ["https://localhost.emobix.co.uk:8443/test/a/portal-oidc/callback"]
+            }')
+          echo "CLIENT_ID=$(echo $RESPONSE | jq -r '.client_id')" >> $GITHUB_OUTPUT
+          echo "CLIENT_SECRET=$(echo $RESPONSE | jq -r '.client_secret')" >> $GITHUB_OUTPUT
+
+      - name: Clone Conformance Suite
+        run: |
+          git clone --depth 1 https://gitlab.com/openid/conformance-suite.git /tmp/conformance-suite
+
+      - name: Build Conformance Suite
+        run: |
+          cd /tmp/conformance-suite
+          MAVEN_CACHE=/tmp/maven-cache docker compose -f builder-compose.yml run builder
+
+      - name: Start Conformance Suite
+        run: |
+          cd /tmp/conformance-suite
+          # Add host.docker.internal for Linux
+          echo "services:" > docker-compose.override.yml
+          echo "  server:" >> docker-compose.override.yml
+          echo "    extra_hosts:" >> docker-compose.override.yml
+          echo "      - 'host.docker.internal:host-gateway'" >> docker-compose.override.yml
+          docker compose up -d
+          sleep 10
+          curl -sf -k https://localhost:8443/ > /dev/null
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        run: |
+          pip install httpx pyparsing
+
+      - name: Create test config
+        run: |
+          cat > /tmp/test-config.json << EOF
+          {
+            "alias": "portal-oidc",
+            "description": "portal-oidc conformance test",
+            "server": {
+              "discoveryUrl": "http://host.docker.internal:8080/.well-known/openid-configuration"
+            },
+            "client": {
+              "client_id": "${{ steps.create-client.outputs.CLIENT_ID }}",
+              "client_secret": "${{ steps.create-client.outputs.CLIENT_SECRET }}"
+            }
+          }
+          EOF
+
+      - name: Run Conformance Tests
+        run: |
+          cat > /tmp/run-tests.py << 'SCRIPT'
+          import asyncio
+          import json
+          import sys
+          sys.path.insert(0, '/tmp/conformance-suite/scripts')
+          from conformance import Conformance
+
+          async def main():
+              conformance = Conformance(
+                  "https://localhost:8443/",
+                  None,
+                  verify_ssl=False
+              )
+
+              with open('/tmp/test-config.json') as f:
+                  config = f.read()
+
+              variant = {
+                  "client_auth_type": "client_secret_basic",
+                  "server_metadata": "discovery",
+                  "response_type": "code"
+              }
+
+              print("Creating test plan...")
+              plan = await conformance.create_test_plan("oidcc-basic-certification-test-plan", config, variant)
+              plan_id = plan["id"]
+              print(f"Created plan: {plan_id}")
+
+              modules = plan.get("modules", [])
+              print(f"Test modules: {[m['testModule'] for m in modules]}")
+
+              results = []
+              for module in modules:
+                  module_name = module["testModule"]
+                  print(f"\nRunning test: {module_name}")
+
+                  try:
+                      test = await conformance.create_test_from_plan(plan_id, module_name)
+                      test_id = test["id"]
+                      print(f"  Created test: {test_id}")
+
+                      await conformance.start_test(test_id)
+                      status = await conformance.wait_for_state(test_id, ["FINISHED", "INTERRUPTED"], timeout=120)
+
+                      info = await conformance.get_module_info(test_id)
+                      result = info.get("result", "UNKNOWN")
+                      print(f"  Result: {result}")
+                      results.append({"module": module_name, "result": result, "status": status})
+                  except Exception as e:
+                      print(f"  Error: {e}")
+                      results.append({"module": module_name, "result": "ERROR", "error": str(e)})
+
+              print("\n" + "="*50)
+              print("SUMMARY")
+              print("="*50)
+              passed = sum(1 for r in results if r["result"] == "PASSED")
+              failed = sum(1 for r in results if r["result"] not in ["PASSED", "WARNING", "SKIPPED"])
+              print(f"Passed: {passed}/{len(results)}")
+
+              for r in results:
+                  status_icon = "✓" if r["result"] == "PASSED" else "✗"
+                  print(f"  {status_icon} {r['module']}: {r['result']}")
+
+              await conformance.close_client()
+
+              if failed > 0:
+                  sys.exit(1)
+
+          asyncio.run(main())
+          SCRIPT
+          python3 /tmp/run-tests.py
+
+      - name: Collect logs
+        if: always()
+        run: |
+          cd /tmp/conformance-suite
+          docker compose logs > /tmp/conformance-logs.txt
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-logs
+          path: /tmp/conformance-logs.txt

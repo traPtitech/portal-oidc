@@ -26,19 +26,23 @@ type DatabaseConfig struct {
 }
 
 type OAuthConfig struct {
-	Secret  string `koanf:"secret"`
-	KeyFile string `koanf:"key_file"`
+	Secret     string `koanf:"secret"`
+	KeyFile    string `koanf:"key_file"`
+	TestMode   bool   `koanf:"test_mode"`
+	TestUserID string `koanf:"test_user_id"`
 }
 
 var defaults = map[string]any{
-	"host":              "http://localhost:8080",
-	"database.host":     "localhost",
-	"database.port":     3307,
-	"database.user":     "root",
-	"database.password": "password",
-	"database.name":     "oidc",
-	"oauth.secret":      "my-super-secret-signing-key-32!!", // 32 bytes
-	"oauth.key_file":    "data/private.pem",
+	"host":               "http://localhost:8080",
+	"database.host":      "localhost",
+	"database.port":      3307,
+	"database.user":      "root",
+	"database.password":  "password",
+	"database.name":      "oidc",
+	"oauth.secret":       "my-super-secret-signing-key-32!!", // 32 bytes
+	"oauth.key_file":     "data/private.pem",
+	"oauth.test_mode":    false,
+	"oauth.test_user_id": "testuser",
 }
 
 func loadConfig(configPath string) (*Config, error) {
