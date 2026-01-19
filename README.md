@@ -43,6 +43,46 @@ mise run lint    # Run linter
 mise run docs    # Generate DB schema docs
 ```
 
+## Conformance Suite Testing
+
+How to test locally with the OIDC Conformance Suite.
+
+### Setup
+
+```bash
+# Clone and build Conformance Suite (first time only)
+git clone https://gitlab.com/openid/conformance-suite.git /tmp/conformance-suite
+cd /tmp/conformance-suite
+mvn clean package -DskipTests
+```
+
+### Run Tests
+
+```bash
+# 1. Start OIDC server
+docker compose up -d
+
+# 2. Start Conformance Suite
+cd /tmp/conformance-suite
+docker compose up -d
+
+# 3. Create test client
+curl -X POST http://localhost:8080/api/v1/admin/clients \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "conformance-test",
+    "client_type": "confidential",
+    "redirect_uris": ["https://localhost.emobix.co.uk:8443/test/a/portal-oidc/callback"]
+  }'
+```
+
+4. Open https://localhost.emobix.co.uk:8443
+5. Select "Create a new test plan" → "OpenID Connect Core: Basic Certification Profile Authorization server test"
+6. Enter configuration:
+   - `server.discoveryUrl`: `http://host.docker.internal:8080/.well-known/openid-configuration`
+   - `client.client_id`: The client ID from step 3
+   - `client.client_secret`: The client secret from step 3
+
 ## License
 
 Code licensed under [the MIT License](https://github.com/traPtitech/portal-oidc/blob/master/LICENSE).
