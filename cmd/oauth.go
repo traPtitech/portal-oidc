@@ -25,8 +25,6 @@ type OAuthProviderConfig struct {
 	AuthCodeLifespan     time.Duration
 	IDTokenLifespan      time.Duration
 	Secret               []byte
-	EnforcePKCE          bool
-	DebugMode            bool
 }
 
 func defaultOAuthProviderConfig() OAuthProviderConfig {
@@ -49,9 +47,9 @@ func newOAuthProvider(storage *repository.OAuthStorage, config OAuthProviderConf
 		GlobalSecret:                   config.Secret,
 		ScopeStrategy:                  fosite.ExactScopeStrategy,
 		AudienceMatchingStrategy:       fosite.DefaultAudienceMatchingStrategy,
-		SendDebugMessagesToClients:     config.DebugMode,
-		EnforcePKCE:                    config.EnforcePKCE,
-		EnforcePKCEForPublicClients:    config.EnforcePKCE,
+		SendDebugMessagesToClients:     false,
+		EnforcePKCE:                    true,
+		EnforcePKCEForPublicClients:    true,
 		EnablePKCEPlainChallengeMethod: true,
 		AccessTokenIssuer:              config.Issuer,
 		IDTokenIssuer:                  config.Issuer,

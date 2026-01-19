@@ -6,3 +6,7 @@ database:
   user: root
   password: password
   name: oidc
+
+oauth:
+  test_mode: true
+  test_user_id: testuser

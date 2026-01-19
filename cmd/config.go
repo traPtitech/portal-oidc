@@ -26,19 +26,23 @@ type DatabaseConfig struct {
 }
 
 type OAuthConfig struct {
-	Secret  string `koanf:"secret"`
-	KeyFile string `koanf:"key_file"`
+	Secret     string `koanf:"secret"`
+	KeyFile    string `koanf:"key_file"`
+	TestMode   bool   `koanf:"test_mode"`
+	TestUserID string `koanf:"test_user_id"`
 }
 
 var defaults = map[string]any{
-	"host":              "http://localhost:8080",
-	"database.host":     "localhost",
-	"database.port":     3307,
-	"database.user":     "root",
-	"database.password": "password",
-	"database.name":     "oidc",
-	"oauth.secret":      "my-super-secret-signing-key-32!!", // 32 bytes
-	"oauth.key_file":    "data/private.pem",
+	"host":               "http://localhost:8080",
+	"database.host":      "localhost",
+	"database.port":      3307,
+	"database.user":      "root",
+	"database.password":  "password",
+	"database.name":      "oidc",
+	"oauth.secret":       "my-super-secret-signing-key-32!!", // 32 bytes
+	"oauth.key_file":     "data/private.pem",
+	"oauth.test_mode":    false,
+	"oauth.test_user_id": "testuser",
 }
 
 func loadConfig(configPath string) (*Config, error) {
@@ -63,9 +67,10 @@ func loadConfig(configPath string) (*Config, error) {
 		return nil, err
 	}
 
-	// 3. Load environment variables (OIDC_HOST -> host)
+	// 3. Load environment variables (OIDC_DATABASE_HOST -> database.host)
 	if err := k.Load(env.Provider("OIDC_", ".", func(s string) string {
-		return strings.ToLower(strings.TrimPrefix(s, "OIDC_"))
+		key := strings.ToLower(strings.TrimPrefix(s, "OIDC_"))
+		return strings.ReplaceAll(key, "_", ".")
 	}), nil); err != nil {
 		return nil, err
 	}

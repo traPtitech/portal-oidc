@@ -46,6 +46,8 @@ func newServer(cfg Config) (http.Handler, error) {
 			Issuer:        cfg.Host,
 			SessionSecret: []byte(cfg.OAuth.Secret),
 			PrivateKey:    privateKey,
+			TestMode:      cfg.OAuth.TestMode,
+			TestUserID:    cfg.OAuth.TestUserID,
 		},
 	)
 
