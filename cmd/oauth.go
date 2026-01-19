@@ -48,9 +48,9 @@ func newOAuthProvider(storage *repository.OAuthStorage, config OAuthProviderConf
 		ScopeStrategy:                  fosite.ExactScopeStrategy,
 		AudienceMatchingStrategy:       fosite.DefaultAudienceMatchingStrategy,
 		SendDebugMessagesToClients:     false,
-		EnforcePKCE:                    true,
-		EnforcePKCEForPublicClients:    true,
-		EnablePKCEPlainChallengeMethod: true,
+		EnforcePKCE:                    false,
+		EnforcePKCEForPublicClients:    false,
+		EnablePKCEPlainChallengeMethod: false,
 		AccessTokenIssuer:              config.Issuer,
 		IDTokenIssuer:                  config.Issuer,
 	}
