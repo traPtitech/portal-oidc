@@ -4,9 +4,11 @@ services:
     ports:
       - "8080:8080"
     environment:
-      OIDC_HOST: http://localhost:8080
+      OIDC_HOST: http://host.docker.internal:8080
       OIDC_DATABASE_HOST: oidc
       OIDC_DATABASE_PORT: 3306
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./config.yaml:/app/config.yaml:ro
       - ./data:/app/data
