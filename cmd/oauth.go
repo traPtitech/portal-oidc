@@ -25,6 +25,8 @@ type OAuthProviderConfig struct {
 	AuthCodeLifespan     time.Duration
 	IDTokenLifespan      time.Duration
 	Secret               []byte
+	EnforcePKCE          bool
+	DebugMode            bool
 }
 
 func defaultOAuthProviderConfig() OAuthProviderConfig {
@@ -47,24 +49,25 @@ func newOAuthProvider(storage *repository.OAuthStorage, config OAuthProviderConf
 		GlobalSecret:                   config.Secret,
 		ScopeStrategy:                  fosite.ExactScopeStrategy,
 		AudienceMatchingStrategy:       fosite.DefaultAudienceMatchingStrategy,
-		SendDebugMessagesToClients:     true,
-		EnforcePKCE:                    true,
-		EnforcePKCEForPublicClients:    true,
+		SendDebugMessagesToClients:     config.DebugMode,
+		EnforcePKCE:                    config.EnforcePKCE,
+		EnforcePKCEForPublicClients:    config.EnforcePKCE,
 		EnablePKCEPlainChallengeMethod: true,
 		AccessTokenIssuer:              config.Issuer,
 		IDTokenIssuer:                  config.Issuer,
+	}
+
+	privateKeyGetter := func(_ context.Context) (interface{}, error) {
+		return privateKey, nil
 	}
 
 	return compose.Compose(
 		fositeConfig,
 		storage,
 		&compose.CommonStrategy{
-			CoreStrategy: compose.NewOAuth2HMACStrategy(fositeConfig),
-			Signer: &jwt.DefaultSigner{
-				GetPrivateKey: func(_ context.Context) (interface{}, error) {
-					return privateKey, nil
-				},
-			},
+			CoreStrategy:               compose.NewOAuth2HMACStrategy(fositeConfig),
+			Signer:                     &jwt.DefaultSigner{GetPrivateKey: privateKeyGetter},
+			OpenIDConnectTokenStrategy: compose.NewOpenIDConnectStrategy(privateKeyGetter, fositeConfig),
 		},
 
 		compose.OAuth2AuthorizeExplicitFactory,
@@ -72,6 +75,8 @@ func newOAuthProvider(storage *repository.OAuthStorage, config OAuthProviderConf
 		compose.OAuth2RefreshTokenGrantFactory,
 		compose.OAuth2TokenIntrospectionFactory,
 		compose.OAuth2TokenRevocationFactory,
+		compose.OpenIDConnectExplicitFactory,
+		compose.OpenIDConnectRefreshFactory,
 	)
 }
 
