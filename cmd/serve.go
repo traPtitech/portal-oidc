@@ -11,12 +11,9 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 
 	"github.com/traPtitech/portal-oidc/internal/repository/oidc"
+	v1 "github.com/traPtitech/portal-oidc/internal/router/v1"
 	"github.com/traPtitech/portal-oidc/internal/router/v1/gen"
 )
-
-type Handler struct {
-	queries *oidc.Queries
-}
 
 func newServer(cfg Config) (http.Handler, error) {
 	queries, err := setupDatabase(cfg.Database)
@@ -24,7 +21,8 @@ func newServer(cfg Config) (http.Handler, error) {
 		return nil, err
 	}
 
-	handler := &Handler{queries: queries}
+	handler := v1.NewHandler(queries)
+	strictHandler := gen.NewStrictHandler(handler, nil)
 
 	e := echo.New()
 	e.Use(middleware.Recover())
@@ -34,7 +32,7 @@ func newServer(cfg Config) (http.Handler, error) {
 		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 	}))
 
-	gen.RegisterHandlers(e, handler)
+	gen.RegisterHandlers(e, strictHandler)
 
 	e.GET("/health", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
