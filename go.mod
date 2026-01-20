@@ -4,6 +4,7 @@ go 1.25.5
 
 require (
 	github.com/alecthomas/kong v1.13.0
+	github.com/go-sql-driver/mysql v1.9.3
 	github.com/knadh/koanf/parsers/yaml v1.1.0
 	github.com/knadh/koanf/providers/confmap v1.0.0
 	github.com/knadh/koanf/providers/env v1.1.0
@@ -11,10 +12,10 @@ require (
 	github.com/knadh/koanf/v2 v2.3.0
 	github.com/labstack/echo/v4 v4.15.0
 	github.com/oapi-codegen/runtime v1.1.2
-	github.com/rs/cors v1.11.1
 )
 
 require (
+	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dprotaso/go-yit v0.0.0-20220510233725-9ba8df137936 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
@@ -54,6 +55,7 @@ require (
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.40.0 // indirect
 	golang.org/x/text v0.32.0 // indirect
+	golang.org/x/time v0.14.0 // indirect
 	golang.org/x/tools v0.40.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

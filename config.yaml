@@ -1,0 +1,9 @@
+host: http://localhost:8080
+environment: development
+
+database:
+  host: localhost
+  port: 3307
+  user: root
+  password: password
+  name: oidc
