@@ -1,0 +1,22 @@
+name: 機能追加
+description: 新しい機能の提案
+labels: ["kind/feature", "status/triage"]
+body:
+  - type: textarea
+    attributes:
+      label: 解決したい課題
+      description: 何が不便か、何ができないか
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: 提案
+      description: どう解決するか
+    validations:
+      required: false
+  - type: textarea
+    attributes:
+      label: 参考
+      description: 関連 Issue、RFC、ドキュメントなど
+    validations:
+      required: false
