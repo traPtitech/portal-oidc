@@ -1,24 +1,125 @@
 [tools]
 go = "1.25"
-"golangci-lint" = "latest"
+golangci-lint = "latest"
+atlas = "latest"
+tbls = "latest"
+"go:github.com/sqlc-dev/sqlc/cmd/sqlc" = "latest"
 
-[tasks."start:server"]
+# =============================================================================
+# Development
+# =============================================================================
+
+[tasks.start]
+description = "DB起動後にサーバーを起動"
+depends = ["start:db"]
 run = "go run ./cmd serve"
 
-[tasks.migrate]
-run = "go tool sql-migrate {{arg(name='cmd')}}"
+[tasks."start:db"]
+description = "DBコンテナを起動"
+run = "docker compose up -d"
 
-[tasks."migrate:new"]
-run = "go tool sql-migrate new _"
+[tasks."start:server"]
+description = "サーバーのみ起動"
+run = "go run ./cmd serve"
 
-[tasks."migrate:up"]
-run = "go tool sql-migrate up"
-
-[tasks."migrate:down"]
-run = "go tool sql-migrate down"
-
-[tasks.gen]
-run = "go generate ./..."
+[tasks.stop]
+description = "DBコンテナを停止"
+run = "docker compose down"
 
 [tasks.lint]
+description = "リンターを実行"
 run = "golangci-lint run"
+sources = ["**/*.go", ".golangci.yml"]
+
+[tasks.test]
+description = "テストを実行"
+run = "go test -v ./..."
+
+[tasks."test:coverage"]
+description = "カバレッジ付きテストを実行"
+run = "go test -v -coverprofile=coverage.out ./..."
+outputs = ["coverage.out"]
+
+# =============================================================================
+# Code Generation
+# =============================================================================
+
+[tasks.gen]
+description = "全コード生成 (sqlc + oapi)"
+depends = ["gen:sqlc", "gen:oapi"]
+
+[tasks."gen:sqlc"]
+description = "sqlcでDBコード生成"
+dir = "db"
+run = "sqlc generate"
+sources = [
+  "sqlc.yaml",
+  "schema.sql",
+  "portal-schema.sql",
+  "query/*.sql",
+]
+outputs = [
+  "../internal/repository/oidc/",
+  "../internal/repository/portal/",
+]
+
+[tasks."gen:oapi"]
+description = "OpenAPIでサーバー/モデル生成"
+dir = "api"
+run = """
+go tool oapi-codegen --config oapi.server.yaml openapi.yaml
+go tool oapi-codegen --config oapi.models.yaml openapi.yaml
+"""
+sources = [
+  "openapi.yaml",
+  "oapi.server.yaml",
+  "oapi.models.yaml",
+]
+outputs = [
+  "../internal/router/v1/gen/server.go",
+  "../internal/router/v1/gen/models.go",
+]
+
+# =============================================================================
+# Database Schema
+# =============================================================================
+
+[tasks."schema:apply"]
+description = "全スキーマを適用"
+depends = ["schema:apply:oidc", "schema:apply:portal"]
+
+[tasks."schema:apply:oidc"]
+description = "OIDCスキーマを適用"
+dir = "db"
+run = "atlas schema apply --env oidc --auto-approve"
+hide = true
+
+[tasks."schema:apply:portal"]
+description = "Portalスキーマを適用"
+dir = "db"
+run = "atlas schema apply --env portal --auto-approve"
+hide = true
+
+# =============================================================================
+# Documentation
+# =============================================================================
+
+[tasks.docs]
+description = "全DBスキーマドキュメント生成"
+depends = ["docs:oidc", "docs:portal"]
+
+[tasks."docs:oidc"]
+description = "OIDCスキーマドキュメント生成"
+dir = "db"
+run = "tbls doc --config tbls.oidc.yaml --rm-dist"
+sources = ["tbls.oidc.yaml", "schema.sql"]
+outputs = ["../docs/db/oidc/"]
+hide = true
+
+[tasks."docs:portal"]
+description = "Portalスキーマドキュメント生成"
+dir = "db"
+run = "tbls doc --config tbls.portal.yaml --rm-dist"
+sources = ["tbls.portal.yaml", "portal-schema.sql"]
+outputs = ["../docs/db/portal/"]
+hide = true

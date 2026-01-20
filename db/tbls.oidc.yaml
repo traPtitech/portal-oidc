@@ -1,0 +1,40 @@
+dsn: mariadb://root:password@localhost:3307/oidc
+docPath: ../docs/db/oidc
+
+desc: |
+  OAuth 2.1 / OpenID Connect Provider for traP SSO.
+  traP の各サービス (traQ, knoQ, NeoShowcase 等) への SSO 基盤を提供する。
+
+lint:
+  requireTableComment:
+    enabled: true
+  requireColumnComment:
+    enabled: true
+    exclude:
+      - created_at
+      - updated_at
+
+comments:
+  - table: clients
+    labels:
+      - OAuth2/OIDC
+    tableComment: |
+      OAuth 2.1 / OIDC クライアントテーブル。
+      各サービスは Client Credentials または Authorization Code フローでトークンを取得し、
+      ユーザーの所属グループ情報等を取得できる。
+    columnComments:
+      client_id: クライアントUUID (RFC 7591準拠)
+      client_secret_hash: ハッシュ化されたクライアントシークレット (confidential client用、public clientはNULL)
+      name: クライアント名 (traQ, knoQ, NeoShowcase等)
+      client_type: |
+        クライアントタイプ:
+        - public: SPA等のシークレットを安全に保持できないクライアント
+        - confidential: サーバーサイドでシークレットを保持できるクライアント
+      redirect_uris: OAuth認可後のリダイレクトURI (JSON配列、複数環境対応)
+      created_at: 作成日時
+      updated_at: 更新日時
+    indexComments:
+      PRIMARY: 主キー
+    constraintComments:
+      PRIMARY: 主キー
+      redirect_uris: JSONバリデーション

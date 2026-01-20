@@ -1,0 +1,35 @@
+name: バグ報告
+description: 動作の不具合を報告
+labels: ["kind/bug", "status/triage"]
+body:
+  - type: textarea
+    attributes:
+      label: 再現手順
+      description: バグを再現する最小限の手順
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: 期待した動作 / 実際の動作
+      placeholder: |
+        期待: アクセストークンが返る
+        実際: 500 エラー
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: エラーログ
+      description: スタックトレースやエラーレスポンス
+      render: shell
+    validations:
+      required: false
+  - type: input
+    attributes:
+      label: バージョン / コミット
+      placeholder: main (abc1234)
+    validations:
+      required: false

@@ -1,0 +1,19 @@
+openapi: 3.0.0
+info:
+  title: Portal OIDC
+  version: "3.0"
+  description: 認可認証基盤
+  license:
+    name: MIT
+    url: "https://github.com/traPtitech/portal-oidc/blob/master/LICENSE"
+  contact:
+    name: traP
+    url: "https://github.com/traPtitech/portal-oidc"
+servers:
+  - url: "http://localhost:8080"
+    description: local
+
+paths: {}
+
+components:
+  schemas: {}

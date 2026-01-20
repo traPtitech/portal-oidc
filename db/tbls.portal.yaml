@@ -1,0 +1,404 @@
+dsn: mariadb://root:password@localhost:3306/portal
+docPath: ../docs/db/portal
+
+desc: |
+  traPortal v2 - traP 部員管理システム。
+  ユーザー管理、グループ機能、シークレット管理、メール送受信、Webhook連携を提供する。
+
+lint:
+  requireTableComment:
+    enabled: true
+  requireColumnComment:
+    enabled: true
+    exclude:
+      - id
+      - created_at
+      - updated_at
+
+relations:
+  - table: groups
+    columns:
+      - parent_id
+    parentTable: groups
+    parentColumns:
+      - id
+  - table: invitations
+    columns:
+      - created_by
+      - used_by
+    parentTable: users
+    parentColumns:
+      - id
+  - table: secrets
+    columns:
+      - created_by
+    parentTable: users
+    parentColumns:
+      - id
+  - table: webhooks
+    columns:
+      - owner_id
+    parentTable: users
+    parentColumns:
+      - id
+  - table: mails
+    columns:
+      - operator_id
+    parentTable: users
+    parentColumns:
+      - id
+  - table: group_member_logs
+    columns:
+      - actor_id
+    parentTable: users
+    parentColumns:
+      - id
+
+comments:
+  - table: users
+    labels:
+      - ユーザー管理
+    tableComment: |
+      ユーザーテーブル。
+      traP 部員のアカウントと個人情報を管理する。
+      個人情報は高度な暗号化 (AES-256) で保護され、DB漏洩時も閲覧不可。
+    columnComments:
+      id: ユーザーUUID
+      trap_id: traP ID (ユニークなユーザー名、各サービスでの識別子)
+      password_hash: PBKDF2-SHA512ハッシュ (10万回イテレーション)
+      email: AES-GCM暗号化されたメールアドレス (パスワードリセット用にサーバー側暗号化)
+      personal_info: AES-GCM暗号化された個人情報JSON (E2E暗号化、庶務のみ閲覧可)
+      student_number: 学籍番号 (科学大の正規生であることを証明)
+      created_at: 作成日時
+      updated_at: 更新日時
+    indexComments:
+      PRIMARY: 主キー
+      uq_users_trap_id: traP IDユニーク制約
+      uq_users_student_number: 学籍番号ユニーク制約
+    constraintComments:
+      PRIMARY: 主キー
+      uq_users_trap_id: traP IDユニーク制約
+      uq_users_student_number: 学籍番号ユニーク制約
+  - table: user_statuses
+    labels:
+      - ユーザー管理
+    tableComment: |
+      ユーザーステータステーブル。
+      会員期限管理により凍結処理を自動化。支払うと年度末までのアカウント使用権が与えられる。
+    columnComments:
+      user_id: ユーザーUUID
+      status: |
+        ステータス:
+        - active: アクティブ
+        - suspended: 凍結 (未支払い/卒業/除名)
+        - email-unconfirmed: メール未認証
+      detail: 詳細/理由
+      created_at: 作成日時
+    indexComments:
+      PRIMARY: 主キー
+    constraintComments:
+      PRIMARY: 主キー
+      fk_user_statuses_user: ユーザー外部キー
+  - table: user_links
+    labels:
+      - ユーザー管理
+    tableComment: |
+      ユーザー外部サービス連携テーブル。
+      Twitter, GitHub, Discord等の外部アカウントと連携。
+    columnComments:
+      user_id: ユーザーUUID
+      service: サービス名 (twitter, github, discord等)
+      external_id: 外部サービスのユーザーID
+      account_name: 外部サービスでの表示名
+      access_token: 暗号化されたOAuthアクセストークン
+      created_at: 作成日時
+      updated_at: 更新日時
+    indexComments:
+      PRIMARY: 主キー
+    constraintComments:
+      PRIMARY: 主キー
+      fk_user_links_user: ユーザー外部キー
+  - table: invitations
+    labels:
+      - ユーザー管理
+    tableComment: |
+      招待コードテーブル。
+      新入生やex-traP移行用の登録招待コードを管理。
+    columnComments:
+      id: 招待UUID
+      code: 招待コード (署名付きURL用)
+      created_by: 作成者UUID (庶務)
+      used_by: 使用者UUID
+      expires_at: 有効期限
+      used_at: 使用日時
+      created_at: 作成日時
+    indexComments:
+      PRIMARY: 主キー
+      uq_invitations_code: 招待コードユニーク制約
+      fk_invitations_created_by: 作成者インデックス
+      fk_invitations_used_by: 使用者インデックス
+    constraintComments:
+      PRIMARY: 主キー
+      uq_invitations_code: 招待コードユニーク制約
+      fk_invitations_created_by: 作成者外部キー
+      fk_invitations_used_by: 使用者外部キー
+  - table: groups
+    labels:
+      - グループ機能
+    tableComment: |
+      グループテーブル。
+      行動を共にする集団を表現。traQ, knoQ, traPortal で統一されたグループ機能を提供。
+      通常グループ (管理者あり) と公開グループ (自由参加) の2種類がある。
+    columnComments:
+      id: グループUUID
+      name: グループ名 (メンション対象)
+      description: グループ説明
+      parent_id: 親グループUUID (階層構造用)
+      created_at: 作成日時
+      updated_at: 更新日時
+    indexComments:
+      PRIMARY: 主キー
+      fk_groups_parent: 親グループインデックス
+    constraintComments:
+      PRIMARY: 主キー
+      fk_groups_parent: 親グループ外部キー
+  - table: group_members
+    labels:
+      - グループ機能
+    tableComment: |
+      グループメンバーテーブル。
+      グループに所属するユーザーとそのロールを管理。
+    columnComments:
+      group_id: グループUUID
+      user_id: ユーザーUUID (メンション対象)
+      roles: |
+        メンバーロール (JSON配列):
+        - role_assign: ロール付与権限 (実質管理者)
+        - member_edit: メンバー追加/削除権限
+        - group_edit: グループ名/説明編集権限
+        - group_delete: グループ削除権限
+        - secret_edit: シークレット編集権限
+      joined_at: 参加日時
+    indexComments:
+      PRIMARY: 主キー
+      fk_group_members_user: ユーザーインデックス
+    constraintComments:
+      PRIMARY: 主キー
+      fk_group_members_group: グループ外部キー
+      fk_group_members_user: ユーザー外部キー
+      roles: JSONバリデーション
+  - table: group_member_logs
+    labels:
+      - グループ機能
+    tableComment: |
+      グループメンバー変更ログテーブル。
+      卒業時の属人化防止と監査のため、メンバー変更履歴を記録。
+    columnComments:
+      id: ログUUID
+      group_id: グループUUID
+      user_id: 対象ユーザーUUID
+      action: アクション (added, removed, role_changed)
+      actor_id: 操作者UUID
+      old_roles: 変更前ロール
+      new_roles: 変更後ロール
+      created_at: 作成日時
+    indexComments:
+      PRIMARY: 主キー
+      idx_group_member_logs_group: グループインデックス
+      idx_group_member_logs_user: ユーザーインデックス
+    constraintComments:
+      PRIMARY: 主キー
+      old_roles: JSONバリデーション
+      new_roles: JSONバリデーション
+  - table: group_permissions
+    labels:
+      - グループ機能
+    tableComment: |
+      グループ権限テーブル。
+      グループに権限を付与し、OAuth認可時にclaimできる。
+      例: 庶務→ユーザー個人情報閲覧/編集、サービス管理者→admin権限
+    columnComments:
+      group_id: グループUUID
+      permission: |
+        権限 (例):
+        - user:read, user:write: ユーザー情報
+        - invitation:create: 招待コード発行
+        - mail:send: メール送信
+        - admin:*: 管理者権限
+      created_at: 作成日時
+    indexComments:
+      PRIMARY: 主キー
+    constraintComments:
+      PRIMARY: 主キー
+      fk_group_permissions_group: グループ外部キー
+  - table: user_keys
+    labels:
+      - ユーザー管理
+    tableComment: |
+      ユーザー暗号鍵テーブル (E2E暗号化用)。
+      Password → Master Key → Symmetric Key → Private Key の鍵階層で管理。
+      Master Key はサーバーに送信されない。
+    columnComments:
+      user_id: ユーザーUUID
+      key_id: 鍵UUID
+      public_key: 公開鍵 (DER形式、グループ鍵の暗号化に使用)
+      encrypted_private_key: Symmetric Key で暗号化された秘密鍵
+      algorithm: 鍵アルゴリズム (RSA-OAEP, ECDH等)
+      is_active: アクティブかどうか
+      created_at: 作成日時
+    indexComments:
+      PRIMARY: 主キー
+    constraintComments:
+      PRIMARY: 主キー
+      fk_user_keys_user: ユーザー外部キー
+  - table: group_keys
+    labels:
+      - グループ機能
+    tableComment: |
+      グループ暗号鍵テーブル (E2E暗号化用)。
+      グループ対称鍵を各メンバーの公開鍵で暗号化して保存。
+      メンバー全員がパスワードを忘れるとシークレットは復号不可。
+    columnComments:
+      group_id: グループUUID
+      user_id: ユーザーUUID
+      key_id: 鍵UUID (user_keysのkey_idに対応)
+      encrypted_key: ユーザー公開鍵で暗号化されたグループ対称鍵
+      created_at: 作成日時
+    indexComments:
+      PRIMARY: 主キー
+      fk_group_keys_user: ユーザーインデックス
+    constraintComments:
+      PRIMARY: 主キー
+      fk_group_keys_group: グループ外部キー
+      fk_group_keys_user: ユーザー外部キー
+  - table: secrets
+    labels:
+      - シークレット管理
+    tableComment: |
+      シークレットテーブル (E2E暗号化)。
+      プロジェクトで使用する共用アカウント (Twitter, GitHub等) のパスワードやAPIキーを、
+      現在のグループメンバーだけが閲覧できるように暗号化して保存。
+      DB漏洩してもサーバー運用者でも閲覧不可。
+    columnComments:
+      id: シークレットUUID
+      group_id: 所有グループUUID
+      name: シークレット名 (Twitter共用アカウント、GitHub PAT等)
+      encrypted_value: グループ対称鍵でAES-GCM暗号化された値
+      created_by: 作成者UUID
+      created_at: 作成日時
+      updated_at: 更新日時
+    indexComments:
+      PRIMARY: 主キー
+      idx_secrets_group: グループインデックス
+      fk_secrets_created_by: 作成者インデックス
+    constraintComments:
+      PRIMARY: 主キー
+      fk_secrets_group: グループ外部キー
+      fk_secrets_created_by: 作成者外部キー
+  - table: secret_logs
+    labels:
+      - シークレット管理
+    tableComment: |
+      シークレット操作ログテーブル。
+      監査とセキュリティのため、シークレットへのアクセス履歴を記録。
+    columnComments:
+      id: ログUUID
+      secret_id: シークレットUUID
+      action: アクション (created, updated, deleted, accessed)
+      actor_id: 操作者UUID
+      created_at: 作成日時
+    indexComments:
+      PRIMARY: 主キー
+      idx_secret_logs_secret: シークレットインデックス
+    constraintComments:
+      PRIMARY: 主キー
+  - table: webhooks
+    labels:
+      - Webhook連携
+    tableComment: |
+      Webhookテーブル。
+      traPortal内データの変更イベントを各サービスに通知。
+      グループメンバー変更時にtraQやknoQに自動同期。
+    columnComments:
+      id: WebhookUUID
+      name: Webhook名
+      url: 送信先URL (HTTPS必須)
+      secret: HMAC-SHA256署名用シークレット (暗号化)
+      owner_id: 所有者UUID
+      is_active: アクティブかどうか
+      created_at: 作成日時
+      updated_at: 更新日時
+    indexComments:
+      PRIMARY: 主キー
+      fk_webhooks_owner: 所有者インデックス
+    constraintComments:
+      PRIMARY: 主キー
+      fk_webhooks_owner: 所有者外部キー
+  - table: webhook_subscribe_events
+    labels:
+      - Webhook連携
+    tableComment: |
+      Webhook購読イベントテーブル。
+      各Webhookが購読するイベントタイプを管理。
+    columnComments:
+      webhook_id: WebhookUUID
+      event_type: |
+        イベントタイプ (例):
+        - user.created, user.updated, user.deleted
+        - group.created, group.member_added, group.member_removed
+      created_at: 作成日時
+    indexComments:
+      PRIMARY: 主キー
+    constraintComments:
+      PRIMARY: 主キー
+      fk_webhook_events_webhook: Webhook外部キー
+  - table: namecards
+    labels:
+      - その他
+    tableComment: |
+      名札色設定テーブル。
+      学年ごとの名札色を管理。
+    columnComments:
+      student_prefix: "学籍番号プレフィックス (例: 15B, 24B)"
+      color: "色コード (HEX形式、例: #FF5733)"
+    indexComments:
+      PRIMARY: 主キー
+    constraintComments:
+      PRIMARY: 主キー
+  - table: mails
+    labels:
+      - メール送受信
+    tableComment: |
+      送信メールテーブル。
+      SendGrid経由で複数人に同時にメールを送信。庶務・渉外が利用。
+    columnComments:
+      id: メールUUID
+      to: 宛先 (@trap_id形式、複数可)
+      subject: 件名
+      body: 本文
+      operator_id: 送信者UUID (庶務/渉外)
+      created_at: 作成日時
+    indexComments:
+      PRIMARY: 主キー
+      fk_mails_operator: 送信者インデックス
+    constraintComments:
+      PRIMARY: 主キー
+      fk_mails_operator: 送信者外部キー
+  - table: mail_logs
+    labels:
+      - メール送受信
+    tableComment: |
+      メール送信ログテーブル。
+      SendGridからの送信結果を記録。
+    columnComments:
+      id: ログUUID
+      mail_id: メールUUID
+      status: ステータス (unsent, sent, failed)
+      error: エラー内容 (failed時)
+      created_at: 作成日時
+    indexComments:
+      PRIMARY: 主キー
+      idx_mail_logs_mail: メールインデックス
+    constraintComments:
+      PRIMARY: 主キー
+      fk_mail_logs_mail: メール外部キー
