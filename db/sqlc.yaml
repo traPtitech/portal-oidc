@@ -1,5 +1,5 @@
 version: "2"
-# NOTE: UUID override は未対応 (sqlc が MariaDB の char(36) や uuid 型に非対応)
+# NOTE: UUID override は未対応 (sqlc が MariaDB の char(36) や uuid 型に非対応, PostgreSQL は完全対応)
 sql:
   - engine: "mysql"
     queries: "query/oidc.sql"

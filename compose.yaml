@@ -1,6 +1,6 @@
 services:
   portal:
-    image: mariadb:12.1.2
+    image: mariadb:10.11.4
     environment:
       MARIADB_ROOT_PASSWORD: password
       MARIADB_DATABASE: portal
@@ -15,7 +15,7 @@ services:
       retries: 12
 
   oidc:
-    image: mariadb:12.1.2
+    image: mariadb:10.11.4
     environment:
       MARIADB_ROOT_PASSWORD: password
       MARIADB_DATABASE: oidc
