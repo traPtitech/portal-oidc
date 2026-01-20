@@ -3,7 +3,7 @@
 //   sqlc v1.30.0
 // source: oidc.sql
 
-package gen
+package oidc
 
 import (
 	"context"
