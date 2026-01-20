@@ -59,8 +59,8 @@ sources = [
   "query/*.sql",
 ]
 outputs = [
-  "../internal/infrastructure/oidc/gen/",
-  "../internal/infrastructure/portal/gen/",
+  "../internal/repository/oidc/",
+  "../internal/repository/portal/",
 ]
 
 [tasks."gen:oapi"]
@@ -76,8 +76,8 @@ sources = [
   "oapi.models.yaml",
 ]
 outputs = [
-  "../internal/interface/handler/v1/gen/server.go",
-  "../internal/interface/handler/v1/gen/models.go",
+  "../internal/router/v1/gen/server.go",
+  "../internal/router/v1/gen/models.go",
 ]
 
 # =============================================================================
@@ -91,13 +91,13 @@ depends = ["schema:apply:oidc", "schema:apply:portal"]
 [tasks."schema:apply:oidc"]
 description = "OIDCスキーマを適用"
 dir = "db"
-run = "atlas schema apply --env oidc"
+run = "atlas schema apply --env oidc --auto-approve"
 hide = true
 
 [tasks."schema:apply:portal"]
 description = "Portalスキーマを適用"
 dir = "db"
-run = "atlas schema apply --env portal"
+run = "atlas schema apply --env portal --auto-approve"
 hide = true
 
 # =============================================================================
