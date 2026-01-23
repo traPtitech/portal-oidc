@@ -12,9 +12,10 @@ import (
 )
 
 type Config struct {
-	Host     string         `koanf:"host"`
-	Database DatabaseConfig `koanf:"database"`
-	OAuth    OAuthConfig    `koanf:"oauth"`
+	Host        string         `koanf:"host"`
+	Environment string         `koanf:"environment"`
+	Database    DatabaseConfig `koanf:"database"`
+	OAuth       OAuthConfig    `koanf:"oauth"`
 }
 
 type DatabaseConfig struct {
@@ -28,32 +29,29 @@ type DatabaseConfig struct {
 type OAuthConfig struct {
 	Secret     string `koanf:"secret"`
 	KeyFile    string `koanf:"key_file"`
-	TestMode   bool   `koanf:"test_mode"`
 	TestUserID string `koanf:"test_user_id"`
 }
 
 var defaults = map[string]any{
 	"host":               "http://localhost:8080",
+	"environment":        "development",
 	"database.host":      "localhost",
 	"database.port":      3307,
 	"database.user":      "root",
 	"database.password":  "password",
 	"database.name":      "oidc",
-	"oauth.secret":       "my-super-secret-signing-key-32!!", // 32 bytes
+	"oauth.secret":       "my-super-secret-signing-key-32!!",
 	"oauth.key_file":     "data/private.pem",
-	"oauth.test_mode":    false,
 	"oauth.test_user_id": "testuser",
 }
 
 func loadConfig(configPath string) (*Config, error) {
 	k := koanf.New(".")
 
-	// 1. Load defaults
 	if err := k.Load(confmap.Provider(defaults, "."), nil); err != nil {
 		return nil, err
 	}
 
-	// 2. Load config file
 	path := configPath
 	if path == "" {
 		path = "config.yaml"
@@ -67,7 +65,6 @@ func loadConfig(configPath string) (*Config, error) {
 		return nil, err
 	}
 
-	// 3. Load environment variables (OIDC_DATABASE_HOST -> database.host)
 	if err := k.Load(env.Provider("OIDC_", ".", func(s string) string {
 		key := strings.ToLower(strings.TrimPrefix(s, "OIDC_"))
 		return strings.ReplaceAll(key, "_", ".")
@@ -75,7 +72,6 @@ func loadConfig(configPath string) (*Config, error) {
 		return nil, err
 	}
 
-	// 4. Unmarshal to struct
 	var cfg Config
 	if err := k.Unmarshal("", &cfg); err != nil {
 		return nil, err
