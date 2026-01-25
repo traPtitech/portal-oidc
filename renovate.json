@@ -3,22 +3,52 @@
   "extends": [
     "config:recommended",
     ":semanticCommitTypeAll(chore)",
-    "group:allNonMajor"
+    "group:allNonMajor",
+    ":automergeMinor",
+    ":automergePatch",
+    "security:openssf-scorecard"
   ],
-  "schedule": ["every weekend"],
+  "timezone": "Asia/Tokyo",
+  "schedule": ["after 9am and before 5pm every weekday"],
   "labels": ["dependencies"],
+  "prHourlyLimit": 5,
+  "prConcurrentLimit": 10,
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["security"]
+  },
   "packageRules": [
     {
+      "description": "Go dependencies",
       "matchManagers": ["gomod"],
-      "commitMessagePrefix": ":arrow_up: chore(go-deps):"
+      "commitMessagePrefix": ":arrow_up: chore(go-deps):",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": ["minor", "patch"]
     },
     {
+      "description": "Go major updates",
+      "matchManagers": ["gomod"],
+      "commitMessagePrefix": ":arrow_up: chore(go-deps):",
+      "matchUpdateTypes": ["major"],
+      "automerge": false
+    },
+    {
+      "description": "Docker dependencies",
       "matchManagers": ["dockerfile"],
       "commitMessagePrefix": ":arrow_up: chore(docker-deps):"
     },
     {
+      "description": "GitHub Actions",
       "matchManagers": ["github-actions"],
-      "commitMessagePrefix": ":arrow_up: chore(gha-deps):"
+      "commitMessagePrefix": ":arrow_up: chore(gha-deps):",
+      "automerge": true,
+      "automergeType": "pr"
+    },
+    {
+      "description": "Group test dependencies",
+      "matchPackagePatterns": ["^github.com/stretchr/testify"],
+      "groupName": "test dependencies"
     }
   ]
 }
