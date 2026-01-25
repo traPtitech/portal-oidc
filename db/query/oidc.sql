@@ -29,3 +29,6 @@ WHERE client_id = ?;
 
 -- name: DeleteClient :exec
 DELETE FROM clients WHERE client_id = ?;
+
+-- name: DeleteAllClients :exec
+DELETE FROM clients;

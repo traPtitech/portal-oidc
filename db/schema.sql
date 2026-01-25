@@ -1,6 +1,6 @@
 -- OIDC Schema
 
-CREATE TABLE `clients` (
+CREATE TABLE IF NOT EXISTS `clients` (
   `client_id` char(36) NOT NULL,
   `client_secret_hash` varchar(255) NULL,
   `name` varchar(255) NOT NULL,
