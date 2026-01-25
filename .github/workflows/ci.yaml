@@ -36,7 +36,7 @@ jobs:
     needs: [lint, build]
     services:
       mysql:
-        image: mariadb:10.11
+        image: mariadb:10.11.15
         env:
           MARIADB_ROOT_PASSWORD: password
         ports:

@@ -19,3 +19,9 @@
 
 # Go workspace file
 go.work
+
+# Local data (secrets, keys)
+data/
+
+# Build artifacts
+tmp/

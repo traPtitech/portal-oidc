@@ -34,9 +34,34 @@
       "automerge": false
     },
     {
-      "description": "Docker dependencies",
-      "matchManagers": ["dockerfile"],
-      "commitMessagePrefix": ":arrow_up: chore(docker-deps):"
+      "description": "Docker Compose images",
+      "matchManagers": ["docker-compose"],
+      "commitMessagePrefix": ":arrow_up: chore(docker-deps):",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
+      "description": "Docker Compose major updates",
+      "matchManagers": ["docker-compose"],
+      "commitMessagePrefix": ":arrow_up: chore(docker-deps):",
+      "matchUpdateTypes": ["major"],
+      "automerge": false
+    },
+    {
+      "description": "mise tool versions",
+      "matchManagers": ["mise"],
+      "commitMessagePrefix": ":arrow_up: chore(mise-deps):",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
+      "description": "mise major updates",
+      "matchManagers": ["mise"],
+      "commitMessagePrefix": ":arrow_up: chore(mise-deps):",
+      "matchUpdateTypes": ["major"],
+      "automerge": false
     },
     {
       "description": "GitHub Actions",

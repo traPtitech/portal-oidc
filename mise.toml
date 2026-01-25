@@ -1,9 +1,9 @@
 [tools]
 go = "1.25"
-golangci-lint = "latest"
-atlas = "latest"
-tbls = "latest"
-"go:github.com/sqlc-dev/sqlc/cmd/sqlc" = "latest"
+golangci-lint = "2.8.0"
+atlas = "1.0.0"
+tbls = "1.92.3"
+"go:github.com/sqlc-dev/sqlc/cmd/sqlc" = "1.30.0"
 
 # =============================================================================
 # Development
