@@ -17,6 +17,12 @@ import (
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// JSON Web Key Set
+	// (GET /.well-known/jwks.json)
+	GetJWKS(ctx echo.Context) error
+	// OpenID Provider Configuration
+	// (GET /.well-known/openid-configuration)
+	GetOpenIDConfiguration(ctx echo.Context) error
 	// クライアント一覧取得
 	// (GET /api/v1/admin/clients)
 	GetClients(ctx echo.Context) error
@@ -35,11 +41,41 @@ type ServerInterface interface {
 	// クライアントシークレット再生成
 	// (POST /api/v1/admin/clients/{clientId}/secret)
 	RegenerateClientSecret(ctx echo.Context, clientId openapi_types.UUID) error
+	// 認可エンドポイント
+	// (GET /oauth2/authorize)
+	Authorize(ctx echo.Context, params AuthorizeParams) error
+	// トークンエンドポイント
+	// (POST /oauth2/token)
+	Token(ctx echo.Context) error
+	// UserInfo エンドポイント (GET)
+	// (GET /oauth2/userinfo)
+	GetUserInfo(ctx echo.Context) error
+	// UserInfo エンドポイント (POST)
+	// (POST /oauth2/userinfo)
+	PostUserInfo(ctx echo.Context) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
 type ServerInterfaceWrapper struct {
 	Handler ServerInterface
+}
+
+// GetJWKS converts echo context to params.
+func (w *ServerInterfaceWrapper) GetJWKS(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetJWKS(ctx)
+	return err
+}
+
+// GetOpenIDConfiguration converts echo context to params.
+func (w *ServerInterfaceWrapper) GetOpenIDConfiguration(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetOpenIDConfiguration(ctx)
+	return err
 }
 
 // GetClients converts echo context to params.
@@ -124,6 +160,104 @@ func (w *ServerInterfaceWrapper) RegenerateClientSecret(ctx echo.Context) error 
 	return err
 }
 
+// Authorize converts echo context to params.
+func (w *ServerInterfaceWrapper) Authorize(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AuthorizeParams
+	// ------------- Required query parameter "response_type" -------------
+
+	err = runtime.BindQueryParameter("form", true, true, "response_type", ctx.QueryParams(), &params.ResponseType)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter response_type: %s", err))
+	}
+
+	// ------------- Required query parameter "client_id" -------------
+
+	err = runtime.BindQueryParameter("form", true, true, "client_id", ctx.QueryParams(), &params.ClientId)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter client_id: %s", err))
+	}
+
+	// ------------- Required query parameter "redirect_uri" -------------
+
+	err = runtime.BindQueryParameter("form", true, true, "redirect_uri", ctx.QueryParams(), &params.RedirectUri)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter redirect_uri: %s", err))
+	}
+
+	// ------------- Optional query parameter "scope" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "scope", ctx.QueryParams(), &params.Scope)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter scope: %s", err))
+	}
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "state", ctx.QueryParams(), &params.State)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter state: %s", err))
+	}
+
+	// ------------- Optional query parameter "nonce" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "nonce", ctx.QueryParams(), &params.Nonce)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter nonce: %s", err))
+	}
+
+	// ------------- Optional query parameter "code_challenge" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "code_challenge", ctx.QueryParams(), &params.CodeChallenge)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter code_challenge: %s", err))
+	}
+
+	// ------------- Optional query parameter "code_challenge_method" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "code_challenge_method", ctx.QueryParams(), &params.CodeChallengeMethod)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter code_challenge_method: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.Authorize(ctx, params)
+	return err
+}
+
+// Token converts echo context to params.
+func (w *ServerInterfaceWrapper) Token(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.Token(ctx)
+	return err
+}
+
+// GetUserInfo converts echo context to params.
+func (w *ServerInterfaceWrapper) GetUserInfo(ctx echo.Context) error {
+	var err error
+
+	ctx.Set(BearerAuthScopes, []string{})
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetUserInfo(ctx)
+	return err
+}
+
+// PostUserInfo converts echo context to params.
+func (w *ServerInterfaceWrapper) PostUserInfo(ctx echo.Context) error {
+	var err error
+
+	ctx.Set(BearerAuthScopes, []string{})
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.PostUserInfo(ctx)
+	return err
+}
+
 // This is a simple interface which specifies echo.Route addition functions which
 // are present on both echo.Echo and echo.Group, since we want to allow using
 // either of them for path registration
@@ -152,13 +286,51 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 		Handler: si,
 	}
 
+	router.GET(baseURL+"/.well-known/jwks.json", wrapper.GetJWKS)
+	router.GET(baseURL+"/.well-known/openid-configuration", wrapper.GetOpenIDConfiguration)
 	router.GET(baseURL+"/api/v1/admin/clients", wrapper.GetClients)
 	router.POST(baseURL+"/api/v1/admin/clients", wrapper.CreateClient)
 	router.DELETE(baseURL+"/api/v1/admin/clients/:clientId", wrapper.DeleteClient)
 	router.GET(baseURL+"/api/v1/admin/clients/:clientId", wrapper.GetClient)
 	router.PUT(baseURL+"/api/v1/admin/clients/:clientId", wrapper.UpdateClient)
 	router.POST(baseURL+"/api/v1/admin/clients/:clientId/secret", wrapper.RegenerateClientSecret)
+	router.GET(baseURL+"/oauth2/authorize", wrapper.Authorize)
+	router.POST(baseURL+"/oauth2/token", wrapper.Token)
+	router.GET(baseURL+"/oauth2/userinfo", wrapper.GetUserInfo)
+	router.POST(baseURL+"/oauth2/userinfo", wrapper.PostUserInfo)
 
+}
+
+type GetJWKSRequestObject struct {
+}
+
+type GetJWKSResponseObject interface {
+	VisitGetJWKSResponse(w http.ResponseWriter) error
+}
+
+type GetJWKS200JSONResponse JWKS
+
+func (response GetJWKS200JSONResponse) VisitGetJWKSResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetOpenIDConfigurationRequestObject struct {
+}
+
+type GetOpenIDConfigurationResponseObject interface {
+	VisitGetOpenIDConfigurationResponse(w http.ResponseWriter) error
+}
+
+type GetOpenIDConfiguration200JSONResponse OpenIDConfiguration
+
+func (response GetOpenIDConfiguration200JSONResponse) VisitGetOpenIDConfigurationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
 }
 
 type GetClientsRequestObject struct {
@@ -358,8 +530,122 @@ func (response RegenerateClientSecret404Response) VisitRegenerateClientSecretRes
 	return nil
 }
 
+type AuthorizeRequestObject struct {
+	Params AuthorizeParams
+}
+
+type AuthorizeResponseObject interface {
+	VisitAuthorizeResponse(w http.ResponseWriter) error
+}
+
+type Authorize302Response struct {
+}
+
+func (response Authorize302Response) VisitAuthorizeResponse(w http.ResponseWriter) error {
+	w.WriteHeader(302)
+	return nil
+}
+
+type Authorize400JSONResponse OAuthError
+
+func (response Authorize400JSONResponse) VisitAuthorizeResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type TokenRequestObject struct {
+	Body *TokenFormdataRequestBody
+}
+
+type TokenResponseObject interface {
+	VisitTokenResponse(w http.ResponseWriter) error
+}
+
+type Token200JSONResponse TokenResponse
+
+func (response Token200JSONResponse) VisitTokenResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type Token400JSONResponse OAuthError
+
+func (response Token400JSONResponse) VisitTokenResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type Token401JSONResponse OAuthError
+
+func (response Token401JSONResponse) VisitTokenResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetUserInfoRequestObject struct {
+}
+
+type GetUserInfoResponseObject interface {
+	VisitGetUserInfoResponse(w http.ResponseWriter) error
+}
+
+type GetUserInfo200JSONResponse UserInfo
+
+func (response GetUserInfo200JSONResponse) VisitGetUserInfoResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetUserInfo401Response struct {
+}
+
+func (response GetUserInfo401Response) VisitGetUserInfoResponse(w http.ResponseWriter) error {
+	w.WriteHeader(401)
+	return nil
+}
+
+type PostUserInfoRequestObject struct {
+}
+
+type PostUserInfoResponseObject interface {
+	VisitPostUserInfoResponse(w http.ResponseWriter) error
+}
+
+type PostUserInfo200JSONResponse UserInfo
+
+func (response PostUserInfo200JSONResponse) VisitPostUserInfoResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PostUserInfo401Response struct {
+}
+
+func (response PostUserInfo401Response) VisitPostUserInfoResponse(w http.ResponseWriter) error {
+	w.WriteHeader(401)
+	return nil
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// JSON Web Key Set
+	// (GET /.well-known/jwks.json)
+	GetJWKS(ctx context.Context, request GetJWKSRequestObject) (GetJWKSResponseObject, error)
+	// OpenID Provider Configuration
+	// (GET /.well-known/openid-configuration)
+	GetOpenIDConfiguration(ctx context.Context, request GetOpenIDConfigurationRequestObject) (GetOpenIDConfigurationResponseObject, error)
 	// クライアント一覧取得
 	// (GET /api/v1/admin/clients)
 	GetClients(ctx context.Context, request GetClientsRequestObject) (GetClientsResponseObject, error)
@@ -378,6 +664,18 @@ type StrictServerInterface interface {
 	// クライアントシークレット再生成
 	// (POST /api/v1/admin/clients/{clientId}/secret)
 	RegenerateClientSecret(ctx context.Context, request RegenerateClientSecretRequestObject) (RegenerateClientSecretResponseObject, error)
+	// 認可エンドポイント
+	// (GET /oauth2/authorize)
+	Authorize(ctx context.Context, request AuthorizeRequestObject) (AuthorizeResponseObject, error)
+	// トークンエンドポイント
+	// (POST /oauth2/token)
+	Token(ctx context.Context, request TokenRequestObject) (TokenResponseObject, error)
+	// UserInfo エンドポイント (GET)
+	// (GET /oauth2/userinfo)
+	GetUserInfo(ctx context.Context, request GetUserInfoRequestObject) (GetUserInfoResponseObject, error)
+	// UserInfo エンドポイント (POST)
+	// (POST /oauth2/userinfo)
+	PostUserInfo(ctx context.Context, request PostUserInfoRequestObject) (PostUserInfoResponseObject, error)
 }
 
 type StrictHandlerFunc = strictecho.StrictEchoHandlerFunc
@@ -390,6 +688,52 @@ func NewStrictHandler(ssi StrictServerInterface, middlewares []StrictMiddlewareF
 type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
+}
+
+// GetJWKS operation middleware
+func (sh *strictHandler) GetJWKS(ctx echo.Context) error {
+	var request GetJWKSRequestObject
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetJWKS(ctx.Request().Context(), request.(GetJWKSRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetJWKS")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetJWKSResponseObject); ok {
+		return validResponse.VisitGetJWKSResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetOpenIDConfiguration operation middleware
+func (sh *strictHandler) GetOpenIDConfiguration(ctx echo.Context) error {
+	var request GetOpenIDConfigurationRequestObject
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetOpenIDConfiguration(ctx.Request().Context(), request.(GetOpenIDConfigurationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetOpenIDConfiguration")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetOpenIDConfigurationResponseObject); ok {
+		return validResponse.VisitGetOpenIDConfigurationResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
 }
 
 // GetClients operation middleware
@@ -544,6 +888,110 @@ func (sh *strictHandler) RegenerateClientSecret(ctx echo.Context, clientId opena
 		return err
 	} else if validResponse, ok := response.(RegenerateClientSecretResponseObject); ok {
 		return validResponse.VisitRegenerateClientSecretResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// Authorize operation middleware
+func (sh *strictHandler) Authorize(ctx echo.Context, params AuthorizeParams) error {
+	var request AuthorizeRequestObject
+
+	request.Params = params
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.Authorize(ctx.Request().Context(), request.(AuthorizeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Authorize")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(AuthorizeResponseObject); ok {
+		return validResponse.VisitAuthorizeResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// Token operation middleware
+func (sh *strictHandler) Token(ctx echo.Context) error {
+	var request TokenRequestObject
+
+	if form, err := ctx.FormParams(); err == nil {
+		var body TokenFormdataRequestBody
+		if err := runtime.BindForm(&body, form, nil, nil); err != nil {
+			return err
+		}
+		request.Body = &body
+	} else {
+		return err
+	}
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.Token(ctx.Request().Context(), request.(TokenRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Token")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(TokenResponseObject); ok {
+		return validResponse.VisitTokenResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetUserInfo operation middleware
+func (sh *strictHandler) GetUserInfo(ctx echo.Context) error {
+	var request GetUserInfoRequestObject
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetUserInfo(ctx.Request().Context(), request.(GetUserInfoRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetUserInfo")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetUserInfoResponseObject); ok {
+		return validResponse.VisitGetUserInfoResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// PostUserInfo operation middleware
+func (sh *strictHandler) PostUserInfo(ctx echo.Context) error {
+	var request PostUserInfoRequestObject
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.PostUserInfo(ctx.Request().Context(), request.(PostUserInfoRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostUserInfo")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(PostUserInfoResponseObject); ok {
+		return validResponse.VisitPostUserInfoResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}
