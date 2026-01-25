@@ -15,17 +15,23 @@ OAuth 2.1 / OpenID Connect provider for traP, providing SSO for traP services.
 Requires [mise](https://mise.jdx.dev/) and Docker.
 
 ```bash
-mise install     # Install tools
-mise run start   # Start DB and server
+git clone https://github.com/traPtitech/portal-oidc.git
+cd portal-oidc
+mise trust       # Trust mise configuration
+mise run setup   # Install pre-commit hooks
+mise run dev     # Start development environment (Docker + hot-reload)
 ```
 
-Now you can access to
+Access:
 
-- <http://localhost:8080> for OIDC server
-- <http://localhost:3001> for adminer
-  - username: `root`
-  - password: `password`
-  - database: `portal` (port 3306) / `oidc` (port 3307)
+| Service | URL | Credentials |
+|---------|-----|-------------|
+| OIDC Server | http://localhost:8080 | - |
+| Adminer (portal) | http://localhost:3001 | root / password |
+| Portal DB | localhost:3306 | root / password |
+| OIDC DB | localhost:3307 | root / password |
+
+> **Note**: Run `docker compose --profile tools up` to include Adminer.
 
 ## Documentation
 
