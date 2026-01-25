@@ -2,42 +2,51 @@ root = "."
 tmp_dir = "tmp"
 
 [build]
+  # Binary settings
   bin = "./tmp/main"
   cmd = "go build -o ./tmp/main ./cmd"
-  delay = 1000
-  exclude_dir = ["assets", "tmp", "vendor", "db"]
-  exclude_file = []
-  exclude_regex = ["_test.go"]
-  exclude_unchanged = false
-  follow_symlink = false
-  full_bin = ""
-  include_dir = []
-  include_ext = ["go", "tpl", "tmpl", "html", "yaml"]
-  include_file = []
-  kill_delay = "0s"
-  log = "build-errors.log"
-  poll = false
-  poll_interval = 0
-  rerun = false
-  rerun_delay = 500
-  send_interrupt = false
-  stop_on_error = false
   args_bin = ["serve"]
 
+  # Timing
+  delay = 500
+  kill_delay = "500ms"
+  rerun_delay = 500
+
+  # Watch settings
+  include_ext = ["go", "yaml", "yml", "toml"]
+  include_dir = ["cmd", "internal", "api"]
+  include_file = ["config.yaml"]
+  exclude_dir = ["tmp", "vendor", "db", "docs", ".git", ".github"]
+  exclude_file = []
+  exclude_regex = ["_test\\.go$", ".*_gen\\.go$"]
+  exclude_unchanged = true
+  follow_symlink = false
+
+  # Build behavior
+  stop_on_error = true
+  send_interrupt = true
+  log = "tmp/build-errors.log"
+  poll = false
+  poll_interval = 500
+
 [color]
-  app = ""
+  app = "cyan"
   build = "yellow"
   main = "magenta"
   runner = "green"
-  watcher = "cyan"
+  watcher = "blue"
 
 [log]
   main_only = false
-  time = false
+  time = true
+  silent = false
 
 [misc]
   clean_on_exit = true
 
 [screen]
-  clear_on_rebuild = false
+  clear_on_rebuild = true
   keep_scroll = true
+
+[proxy]
+  enabled = false
