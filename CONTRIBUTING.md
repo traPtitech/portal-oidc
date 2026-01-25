@@ -65,11 +65,10 @@ mise run test
 - 変更内容を簡潔に説明
 - 関連 Issue があればリンク
 
-## Pre-commit hooks (オプション)
+## Pre-commit hooks (推奨)
 
 ```bash
-pip install pre-commit
-pre-commit install
+mise run setup
 ```
 
 ## コードスタイル
