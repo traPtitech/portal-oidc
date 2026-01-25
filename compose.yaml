@@ -1,39 +1,81 @@
 services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    volumes:
+      - .:/app:cached
+      - go-mod-cache:/go/pkg/mod
+      - go-build-cache:/root/.cache/go-build
+    ports:
+      - "8080:8080"
+    environment:
+      - CONFIG_FILE=/app/config.yaml
+      - TZ=Asia/Tokyo
+    depends_on:
+      portal:
+        condition: service_healthy
+      oidc:
+        condition: service_healthy
+    restart: unless-stopped
+    tty: true
+    stdin_open: true
+
   portal:
     image: mariadb:10.11.15
     environment:
       MARIADB_ROOT_PASSWORD: password
       MARIADB_DATABASE: portal
+      TZ: Asia/Tokyo
     volumes:
       - ./db/portal-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - portal-data:/var/lib/mysql
     ports:
       - "3306:3306"
     healthcheck:
-      test: ["CMD", "mariadb-admin", "ping", "-h", "127.0.0.1", "-ppassword"]
-      interval: 5s
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
       timeout: 5s
-      retries: 12
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
 
   oidc:
     image: mariadb:10.11.15
     environment:
       MARIADB_ROOT_PASSWORD: password
       MARIADB_DATABASE: oidc
+      TZ: Asia/Tokyo
     volumes:
       - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - oidc-data:/var/lib/mysql
     ports:
       - "3307:3306"
     healthcheck:
-      test: ["CMD", "mariadb-admin", "ping", "-h", "127.0.0.1", "-ppassword"]
-      interval: 5s
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
       timeout: 5s
-      retries: 12
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
 
   adminer:
     image: adminer:5.4.1-standalone
-    restart: always
     environment:
       ADMINER_DEFAULT_SERVER: portal
       ADMINER_DESIGN: pepa-linha
     ports:
       - "3001:8080"
+    depends_on:
+      - portal
+      - oidc
+    restart: unless-stopped
+    profiles:
+      - tools
+
+volumes:
+  go-mod-cache:
+  go-build-cache:
+  portal-data:
+  oidc-data:

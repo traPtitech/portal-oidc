@@ -3,28 +3,20 @@ go = "1.25"
 golangci-lint = "2.8.0"
 atlas = "1.0.0"
 tbls = "1.92.3"
+pre-commit = "4.5.1"
 "go:github.com/sqlc-dev/sqlc/cmd/sqlc" = "1.30.0"
 
 # =============================================================================
 # Development
 # =============================================================================
 
-[tasks.start]
-description = "DB起動後にサーバーを起動"
-depends = ["start:db"]
-run = "go run ./cmd serve"
+[tasks.dev]
+description = "開発環境起動 (Docker + Air ホットリロード)"
+run = "docker compose up"
 
-[tasks."start:db"]
-description = "DBコンテナを起動"
-run = "docker compose up -d"
-
-[tasks."start:server"]
-description = "サーバーのみ起動"
-run = "go run ./cmd serve"
-
-[tasks.stop]
-description = "DBコンテナを停止"
-run = "docker compose down"
+[tasks.setup]
+description = "開発環境セットアップ (pre-commit hooks インストール)"
+run = "pre-commit install"
 
 [tasks.lint]
 description = "リンターを実行"
