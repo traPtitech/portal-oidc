@@ -10,7 +10,7 @@ import (
 )
 
 type CLI struct {
-	Config string   `short:"c" help:"Config file path (default: ./config.yaml)" type:"path"`
+	Config string   `short:"c" help:"Config file path" type:"path"`
 	Serve  ServeCmd `cmd:"" help:"Start the server"`
 }
 
@@ -27,6 +27,7 @@ func (s *ServeCmd) Run(cfg *Config) error {
 		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
+	log.Printf("Starting server on %s", srv.Addr)
 	return srv.ListenAndServe()
 }
 
