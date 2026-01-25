@@ -17,7 +17,7 @@ mise install
 mise run setup
 
 # 開発サーバー起動 (Air によるホットリロード)
-docker compose up
+mise run dev
 ```
 
 これで http://localhost:8080 でサーバーが起動します。
@@ -31,14 +31,10 @@ docker compose --profile tools up
 
 http://localhost:3001 でアクセス可能。
 
-### ローカル実行 (Docker なし)
+### コンテナ停止
 
 ```bash
-# DB のみ起動
-mise run start:db
-
-# サーバー起動
-mise run start:server
+mise run down
 ```
 
 ## 開発フロー

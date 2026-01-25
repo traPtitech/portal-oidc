@@ -10,21 +10,12 @@ pre-commit = "latest"
 # Development
 # =============================================================================
 
-[tasks.start]
-description = "DB起動後にサーバーを起動"
-depends = ["start:db"]
-run = "go run ./cmd serve"
+[tasks.dev]
+description = "開発環境起動 (Docker + Air ホットリロード)"
+run = "docker compose up"
 
-[tasks."start:db"]
-description = "DBコンテナを起動"
-run = "docker compose up -d"
-
-[tasks."start:server"]
-description = "サーバーのみ起動"
-run = "go run ./cmd serve"
-
-[tasks.stop]
-description = "DBコンテナを停止"
+[tasks.down]
+description = "全コンテナ停止"
 run = "docker compose down"
 
 [tasks.setup]
