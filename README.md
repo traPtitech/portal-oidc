@@ -31,8 +31,6 @@ Access:
 | Portal DB | localhost:3306 | root / password |
 | OIDC DB | localhost:3307 | root / password |
 
-> **Note**: Run `docker compose --profile tools up` to include Adminer.
-
 ## Documentation
 
 - [Specification](./docs/spec.md)

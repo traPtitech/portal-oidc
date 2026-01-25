@@ -1,11 +1,11 @@
 # Default owners for everything
-* @anko9801 @saitenntaisei @hijiki51
+* @anko9801 @saitenntaisei
 
 # CI/CD and DevOps
-/.github/ @anko9801 @saitenntaisei @hijiki51
+/.github/ @anko9801 @saitenntaisei
 
 # Database schema
-/db/ @anko9801 @saitenntaisei @hijiki51
+/db/ @anko9801 @saitenntaisei
 
 # API specification
-/api/ @anko9801 @saitenntaisei @hijiki51
+/api/ @anko9801 @saitenntaisei
