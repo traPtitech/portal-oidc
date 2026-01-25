@@ -3,6 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: development
     volumes:
       - .:/app
       - go-mod-cache:/go/pkg/mod

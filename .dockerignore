@@ -1,0 +1,47 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Build artifacts
+tmp/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Documentation
+*.md
+!README.md
+LICENSE
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+compose*.yaml
+.dockerignore
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Development
+.air.toml
+.env*
+!.env.example
+
+# Test
+*_test.go
+coverage.out
+coverage.html
+
+# Serena
+.serena/
