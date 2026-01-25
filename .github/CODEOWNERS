@@ -1,0 +1,11 @@
+# Default owners for everything
+* @traPtitech/SysAd
+
+# CI/CD and DevOps
+/.github/ @traPtitech/SysAd
+
+# Database schema
+/db/ @traPtitech/SysAd
+
+# API specification
+/api/ @traPtitech/SysAd

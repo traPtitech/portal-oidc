@@ -9,6 +9,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Default to minimal permissions
+permissions:
+  contents: read
+
 env:
   GO_VERSION_FILE: go.mod
 
@@ -16,6 +20,9 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@v6
 
@@ -41,6 +48,8 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v6
 
@@ -58,6 +67,8 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     needs: [lint, build]
+    permissions:
+      contents: read
     services:
       oidc-db:
         image: mariadb:10.11
@@ -100,10 +111,28 @@ jobs:
           files: coverage.out
           token: ${{ secrets.CODECOV_TOKEN }}
 
+  vulnerability:
+    name: Vulnerability Check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: ${{ env.GO_VERSION_FILE }}
+
+      - name: Run govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
   security:
     name: Security Scan
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       security-events: write
     steps:
       - uses: actions/checkout@v6
