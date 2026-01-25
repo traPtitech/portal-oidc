@@ -66,7 +66,8 @@ func loadConfig(configPath string) (*Config, error) {
 	}
 
 	if err := k.Load(env.Provider("OIDC_", ".", func(s string) string {
-		return strings.ToLower(strings.TrimPrefix(s, "OIDC_"))
+		key := strings.ToLower(strings.TrimPrefix(s, "OIDC_"))
+		return strings.ReplaceAll(key, "_", ".")
 	}), nil); err != nil {
 		return nil, err
 	}

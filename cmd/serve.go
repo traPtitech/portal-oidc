@@ -23,23 +23,44 @@ func newServer(cfg Config) (http.Handler, error) {
 		return nil, err
 	}
 
-	clientRepo := repository.NewClientRepository(queries)
-	clientUC := usecase.NewClientUseCase(clientRepo)
-	handler := v1.NewHandler(clientUC)
+	privateKey, err := loadOrGenerateKey(cfg.OAuth.KeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load/generate RSA key: %w", err)
+	}
+
+	oauthStorage := repository.NewOAuthStorage(queries)
+	defaults := defaultOAuthProviderConfig()
+	oauth2Provider := newOAuthProvider(oauthStorage, OAuthProviderConfig{
+		Issuer:               cfg.Host,
+		AccessTokenLifespan:  defaults.AccessTokenLifespan,
+		RefreshTokenLifespan: defaults.RefreshTokenLifespan,
+		AuthCodeLifespan:     defaults.AuthCodeLifespan,
+		IDTokenLifespan:      defaults.IDTokenLifespan,
+		Secret:               []byte(cfg.OAuth.Secret),
+	}, privateKey)
+
+	handler := v1.NewHandler(
+		usecase.NewClientUseCase(repository.NewClientRepository(queries)),
+		oauth2Provider,
+		v1.OAuthConfig{
+			Issuer:        cfg.Host,
+			SessionSecret: []byte(cfg.OAuth.Secret),
+			PrivateKey:    privateKey,
+			Environment:   cfg.Environment,
+			TestUserID:    cfg.OAuth.TestUserID,
+		},
+	)
 
 	e := echo.New()
-	e.Use(middleware.Recover())
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
 		AllowHeaders: []string{"*"},
 		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 	}))
-
 	gen.RegisterHandlers(e, handler)
-
-	e.GET("/health", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
-	})
+	e.GET("/login", handler.GetLogin)
+	e.POST("/login", handler.PostLogin)
+	e.GET("/logout", handler.Logout)
 
 	return e, nil
 }
