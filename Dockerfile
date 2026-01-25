@@ -7,9 +7,6 @@ FROM golang:1.25-alpine AS base
 
 WORKDIR /app
 
-# Install CA certificates for HTTPS and timezone data
-RUN apk add --no-cache ca-certificates tzdata
-
 # ============================================================================
 # Development stage: Hot-reload with Air
 # ============================================================================
@@ -54,9 +51,9 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     ./cmd
 
 # ============================================================================
-# Production stage: Minimal runtime image
+# Production stage: Distroless runtime image
 # ============================================================================
-FROM scratch AS production
+FROM gcr.io/distroless/static-debian12:nonroot AS production
 
 # OCI labels
 LABEL org.opencontainers.image.title="portal-oidc" \
@@ -67,23 +64,10 @@ LABEL org.opencontainers.image.title="portal-oidc" \
 
 WORKDIR /app
 
-# Copy CA certificates for HTTPS connections
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-
-# Copy timezone data
-COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
-
 # Copy the binary
 COPY --from=builder /app/portal-oidc /app/portal-oidc
 
-# Use non-root user (numeric for scratch image compatibility)
-USER 65534:65534
-
 EXPOSE 8080
-
-# Health check (requires curl in image, disabled for scratch)
-# HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-#     CMD ["/app/portal-oidc", "health"]
 
 ENTRYPOINT ["/app/portal-oidc"]
 CMD ["serve"]
