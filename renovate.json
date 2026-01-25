@@ -1,0 +1,24 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":semanticCommitTypeAll(chore)",
+    "group:allNonMajor"
+  ],
+  "schedule": ["every weekend"],
+  "labels": ["dependencies"],
+  "packageRules": [
+    {
+      "matchManagers": ["gomod"],
+      "commitMessagePrefix": ":arrow_up: chore(go-deps):"
+    },
+    {
+      "matchManagers": ["dockerfile"],
+      "commitMessagePrefix": ":arrow_up: chore(docker-deps):"
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "commitMessagePrefix": ":arrow_up: chore(gha-deps):"
+    }
+  ]
+}

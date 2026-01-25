@@ -123,3 +123,10 @@ run = "tbls doc --config tbls.portal.yaml --rm-dist"
 sources = ["tbls.portal.yaml", "portal-schema.sql"]
 outputs = ["../docs/db/portal/"]
 hide = true
+
+[tasks."tests"]
+description = "tblsを使用してDBテーブル構成のドキュメントを生成。dev-upでmariadbコンテナを起動させておく必要がある"
+env = { TARGET_DIR = "document/database" }
+run = """
+echo ${TARGET_DIR}
+"""
