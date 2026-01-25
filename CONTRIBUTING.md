@@ -36,7 +36,7 @@ http://localhost:3001 でアクセス可能。
 ### 1. ブランチ作成
 
 ```bash
-git checkout -b feat/your-feature
+git switch -c feat/your-feature
 ```
 
 ### 2. コード変更
