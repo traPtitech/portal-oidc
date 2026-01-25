@@ -10,8 +10,8 @@
 ### セットアップ手順
 
 ```bash
-# 依存ツールのインストール
-mise install
+# mise 設定を信頼
+mise trust
 
 # pre-commit hooks のセットアップ
 mise run setup
