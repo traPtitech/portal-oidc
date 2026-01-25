@@ -40,3 +40,6 @@ Thumbs.db
 
 # Security scan outputs
 *.sarif
+
+# Local data (secrets, keys)
+data/

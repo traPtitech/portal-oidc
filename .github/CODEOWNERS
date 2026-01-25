@@ -1,11 +1,11 @@
 # Default owners for everything
-* @traPtitech/SysAd
+* @anko9801 @saitenntaisei @hijiki51
 
 # CI/CD and DevOps
-/.github/ @traPtitech/SysAd
+/.github/ @anko9801 @saitenntaisei @hijiki51
 
 # Database schema
-/db/ @traPtitech/SysAd
+/db/ @anko9801 @saitenntaisei @hijiki51
 
 # API specification
-/api/ @traPtitech/SysAd
+/api/ @anko9801 @saitenntaisei @hijiki51

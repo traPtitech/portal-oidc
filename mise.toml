@@ -1,10 +1,10 @@
 [tools]
 go = "1.25"
-golangci-lint = "latest"
-atlas = "latest"
-tbls = "latest"
-pre-commit = "latest"
-"go:github.com/sqlc-dev/sqlc/cmd/sqlc" = "latest"
+golangci-lint = "2.8.0"
+atlas = "1.0.0"
+tbls = "1.92.3"
+pre-commit = "4.5.1"
+"go:github.com/sqlc-dev/sqlc/cmd/sqlc" = "1.30.0"
 
 # =============================================================================
 # Development
@@ -115,3 +115,10 @@ run = "tbls doc --config tbls.portal.yaml --rm-dist"
 sources = ["tbls.portal.yaml", "portal-schema.sql"]
 outputs = ["../docs/db/portal/"]
 hide = true
+
+[tasks."tests"]
+description = "tblsを使用してDBテーブル構成のドキュメントを生成。dev-upでmariadbコンテナを起動させておく必要がある"
+env = { TARGET_DIR = "document/database" }
+run = """
+echo ${TARGET_DIR}
+"""

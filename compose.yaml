@@ -23,7 +23,7 @@ services:
     stdin_open: true
 
   portal:
-    image: mariadb:10.11
+    image: mariadb:10.11.15
     environment:
       MARIADB_ROOT_PASSWORD: password
       MARIADB_DATABASE: portal
@@ -42,7 +42,7 @@ services:
     restart: unless-stopped
 
   oidc:
-    image: mariadb:10.11
+    image: mariadb:10.11.15
     environment:
       MARIADB_ROOT_PASSWORD: password
       MARIADB_DATABASE: oidc
@@ -61,7 +61,7 @@ services:
     restart: unless-stopped
 
   adminer:
-    image: adminer:standalone
+    image: adminer:5.4.1-standalone
     environment:
       ADMINER_DEFAULT_SERVER: portal
       ADMINER_DESIGN: pepa-linha
