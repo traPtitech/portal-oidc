@@ -6,10 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/ory/fosite"
+	"github.com/ory/fosite/handler/openid"
+	"github.com/ory/fosite/token/jwt"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/traPtitech/portal-oidc/internal/repository/oidc"
@@ -17,11 +20,16 @@ import (
 
 // OAuthStorage implements fosite.Storage interface
 type OAuthStorage struct {
-	queries *oidc.Queries
+	queries           *oidc.Queries
+	oidcSessions      map[string]fosite.Requester
+	oidcSessionsMutex sync.RWMutex
 }
 
 func NewOAuthStorage(queries *oidc.Queries) *OAuthStorage {
-	return &OAuthStorage{queries: queries}
+	return &OAuthStorage{
+		queries:      queries,
+		oidcSessions: make(map[string]fosite.Requester),
+	}
 }
 
 // ClientCredentials implements fosite.ClientCredentialsStorage
@@ -104,11 +112,8 @@ func (s *OAuthStorage) GetAuthorizeCodeSession(ctx context.Context, code string,
 		scopes = []string{}
 	}
 
-	sess := &OAuthSession{
-		Subject:   dbCode.UserID,
-		Username:  dbCode.UserID,
-		ExpiresAt: map[fosite.TokenType]time.Time{fosite.AuthorizeCode: dbCode.ExpiresAt},
-	}
+	sess := NewOAuthSession(dbCode.UserID)
+	sess.ExpiresAt[fosite.AuthorizeCode] = dbCode.ExpiresAt
 
 	form := make(map[string][]string)
 	form["redirect_uri"] = []string{dbCode.RedirectUri}
@@ -214,11 +219,8 @@ func (s *OAuthStorage) GetAccessTokenSession(ctx context.Context, signature stri
 		scopes = []string{}
 	}
 
-	sess := &OAuthSession{
-		Subject:   dbToken.UserID,
-		Username:  dbToken.UserID,
-		ExpiresAt: map[fosite.TokenType]time.Time{fosite.AccessToken: dbToken.ExpiresAt},
-	}
+	sess := NewOAuthSession(dbToken.UserID)
+	sess.ExpiresAt[fosite.AccessToken] = dbToken.ExpiresAt
 
 	req := &fosite.Request{
 		ID:          dbToken.ID,
@@ -282,11 +284,8 @@ func (s *OAuthStorage) GetRefreshTokenSession(ctx context.Context, signature str
 		scopes = []string{}
 	}
 
-	sess := &OAuthSession{
-		Subject:   dbToken.UserID,
-		Username:  dbToken.UserID,
-		ExpiresAt: map[fosite.TokenType]time.Time{fosite.RefreshToken: dbToken.ExpiresAt},
-	}
+	sess := NewOAuthSession(dbToken.UserID)
+	sess.ExpiresAt[fosite.RefreshToken] = dbToken.ExpiresAt
 
 	req := &fosite.Request{
 		ID:          dbToken.ID,
@@ -317,6 +316,32 @@ func (s *OAuthStorage) RevokeAccessToken(ctx context.Context, requestID string) 
 	return nil
 }
 
+// OpenIDConnectRequestStorage implementation
+
+func (s *OAuthStorage) CreateOpenIDConnectSession(_ context.Context, authorizeCode string, requester fosite.Requester) error {
+	s.oidcSessionsMutex.Lock()
+	defer s.oidcSessionsMutex.Unlock()
+	s.oidcSessions[authorizeCode] = requester
+	return nil
+}
+
+func (s *OAuthStorage) GetOpenIDConnectSession(_ context.Context, authorizeCode string, _ fosite.Requester) (fosite.Requester, error) {
+	s.oidcSessionsMutex.RLock()
+	defer s.oidcSessionsMutex.RUnlock()
+	req, ok := s.oidcSessions[authorizeCode]
+	if !ok {
+		return nil, fosite.ErrNotFound
+	}
+	return req, nil
+}
+
+func (s *OAuthStorage) DeleteOpenIDConnectSession(_ context.Context, authorizeCode string) error {
+	s.oidcSessionsMutex.Lock()
+	defer s.oidcSessionsMutex.Unlock()
+	delete(s.oidcSessions, authorizeCode)
+	return nil
+}
+
 // OAuthClient implements fosite.Client
 type OAuthClient struct {
 	ID            string
@@ -342,13 +367,17 @@ func (c *OAuthClient) GetScopes() fosite.Arguments   { return c.Scopes }
 func (c *OAuthClient) IsPublic() bool                { return c.Public }
 func (c *OAuthClient) GetAudience() fosite.Arguments { return nil }
 
-// OAuthSession implements fosite.Session
+// OAuthSession implements fosite.Session and openid.Session
 type OAuthSession struct {
-	Subject   string
-	Username  string
-	ExpiresAt map[fosite.TokenType]time.Time
-	Extra     map[string]interface{}
+	Subject        string
+	Username       string
+	ExpiresAt      map[fosite.TokenType]time.Time
+	Extra          map[string]interface{}
+	idTokenClaims  *jwt.IDTokenClaims
+	idTokenHeaders *jwt.Headers
 }
+
+var _ openid.Session = (*OAuthSession)(nil)
 
 func NewOAuthSession(subject string) *OAuthSession {
 	return &OAuthSession{
@@ -356,6 +385,12 @@ func NewOAuthSession(subject string) *OAuthSession {
 		Username:  subject,
 		ExpiresAt: make(map[fosite.TokenType]time.Time),
 		Extra:     make(map[string]interface{}),
+		idTokenClaims: &jwt.IDTokenClaims{
+			Subject: subject,
+		},
+		idTokenHeaders: &jwt.Headers{
+			Extra: make(map[string]interface{}),
+		},
 	}
 }
 
@@ -373,8 +408,10 @@ func (s *OAuthSession) GetExpiresAt(key fosite.TokenType) time.Time {
 	return s.ExpiresAt[key]
 }
 
-func (s *OAuthSession) GetUsername() string { return s.Username }
-func (s *OAuthSession) GetSubject() string  { return s.Subject }
+func (s *OAuthSession) GetUsername() string               { return s.Username }
+func (s *OAuthSession) GetSubject() string                { return s.Subject }
+func (s *OAuthSession) IDTokenClaims() *jwt.IDTokenClaims { return s.idTokenClaims }
+func (s *OAuthSession) IDTokenHeaders() *jwt.Headers      { return s.idTokenHeaders }
 
 func (s *OAuthSession) Clone() fosite.Session {
 	expiresAt := make(map[fosite.TokenType]time.Time)
@@ -385,11 +422,19 @@ func (s *OAuthSession) Clone() fosite.Session {
 	for k, v := range s.Extra {
 		extra[k] = v
 	}
+	idTokenClaimsClone := *s.idTokenClaims
+	idTokenHeadersClone := *s.idTokenHeaders
+	idTokenHeadersClone.Extra = make(map[string]interface{})
+	for k, v := range s.idTokenHeaders.Extra {
+		idTokenHeadersClone.Extra[k] = v
+	}
 	return &OAuthSession{
-		Subject:   s.Subject,
-		Username:  s.Username,
-		ExpiresAt: expiresAt,
-		Extra:     extra,
+		Subject:        s.Subject,
+		Username:       s.Username,
+		ExpiresAt:      expiresAt,
+		Extra:          extra,
+		idTokenClaims:  &idTokenClaimsClone,
+		idTokenHeaders: &idTokenHeadersClone,
 	}
 }
 

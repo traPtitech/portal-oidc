@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -47,24 +48,25 @@ func newOAuthProvider(storage *repository.OAuthStorage, config OAuthProviderConf
 		GlobalSecret:                   config.Secret,
 		ScopeStrategy:                  fosite.ExactScopeStrategy,
 		AudienceMatchingStrategy:       fosite.DefaultAudienceMatchingStrategy,
-		SendDebugMessagesToClients:     true,
-		EnforcePKCE:                    true,
-		EnforcePKCEForPublicClients:    true,
-		EnablePKCEPlainChallengeMethod: true,
+		SendDebugMessagesToClients:     false,
+		EnforcePKCE:                    false,
+		EnforcePKCEForPublicClients:    false,
+		EnablePKCEPlainChallengeMethod: false,
 		AccessTokenIssuer:              config.Issuer,
 		IDTokenIssuer:                  config.Issuer,
+	}
+
+	privateKeyGetter := func(_ context.Context) (interface{}, error) {
+		return privateKey, nil
 	}
 
 	return compose.Compose(
 		fositeConfig,
 		storage,
 		&compose.CommonStrategy{
-			CoreStrategy: compose.NewOAuth2HMACStrategy(fositeConfig),
-			Signer: &jwt.DefaultSigner{
-				GetPrivateKey: func(_ context.Context) (interface{}, error) {
-					return privateKey, nil
-				},
-			},
+			CoreStrategy:               compose.NewOAuth2HMACStrategy(fositeConfig),
+			Signer:                     &jwt.DefaultSigner{GetPrivateKey: privateKeyGetter},
+			OpenIDConnectTokenStrategy: compose.NewOpenIDConnectStrategy(privateKeyGetter, fositeConfig),
 		},
 
 		compose.OAuth2AuthorizeExplicitFactory,
@@ -72,6 +74,8 @@ func newOAuthProvider(storage *repository.OAuthStorage, config OAuthProviderConf
 		compose.OAuth2RefreshTokenGrantFactory,
 		compose.OAuth2TokenIntrospectionFactory,
 		compose.OAuth2TokenRevocationFactory,
+		compose.OpenIDConnectExplicitFactory,
+		compose.OpenIDConnectRefreshFactory,
 	)
 }
 
@@ -97,8 +101,28 @@ func loadOrGenerateKey(path string) (*rsa.PrivateKey, error) {
 	return key, nil
 }
 
-func loadKey(path string) (*rsa.PrivateKey, error) {
-	data, err := os.ReadFile(path) //nolint:gosec // path from config
+func loadKey(path string) (key *rsa.PrivateKey, err error) {
+	root, filename, err := openKeyRoot(path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if cerr := root.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
+
+	f, err := root.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if cerr := f.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
+
+	data, err := io.ReadAll(f)
 	if err != nil {
 		return nil, err
 	}
@@ -111,15 +135,57 @@ func loadKey(path string) (*rsa.PrivateKey, error) {
 	return x509.ParsePKCS1PrivateKey(block.Bytes)
 }
 
-func saveKey(path string, key *rsa.PrivateKey) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+func openKeyRoot(path string) (*os.Root, string, error) {
+	cleanPath := filepath.Clean(path)
+	dir := filepath.Dir(cleanPath)
+	filename := filepath.Base(cleanPath)
+
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return root, filename, nil
+}
+
+func saveKey(path string, key *rsa.PrivateKey) (err error) {
+	cleanPath := filepath.Clean(path)
+	dir := filepath.Dir(cleanPath)
+	filename := filepath.Base(cleanPath)
+
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
+
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if cerr := root.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
 
 	data := pem.EncodeToMemory(&pem.Block{
 		Type:  "RSA PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(key),
 	})
 
-	return os.WriteFile(path, data, 0o600)
+	f, err := root.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if cerr := f.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
+
+	if err := f.Chmod(0o600); err != nil {
+		return err
+	}
+
+	_, err = f.Write(data)
+	return err
 }

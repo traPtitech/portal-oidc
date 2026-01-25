@@ -47,9 +47,12 @@ type ServerInterface interface {
 	// トークンエンドポイント
 	// (POST /oauth2/token)
 	Token(ctx echo.Context) error
-	// UserInfo エンドポイント
+	// UserInfo エンドポイント (GET)
 	// (GET /oauth2/userinfo)
 	GetUserInfo(ctx echo.Context) error
+	// UserInfo エンドポイント (POST)
+	// (POST /oauth2/userinfo)
+	PostUserInfo(ctx echo.Context) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
@@ -244,6 +247,17 @@ func (w *ServerInterfaceWrapper) GetUserInfo(ctx echo.Context) error {
 	return err
 }
 
+// PostUserInfo converts echo context to params.
+func (w *ServerInterfaceWrapper) PostUserInfo(ctx echo.Context) error {
+	var err error
+
+	ctx.Set(BearerAuthScopes, []string{})
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.PostUserInfo(ctx)
+	return err
+}
+
 // This is a simple interface which specifies echo.Route addition functions which
 // are present on both echo.Echo and echo.Group, since we want to allow using
 // either of them for path registration
@@ -283,6 +297,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.GET(baseURL+"/oauth2/authorize", wrapper.Authorize)
 	router.POST(baseURL+"/oauth2/token", wrapper.Token)
 	router.GET(baseURL+"/oauth2/userinfo", wrapper.GetUserInfo)
+	router.POST(baseURL+"/oauth2/userinfo", wrapper.PostUserInfo)
 
 }
 
@@ -599,6 +614,30 @@ func (response GetUserInfo401Response) VisitGetUserInfoResponse(w http.ResponseW
 	return nil
 }
 
+type PostUserInfoRequestObject struct {
+}
+
+type PostUserInfoResponseObject interface {
+	VisitPostUserInfoResponse(w http.ResponseWriter) error
+}
+
+type PostUserInfo200JSONResponse UserInfo
+
+func (response PostUserInfo200JSONResponse) VisitPostUserInfoResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PostUserInfo401Response struct {
+}
+
+func (response PostUserInfo401Response) VisitPostUserInfoResponse(w http.ResponseWriter) error {
+	w.WriteHeader(401)
+	return nil
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// JSON Web Key Set
@@ -631,9 +670,12 @@ type StrictServerInterface interface {
 	// トークンエンドポイント
 	// (POST /oauth2/token)
 	Token(ctx context.Context, request TokenRequestObject) (TokenResponseObject, error)
-	// UserInfo エンドポイント
+	// UserInfo エンドポイント (GET)
 	// (GET /oauth2/userinfo)
 	GetUserInfo(ctx context.Context, request GetUserInfoRequestObject) (GetUserInfoResponseObject, error)
+	// UserInfo エンドポイント (POST)
+	// (POST /oauth2/userinfo)
+	PostUserInfo(ctx context.Context, request PostUserInfoRequestObject) (PostUserInfoResponseObject, error)
 }
 
 type StrictHandlerFunc = strictecho.StrictEchoHandlerFunc
@@ -927,6 +969,29 @@ func (sh *strictHandler) GetUserInfo(ctx echo.Context) error {
 		return err
 	} else if validResponse, ok := response.(GetUserInfoResponseObject); ok {
 		return validResponse.VisitGetUserInfoResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// PostUserInfo operation middleware
+func (sh *strictHandler) PostUserInfo(ctx echo.Context) error {
+	var request PostUserInfoRequestObject
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.PostUserInfo(ctx.Request().Context(), request.(PostUserInfoRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostUserInfo")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(PostUserInfoResponseObject); ok {
+		return validResponse.VisitPostUserInfoResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}

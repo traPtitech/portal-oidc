@@ -173,8 +173,25 @@ paths:
   /oauth2/userinfo:
     get:
       operationId: getUserInfo
-      summary: UserInfo エンドポイント
+      summary: UserInfo エンドポイント (GET)
       description: アクセストークンに紐づくユーザー情報を返却
+      tags:
+        - oauth2/oidc
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserInfo"
+        "401":
+          description: Unauthorized
+    post:
+      operationId: postUserInfo
+      summary: UserInfo エンドポイント (POST)
+      description: アクセストークンに紐づくユーザー情報を返却 (OIDC Core 1.0 準拠)
       tags:
         - oauth2/oidc
       security:
