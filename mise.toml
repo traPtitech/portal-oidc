@@ -14,10 +14,6 @@ pre-commit = "latest"
 description = "開発環境起動 (Docker + Air ホットリロード)"
 run = "docker compose up"
 
-[tasks.down]
-description = "全コンテナ停止"
-run = "docker compose down"
-
 [tasks.setup]
 description = "開発環境セットアップ (pre-commit hooks インストール)"
 run = "pre-commit install"

@@ -31,12 +31,6 @@ docker compose --profile tools up
 
 http://localhost:3001 でアクセス可能。
 
-### コンテナ停止
-
-```bash
-mise run down
-```
-
 ## 開発フロー
 
 ### 1. ブランチ作成
