@@ -24,20 +24,68 @@ func New(db DBTX) *Queries {
 func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	q := Queries{db: db}
 	var err error
+	if q.createAuthorizationCodeStmt, err = db.PrepareContext(ctx, createAuthorizationCode); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateAuthorizationCode: %w", err)
+	}
 	if q.createClientStmt, err = db.PrepareContext(ctx, createClient); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateClient: %w", err)
+	}
+	if q.createTokenStmt, err = db.PrepareContext(ctx, createToken); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateToken: %w", err)
+	}
+	if q.deleteAllAuthorizationCodesStmt, err = db.PrepareContext(ctx, deleteAllAuthorizationCodes); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteAllAuthorizationCodes: %w", err)
 	}
 	if q.deleteAllClientsStmt, err = db.PrepareContext(ctx, deleteAllClients); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteAllClients: %w", err)
 	}
+	if q.deleteAllTokensStmt, err = db.PrepareContext(ctx, deleteAllTokens); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteAllTokens: %w", err)
+	}
+	if q.deleteAuthorizationCodeStmt, err = db.PrepareContext(ctx, deleteAuthorizationCode); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteAuthorizationCode: %w", err)
+	}
 	if q.deleteClientStmt, err = db.PrepareContext(ctx, deleteClient); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteClient: %w", err)
+	}
+	if q.deleteExpiredAuthorizationCodesStmt, err = db.PrepareContext(ctx, deleteExpiredAuthorizationCodes); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteExpiredAuthorizationCodes: %w", err)
+	}
+	if q.deleteExpiredTokensStmt, err = db.PrepareContext(ctx, deleteExpiredTokens); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteExpiredTokens: %w", err)
+	}
+	if q.deleteTokenStmt, err = db.PrepareContext(ctx, deleteToken); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteToken: %w", err)
+	}
+	if q.deleteTokenByAccessTokenStmt, err = db.PrepareContext(ctx, deleteTokenByAccessToken); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteTokenByAccessToken: %w", err)
+	}
+	if q.deleteTokenByRefreshTokenStmt, err = db.PrepareContext(ctx, deleteTokenByRefreshToken); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteTokenByRefreshToken: %w", err)
+	}
+	if q.deleteTokensByUserAndClientStmt, err = db.PrepareContext(ctx, deleteTokensByUserAndClient); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteTokensByUserAndClient: %w", err)
+	}
+	if q.getAuthorizationCodeStmt, err = db.PrepareContext(ctx, getAuthorizationCode); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAuthorizationCode: %w", err)
 	}
 	if q.getClientStmt, err = db.PrepareContext(ctx, getClient); err != nil {
 		return nil, fmt.Errorf("error preparing query GetClient: %w", err)
 	}
+	if q.getTokenByAccessTokenStmt, err = db.PrepareContext(ctx, getTokenByAccessToken); err != nil {
+		return nil, fmt.Errorf("error preparing query GetTokenByAccessToken: %w", err)
+	}
+	if q.getTokenByIDStmt, err = db.PrepareContext(ctx, getTokenByID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetTokenByID: %w", err)
+	}
+	if q.getTokenByRefreshTokenStmt, err = db.PrepareContext(ctx, getTokenByRefreshToken); err != nil {
+		return nil, fmt.Errorf("error preparing query GetTokenByRefreshToken: %w", err)
+	}
 	if q.listClientsStmt, err = db.PrepareContext(ctx, listClients); err != nil {
 		return nil, fmt.Errorf("error preparing query ListClients: %w", err)
+	}
+	if q.updateAuthorizationCodePKCEStmt, err = db.PrepareContext(ctx, updateAuthorizationCodePKCE); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateAuthorizationCodePKCE: %w", err)
 	}
 	if q.updateClientStmt, err = db.PrepareContext(ctx, updateClient); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateClient: %w", err)
@@ -50,9 +98,24 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 
 func (q *Queries) Close() error {
 	var err error
+	if q.createAuthorizationCodeStmt != nil {
+		if cerr := q.createAuthorizationCodeStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createAuthorizationCodeStmt: %w", cerr)
+		}
+	}
 	if q.createClientStmt != nil {
 		if cerr := q.createClientStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createClientStmt: %w", cerr)
+		}
+	}
+	if q.createTokenStmt != nil {
+		if cerr := q.createTokenStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createTokenStmt: %w", cerr)
+		}
+	}
+	if q.deleteAllAuthorizationCodesStmt != nil {
+		if cerr := q.deleteAllAuthorizationCodesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteAllAuthorizationCodesStmt: %w", cerr)
 		}
 	}
 	if q.deleteAllClientsStmt != nil {
@@ -60,9 +123,54 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deleteAllClientsStmt: %w", cerr)
 		}
 	}
+	if q.deleteAllTokensStmt != nil {
+		if cerr := q.deleteAllTokensStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteAllTokensStmt: %w", cerr)
+		}
+	}
+	if q.deleteAuthorizationCodeStmt != nil {
+		if cerr := q.deleteAuthorizationCodeStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteAuthorizationCodeStmt: %w", cerr)
+		}
+	}
 	if q.deleteClientStmt != nil {
 		if cerr := q.deleteClientStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteClientStmt: %w", cerr)
+		}
+	}
+	if q.deleteExpiredAuthorizationCodesStmt != nil {
+		if cerr := q.deleteExpiredAuthorizationCodesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteExpiredAuthorizationCodesStmt: %w", cerr)
+		}
+	}
+	if q.deleteExpiredTokensStmt != nil {
+		if cerr := q.deleteExpiredTokensStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteExpiredTokensStmt: %w", cerr)
+		}
+	}
+	if q.deleteTokenStmt != nil {
+		if cerr := q.deleteTokenStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteTokenStmt: %w", cerr)
+		}
+	}
+	if q.deleteTokenByAccessTokenStmt != nil {
+		if cerr := q.deleteTokenByAccessTokenStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteTokenByAccessTokenStmt: %w", cerr)
+		}
+	}
+	if q.deleteTokenByRefreshTokenStmt != nil {
+		if cerr := q.deleteTokenByRefreshTokenStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteTokenByRefreshTokenStmt: %w", cerr)
+		}
+	}
+	if q.deleteTokensByUserAndClientStmt != nil {
+		if cerr := q.deleteTokensByUserAndClientStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteTokensByUserAndClientStmt: %w", cerr)
+		}
+	}
+	if q.getAuthorizationCodeStmt != nil {
+		if cerr := q.getAuthorizationCodeStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAuthorizationCodeStmt: %w", cerr)
 		}
 	}
 	if q.getClientStmt != nil {
@@ -70,9 +178,29 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getClientStmt: %w", cerr)
 		}
 	}
+	if q.getTokenByAccessTokenStmt != nil {
+		if cerr := q.getTokenByAccessTokenStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getTokenByAccessTokenStmt: %w", cerr)
+		}
+	}
+	if q.getTokenByIDStmt != nil {
+		if cerr := q.getTokenByIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getTokenByIDStmt: %w", cerr)
+		}
+	}
+	if q.getTokenByRefreshTokenStmt != nil {
+		if cerr := q.getTokenByRefreshTokenStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getTokenByRefreshTokenStmt: %w", cerr)
+		}
+	}
 	if q.listClientsStmt != nil {
 		if cerr := q.listClientsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing listClientsStmt: %w", cerr)
+		}
+	}
+	if q.updateAuthorizationCodePKCEStmt != nil {
+		if cerr := q.updateAuthorizationCodePKCEStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateAuthorizationCodePKCEStmt: %w", cerr)
 		}
 	}
 	if q.updateClientStmt != nil {
@@ -122,27 +250,59 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 }
 
 type Queries struct {
-	db                     DBTX
-	tx                     *sql.Tx
-	createClientStmt       *sql.Stmt
-	deleteAllClientsStmt   *sql.Stmt
-	deleteClientStmt       *sql.Stmt
-	getClientStmt          *sql.Stmt
-	listClientsStmt        *sql.Stmt
-	updateClientStmt       *sql.Stmt
-	updateClientSecretStmt *sql.Stmt
+	db                                  DBTX
+	tx                                  *sql.Tx
+	createAuthorizationCodeStmt         *sql.Stmt
+	createClientStmt                    *sql.Stmt
+	createTokenStmt                     *sql.Stmt
+	deleteAllAuthorizationCodesStmt     *sql.Stmt
+	deleteAllClientsStmt                *sql.Stmt
+	deleteAllTokensStmt                 *sql.Stmt
+	deleteAuthorizationCodeStmt         *sql.Stmt
+	deleteClientStmt                    *sql.Stmt
+	deleteExpiredAuthorizationCodesStmt *sql.Stmt
+	deleteExpiredTokensStmt             *sql.Stmt
+	deleteTokenStmt                     *sql.Stmt
+	deleteTokenByAccessTokenStmt        *sql.Stmt
+	deleteTokenByRefreshTokenStmt       *sql.Stmt
+	deleteTokensByUserAndClientStmt     *sql.Stmt
+	getAuthorizationCodeStmt            *sql.Stmt
+	getClientStmt                       *sql.Stmt
+	getTokenByAccessTokenStmt           *sql.Stmt
+	getTokenByIDStmt                    *sql.Stmt
+	getTokenByRefreshTokenStmt          *sql.Stmt
+	listClientsStmt                     *sql.Stmt
+	updateAuthorizationCodePKCEStmt     *sql.Stmt
+	updateClientStmt                    *sql.Stmt
+	updateClientSecretStmt              *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
-		db:                     tx,
-		tx:                     tx,
-		createClientStmt:       q.createClientStmt,
-		deleteAllClientsStmt:   q.deleteAllClientsStmt,
-		deleteClientStmt:       q.deleteClientStmt,
-		getClientStmt:          q.getClientStmt,
-		listClientsStmt:        q.listClientsStmt,
-		updateClientStmt:       q.updateClientStmt,
-		updateClientSecretStmt: q.updateClientSecretStmt,
+		db:                                  tx,
+		tx:                                  tx,
+		createAuthorizationCodeStmt:         q.createAuthorizationCodeStmt,
+		createClientStmt:                    q.createClientStmt,
+		createTokenStmt:                     q.createTokenStmt,
+		deleteAllAuthorizationCodesStmt:     q.deleteAllAuthorizationCodesStmt,
+		deleteAllClientsStmt:                q.deleteAllClientsStmt,
+		deleteAllTokensStmt:                 q.deleteAllTokensStmt,
+		deleteAuthorizationCodeStmt:         q.deleteAuthorizationCodeStmt,
+		deleteClientStmt:                    q.deleteClientStmt,
+		deleteExpiredAuthorizationCodesStmt: q.deleteExpiredAuthorizationCodesStmt,
+		deleteExpiredTokensStmt:             q.deleteExpiredTokensStmt,
+		deleteTokenStmt:                     q.deleteTokenStmt,
+		deleteTokenByAccessTokenStmt:        q.deleteTokenByAccessTokenStmt,
+		deleteTokenByRefreshTokenStmt:       q.deleteTokenByRefreshTokenStmt,
+		deleteTokensByUserAndClientStmt:     q.deleteTokensByUserAndClientStmt,
+		getAuthorizationCodeStmt:            q.getAuthorizationCodeStmt,
+		getClientStmt:                       q.getClientStmt,
+		getTokenByAccessTokenStmt:           q.getTokenByAccessTokenStmt,
+		getTokenByIDStmt:                    q.getTokenByIDStmt,
+		getTokenByRefreshTokenStmt:          q.getTokenByRefreshTokenStmt,
+		listClientsStmt:                     q.listClientsStmt,
+		updateAuthorizationCodePKCEStmt:     q.updateAuthorizationCodePKCEStmt,
+		updateClientStmt:                    q.updateClientStmt,
+		updateClientSecretStmt:              q.updateClientSecretStmt,
 	}
 }
