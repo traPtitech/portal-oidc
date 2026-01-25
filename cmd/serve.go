@@ -52,6 +52,7 @@ func newServer(cfg Config) (http.Handler, error) {
 	)
 
 	e := echo.New()
+	e.Use(middleware.Recover())
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
 		AllowHeaders: []string{"*"},
@@ -61,6 +62,9 @@ func newServer(cfg Config) (http.Handler, error) {
 	e.GET("/login", handler.GetLogin)
 	e.POST("/login", handler.PostLogin)
 	e.GET("/logout", handler.Logout)
+	e.GET("/health", func(c echo.Context) error {
+		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+	})
 
 	return e, nil
 }
