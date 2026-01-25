@@ -88,7 +88,3 @@ mise run test
 # カバレッジ付き
 mise run test:coverage
 ```
-
-## 質問・相談
-
-Issue または traP の Slack で気軽にどうぞ。
