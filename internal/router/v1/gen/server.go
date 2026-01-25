@@ -4,17 +4,124 @@
 package gen
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+
 	"github.com/labstack/echo/v4"
+	"github.com/oapi-codegen/runtime"
 	strictecho "github.com/oapi-codegen/runtime/strictmiddleware/echo"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// クライアント一覧取得
+	// (GET /api/v1/admin/clients)
+	GetClients(ctx echo.Context) error
+	// クライアント作成
+	// (POST /api/v1/admin/clients)
+	CreateClient(ctx echo.Context) error
+	// クライアント削除
+	// (DELETE /api/v1/admin/clients/{clientId})
+	DeleteClient(ctx echo.Context, clientId openapi_types.UUID) error
+	// クライアント取得
+	// (GET /api/v1/admin/clients/{clientId})
+	GetClient(ctx echo.Context, clientId openapi_types.UUID) error
+	// クライアント更新
+	// (PUT /api/v1/admin/clients/{clientId})
+	UpdateClient(ctx echo.Context, clientId openapi_types.UUID) error
+	// クライアントシークレット再生成
+	// (POST /api/v1/admin/clients/{clientId}/secret)
+	RegenerateClientSecret(ctx echo.Context, clientId openapi_types.UUID) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
 type ServerInterfaceWrapper struct {
 	Handler ServerInterface
+}
+
+// GetClients converts echo context to params.
+func (w *ServerInterfaceWrapper) GetClients(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetClients(ctx)
+	return err
+}
+
+// CreateClient converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateClient(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateClient(ctx)
+	return err
+}
+
+// DeleteClient converts echo context to params.
+func (w *ServerInterfaceWrapper) DeleteClient(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "clientId" -------------
+	var clientId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "clientId", ctx.Param("clientId"), &clientId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter clientId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.DeleteClient(ctx, clientId)
+	return err
+}
+
+// GetClient converts echo context to params.
+func (w *ServerInterfaceWrapper) GetClient(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "clientId" -------------
+	var clientId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "clientId", ctx.Param("clientId"), &clientId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter clientId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetClient(ctx, clientId)
+	return err
+}
+
+// UpdateClient converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateClient(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "clientId" -------------
+	var clientId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "clientId", ctx.Param("clientId"), &clientId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter clientId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateClient(ctx, clientId)
+	return err
+}
+
+// RegenerateClientSecret converts echo context to params.
+func (w *ServerInterfaceWrapper) RegenerateClientSecret(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "clientId" -------------
+	var clientId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "clientId", ctx.Param("clientId"), &clientId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter clientId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.RegenerateClientSecret(ctx, clientId)
+	return err
 }
 
 // This is a simple interface which specifies echo.Route addition functions which
@@ -41,10 +148,236 @@ func RegisterHandlers(router EchoRouter, si ServerInterface) {
 // can be served under a prefix.
 func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL string) {
 
+	wrapper := ServerInterfaceWrapper{
+		Handler: si,
+	}
+
+	router.GET(baseURL+"/api/v1/admin/clients", wrapper.GetClients)
+	router.POST(baseURL+"/api/v1/admin/clients", wrapper.CreateClient)
+	router.DELETE(baseURL+"/api/v1/admin/clients/:clientId", wrapper.DeleteClient)
+	router.GET(baseURL+"/api/v1/admin/clients/:clientId", wrapper.GetClient)
+	router.PUT(baseURL+"/api/v1/admin/clients/:clientId", wrapper.UpdateClient)
+	router.POST(baseURL+"/api/v1/admin/clients/:clientId/secret", wrapper.RegenerateClientSecret)
+
+}
+
+type GetClientsRequestObject struct {
+}
+
+type GetClientsResponseObject interface {
+	VisitGetClientsResponse(w http.ResponseWriter) error
+}
+
+type GetClients200JSONResponse []Client
+
+func (response GetClients200JSONResponse) VisitGetClientsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetClients401Response struct {
+}
+
+func (response GetClients401Response) VisitGetClientsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(401)
+	return nil
+}
+
+type CreateClientRequestObject struct {
+	Body *CreateClientJSONRequestBody
+}
+
+type CreateClientResponseObject interface {
+	VisitCreateClientResponse(w http.ResponseWriter) error
+}
+
+type CreateClient201JSONResponse ClientWithSecret
+
+func (response CreateClient201JSONResponse) VisitCreateClientResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateClient400Response struct {
+}
+
+func (response CreateClient400Response) VisitCreateClientResponse(w http.ResponseWriter) error {
+	w.WriteHeader(400)
+	return nil
+}
+
+type CreateClient401Response struct {
+}
+
+func (response CreateClient401Response) VisitCreateClientResponse(w http.ResponseWriter) error {
+	w.WriteHeader(401)
+	return nil
+}
+
+type DeleteClientRequestObject struct {
+	ClientId openapi_types.UUID `json:"clientId"`
+}
+
+type DeleteClientResponseObject interface {
+	VisitDeleteClientResponse(w http.ResponseWriter) error
+}
+
+type DeleteClient204Response struct {
+}
+
+func (response DeleteClient204Response) VisitDeleteClientResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteClient401Response struct {
+}
+
+func (response DeleteClient401Response) VisitDeleteClientResponse(w http.ResponseWriter) error {
+	w.WriteHeader(401)
+	return nil
+}
+
+type DeleteClient404Response struct {
+}
+
+func (response DeleteClient404Response) VisitDeleteClientResponse(w http.ResponseWriter) error {
+	w.WriteHeader(404)
+	return nil
+}
+
+type GetClientRequestObject struct {
+	ClientId openapi_types.UUID `json:"clientId"`
+}
+
+type GetClientResponseObject interface {
+	VisitGetClientResponse(w http.ResponseWriter) error
+}
+
+type GetClient200JSONResponse Client
+
+func (response GetClient200JSONResponse) VisitGetClientResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetClient401Response struct {
+}
+
+func (response GetClient401Response) VisitGetClientResponse(w http.ResponseWriter) error {
+	w.WriteHeader(401)
+	return nil
+}
+
+type GetClient404Response struct {
+}
+
+func (response GetClient404Response) VisitGetClientResponse(w http.ResponseWriter) error {
+	w.WriteHeader(404)
+	return nil
+}
+
+type UpdateClientRequestObject struct {
+	ClientId openapi_types.UUID `json:"clientId"`
+	Body     *UpdateClientJSONRequestBody
+}
+
+type UpdateClientResponseObject interface {
+	VisitUpdateClientResponse(w http.ResponseWriter) error
+}
+
+type UpdateClient200JSONResponse Client
+
+func (response UpdateClient200JSONResponse) VisitUpdateClientResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateClient400Response struct {
+}
+
+func (response UpdateClient400Response) VisitUpdateClientResponse(w http.ResponseWriter) error {
+	w.WriteHeader(400)
+	return nil
+}
+
+type UpdateClient401Response struct {
+}
+
+func (response UpdateClient401Response) VisitUpdateClientResponse(w http.ResponseWriter) error {
+	w.WriteHeader(401)
+	return nil
+}
+
+type UpdateClient404Response struct {
+}
+
+func (response UpdateClient404Response) VisitUpdateClientResponse(w http.ResponseWriter) error {
+	w.WriteHeader(404)
+	return nil
+}
+
+type RegenerateClientSecretRequestObject struct {
+	ClientId openapi_types.UUID `json:"clientId"`
+}
+
+type RegenerateClientSecretResponseObject interface {
+	VisitRegenerateClientSecretResponse(w http.ResponseWriter) error
+}
+
+type RegenerateClientSecret200JSONResponse ClientSecret
+
+func (response RegenerateClientSecret200JSONResponse) VisitRegenerateClientSecretResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RegenerateClientSecret401Response struct {
+}
+
+func (response RegenerateClientSecret401Response) VisitRegenerateClientSecretResponse(w http.ResponseWriter) error {
+	w.WriteHeader(401)
+	return nil
+}
+
+type RegenerateClientSecret404Response struct {
+}
+
+func (response RegenerateClientSecret404Response) VisitRegenerateClientSecretResponse(w http.ResponseWriter) error {
+	w.WriteHeader(404)
+	return nil
 }
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// クライアント一覧取得
+	// (GET /api/v1/admin/clients)
+	GetClients(ctx context.Context, request GetClientsRequestObject) (GetClientsResponseObject, error)
+	// クライアント作成
+	// (POST /api/v1/admin/clients)
+	CreateClient(ctx context.Context, request CreateClientRequestObject) (CreateClientResponseObject, error)
+	// クライアント削除
+	// (DELETE /api/v1/admin/clients/{clientId})
+	DeleteClient(ctx context.Context, request DeleteClientRequestObject) (DeleteClientResponseObject, error)
+	// クライアント取得
+	// (GET /api/v1/admin/clients/{clientId})
+	GetClient(ctx context.Context, request GetClientRequestObject) (GetClientResponseObject, error)
+	// クライアント更新
+	// (PUT /api/v1/admin/clients/{clientId})
+	UpdateClient(ctx context.Context, request UpdateClientRequestObject) (UpdateClientResponseObject, error)
+	// クライアントシークレット再生成
+	// (POST /api/v1/admin/clients/{clientId}/secret)
+	RegenerateClientSecret(ctx context.Context, request RegenerateClientSecretRequestObject) (RegenerateClientSecretResponseObject, error)
 }
 
 type StrictHandlerFunc = strictecho.StrictEchoHandlerFunc
@@ -57,4 +390,162 @@ func NewStrictHandler(ssi StrictServerInterface, middlewares []StrictMiddlewareF
 type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
+}
+
+// GetClients operation middleware
+func (sh *strictHandler) GetClients(ctx echo.Context) error {
+	var request GetClientsRequestObject
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetClients(ctx.Request().Context(), request.(GetClientsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetClients")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetClientsResponseObject); ok {
+		return validResponse.VisitGetClientsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateClient operation middleware
+func (sh *strictHandler) CreateClient(ctx echo.Context) error {
+	var request CreateClientRequestObject
+
+	var body CreateClientJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateClient(ctx.Request().Context(), request.(CreateClientRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateClient")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateClientResponseObject); ok {
+		return validResponse.VisitCreateClientResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeleteClient operation middleware
+func (sh *strictHandler) DeleteClient(ctx echo.Context, clientId openapi_types.UUID) error {
+	var request DeleteClientRequestObject
+
+	request.ClientId = clientId
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteClient(ctx.Request().Context(), request.(DeleteClientRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteClient")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(DeleteClientResponseObject); ok {
+		return validResponse.VisitDeleteClientResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetClient operation middleware
+func (sh *strictHandler) GetClient(ctx echo.Context, clientId openapi_types.UUID) error {
+	var request GetClientRequestObject
+
+	request.ClientId = clientId
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetClient(ctx.Request().Context(), request.(GetClientRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetClient")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetClientResponseObject); ok {
+		return validResponse.VisitGetClientResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateClient operation middleware
+func (sh *strictHandler) UpdateClient(ctx echo.Context, clientId openapi_types.UUID) error {
+	var request UpdateClientRequestObject
+
+	request.ClientId = clientId
+
+	var body UpdateClientJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateClient(ctx.Request().Context(), request.(UpdateClientRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateClient")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateClientResponseObject); ok {
+		return validResponse.VisitUpdateClientResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// RegenerateClientSecret operation middleware
+func (sh *strictHandler) RegenerateClientSecret(ctx echo.Context, clientId openapi_types.UUID) error {
+	var request RegenerateClientSecretRequestObject
+
+	request.ClientId = clientId
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.RegenerateClientSecret(ctx.Request().Context(), request.(RegenerateClientSecretRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RegenerateClientSecret")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(RegenerateClientSecretResponseObject); ok {
+		return validResponse.VisitRegenerateClientSecretResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
 }
