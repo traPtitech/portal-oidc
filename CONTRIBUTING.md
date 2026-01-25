@@ -4,11 +4,8 @@
 
 ### 必要なツール
 
-- [mise](https://mise.jdx.dev/) (推奨) または以下を個別インストール
-  - Go 1.25+
-  - golangci-lint
-  - sqlc
-  - Docker / Docker Compose
+- Docker / Docker Compose
+- [mise](https://mise.jdx.dev/) (コード生成・リント用)
 
 ### セットアップ手順
 
@@ -16,17 +13,32 @@
 # 依存ツールのインストール
 mise install
 
-# DB 起動
+# pre-commit hooks のセットアップ
+mise run setup
+
+# 開発サーバー起動 (Air によるホットリロード)
+docker compose up
+```
+
+これで http://localhost:8080 でサーバーが起動します。
+コードを変更すると自動的にリビルド・再起動されます。
+
+### Adminer (DB 管理 UI)
+
+```bash
+docker compose --profile tools up
+```
+
+http://localhost:3001 でアクセス可能。
+
+### ローカル実行 (Docker なし)
+
+```bash
+# DB のみ起動
 mise run start:db
 
 # サーバー起動
 mise run start:server
-```
-
-### Docker を使う場合
-
-```bash
-docker compose up
 ```
 
 ## 開発フロー
@@ -64,12 +76,6 @@ mise run test
 - タイトルは Conventional Commits 形式
 - 変更内容を簡潔に説明
 - 関連 Issue があればリンク
-
-## Pre-commit hooks (推奨)
-
-```bash
-mise run setup
-```
 
 ## コードスタイル
 
