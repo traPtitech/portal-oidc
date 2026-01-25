@@ -12,13 +12,19 @@ import (
 
 	"github.com/traPtitech/portal-oidc/internal/repository"
 	"github.com/traPtitech/portal-oidc/internal/repository/oidc"
+	"github.com/traPtitech/portal-oidc/internal/repository/portal"
 	v1 "github.com/traPtitech/portal-oidc/internal/router/v1"
 	"github.com/traPtitech/portal-oidc/internal/router/v1/gen"
 	"github.com/traPtitech/portal-oidc/internal/usecase"
 )
 
 func newServer(cfg Config) (http.Handler, error) {
-	queries, err := setupDatabase(cfg.Database)
+	queries, err := setupOIDCDatabase(cfg.Database)
+	if err != nil {
+		return nil, err
+	}
+
+	portalQueries, err := setupPortalDatabase(cfg.Portal.Database)
 	if err != nil {
 		return nil, err
 	}
@@ -42,6 +48,7 @@ func newServer(cfg Config) (http.Handler, error) {
 	handler := v1.NewHandler(
 		usecase.NewClientUseCase(repository.NewClientRepository(queries)),
 		oauth2Provider,
+		repository.NewUserRepository(portalQueries),
 		v1.OAuthConfig{
 			Issuer:        cfg.Host,
 			SessionSecret: []byte(cfg.OAuth.Secret),
@@ -69,22 +76,43 @@ func newServer(cfg Config) (http.Handler, error) {
 	return e, nil
 }
 
-func setupDatabase(cfg DatabaseConfig) (*oidc.Queries, error) {
+func setupOIDCDatabase(cfg DatabaseConfig) (*oidc.Queries, error) {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
 		cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.Name)
 
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open database: %w", err)
+		return nil, fmt.Errorf("failed to open oidc database: %w", err)
 	}
 
 	if err := db.PingContext(context.Background()); err != nil {
-		return nil, fmt.Errorf("failed to ping database: %w", err)
+		return nil, fmt.Errorf("failed to ping oidc database: %w", err)
 	}
 
 	queries, err := oidc.Prepare(context.Background(), db)
 	if err != nil {
-		return nil, fmt.Errorf("failed to prepare queries: %w", err)
+		return nil, fmt.Errorf("failed to prepare oidc queries: %w", err)
+	}
+
+	return queries, nil
+}
+
+func setupPortalDatabase(cfg DatabaseConfig) (*portal.Queries, error) {
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
+		cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.Name)
+
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open portal database: %w", err)
+	}
+
+	if err := db.PingContext(context.Background()); err != nil {
+		return nil, fmt.Errorf("failed to ping portal database: %w", err)
+	}
+
+	queries, err := portal.Prepare(context.Background(), db)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare portal queries: %w", err)
 	}
 
 	return queries, nil

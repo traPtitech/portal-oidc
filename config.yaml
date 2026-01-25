@@ -8,5 +8,13 @@ database:
   password: password
   name: oidc
 
+portal:
+  database:
+    host: localhost
+    port: 3306
+    user: root
+    password: password
+    name: portal
+
 oauth:
   test_user_id: testuser

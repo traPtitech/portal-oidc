@@ -1,10 +1,13 @@
 package v1
 
 import (
+	"errors"
 	"html"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+
+	"github.com/traPtitech/portal-oidc/internal/repository"
 )
 
 const sessionName = "oidc_session"
@@ -13,6 +16,11 @@ func (h *Handler) GetLogin(ctx echo.Context) error {
 	returnURL := ctx.QueryParam("return_url")
 	if returnURL == "" {
 		returnURL = "/"
+	}
+
+	devNote := ""
+	if h.config.Environment != "production" {
+		devNote = `<p style="color: gray; font-size: 12px;">Test user: testuser / password</p>`
 	}
 
 	page := `<!DOCTYPE html>
@@ -31,11 +39,11 @@ func (h *Handler) GetLogin(ctx echo.Context) error {
     <h1>Login</h1>
     <form method="POST" action="/login">
         <input type="hidden" name="return_url" value="` + html.EscapeString(returnURL) + `">
-        <input type="text" name="username" placeholder="Username" required>
+        <input type="text" name="username" placeholder="traP ID" required>
         <input type="password" name="password" placeholder="Password" required>
         <button type="submit">Login</button>
     </form>
-    <p style="color: gray; font-size: 12px;">Test user: testuser / password</p>
+    ` + devNote + `
 </body>
 </html>`
 
@@ -47,7 +55,16 @@ func (h *Handler) PostLogin(ctx echo.Context) error {
 	password := ctx.FormValue("password")
 	returnURL := ctx.FormValue("return_url")
 
-	if username != "testuser" || password != "password" {
+	var userID string
+	var err error
+
+	if h.config.Environment != "production" {
+		userID, err = h.authenticateTestUser(username, password)
+	} else {
+		userID, err = h.authenticatePortalUser(ctx, username, password)
+	}
+
+	if err != nil {
 		return ctx.HTML(http.StatusUnauthorized, `<!DOCTYPE html>
 <html>
 <head><title>Login Failed</title></head>
@@ -64,7 +81,7 @@ func (h *Handler) PostLogin(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get session")
 	}
 
-	session.Values["user_id"] = username
+	session.Values["user_id"] = userID
 	session.Values["authenticated"] = true
 
 	if err := session.Save(ctx.Request(), ctx.Response()); err != nil {
@@ -75,6 +92,27 @@ func (h *Handler) PostLogin(ctx echo.Context) error {
 		returnURL = "/"
 	}
 	return ctx.Redirect(http.StatusFound, returnURL)
+}
+
+func (h *Handler) authenticateTestUser(username, password string) (string, error) {
+	if username == "testuser" && password == "password" {
+		return h.config.TestUserID, nil
+	}
+	return "", errors.New("invalid credentials")
+}
+
+func (h *Handler) authenticatePortalUser(ctx echo.Context, trapID, password string) (string, error) {
+	user, err := h.userRepo.Authenticate(ctx.Request().Context(), trapID, password)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) ||
+			errors.Is(err, repository.ErrInvalidPassword) ||
+			errors.Is(err, repository.ErrUserNotActive) {
+			return "", errors.New("authentication failed")
+		}
+		return "", err
+	}
+
+	return user.ID, nil
 }
 
 func (h *Handler) Logout(ctx echo.Context) error {

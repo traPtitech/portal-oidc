@@ -15,7 +15,12 @@ type Config struct {
 	Host        string         `koanf:"host"`
 	Environment string         `koanf:"environment"`
 	Database    DatabaseConfig `koanf:"database"`
+	Portal      PortalConfig   `koanf:"portal"`
 	OAuth       OAuthConfig    `koanf:"oauth"`
+}
+
+type PortalConfig struct {
+	Database DatabaseConfig `koanf:"database"`
 }
 
 type DatabaseConfig struct {
@@ -33,16 +38,21 @@ type OAuthConfig struct {
 }
 
 var defaults = map[string]any{
-	"host":               "http://localhost:8080",
-	"environment":        "development",
-	"database.host":      "localhost",
-	"database.port":      3307,
-	"database.user":      "root",
-	"database.password":  "password",
-	"database.name":      "oidc",
-	"oauth.secret":       "my-super-secret-signing-key-32!!",
-	"oauth.key_file":     "data/private.pem",
-	"oauth.test_user_id": "testuser",
+	"host":                     "http://localhost:8080",
+	"environment":              "development",
+	"database.host":            "localhost",
+	"database.port":            3307,
+	"database.user":            "root",
+	"database.password":        "password",
+	"database.name":            "oidc",
+	"portal.database.host":     "localhost",
+	"portal.database.port":     3306,
+	"portal.database.user":     "root",
+	"portal.database.password": "password",
+	"portal.database.name":     "portal",
+	"oauth.secret":             "my-super-secret-signing-key-32!!",
+	"oauth.key_file":           "data/private.pem",
+	"oauth.test_user_id":       "testuser",
 }
 
 func loadConfig(configPath string) (*Config, error) {

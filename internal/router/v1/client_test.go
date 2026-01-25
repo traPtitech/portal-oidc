@@ -11,12 +11,15 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/knadh/koanf/providers/confmap"
 	"github.com/knadh/koanf/providers/env"
 	"github.com/knadh/koanf/v2"
 	"github.com/labstack/echo/v4"
+	"github.com/ory/fosite"
+	"github.com/ory/fosite/compose"
 
 	"github.com/traPtitech/portal-oidc/internal/repository"
 	"github.com/traPtitech/portal-oidc/internal/repository/oidc"
@@ -119,7 +122,38 @@ func setupTestHandler(t *testing.T) (*Handler, func()) {
 	clientRepo := repository.NewClientRepository(queries)
 	clientUseCase := usecase.NewClientUseCase(clientRepo)
 
-	handler := NewHandler(clientUseCase)
+	oauthStorage := repository.NewOAuthStorage(queries)
+	fositeConfig := &fosite.Config{
+		AccessTokenLifespan:            time.Hour,
+		RefreshTokenLifespan:           30 * 24 * time.Hour,
+		AuthorizeCodeLifespan:          5 * time.Minute,
+		IDTokenLifespan:                time.Hour,
+		GlobalSecret:                   []byte("test-secret-key-32-characters!!"),
+		ScopeStrategy:                  fosite.ExactScopeStrategy,
+		AudienceMatchingStrategy:       fosite.DefaultAudienceMatchingStrategy,
+		SendDebugMessagesToClients:     false,
+		EnforcePKCE:                    true,
+		EnforcePKCEForPublicClients:    true,
+		EnablePKCEPlainChallengeMethod: true,
+		AccessTokenIssuer:              "http://localhost:8080",
+		IDTokenIssuer:                  "http://localhost:8080",
+	}
+	oauth2Provider := compose.Compose(
+		fositeConfig,
+		oauthStorage,
+		compose.NewOAuth2HMACStrategy(fositeConfig),
+		compose.OAuth2AuthorizeExplicitFactory,
+		compose.OAuth2PKCEFactory,
+		compose.OAuth2RefreshTokenGrantFactory,
+		compose.OAuth2TokenIntrospectionFactory,
+		compose.OAuth2TokenRevocationFactory,
+	)
+
+	handler := NewHandler(clientUseCase, oauth2Provider, nil, OAuthConfig{
+		Issuer:      "http://localhost:8080",
+		Environment: "development",
+		TestUserID:  "testuser",
+	})
 
 	cleanup := func() {
 		_ = queries.DeleteAllClients(ctx)
