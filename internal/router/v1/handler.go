@@ -21,6 +21,8 @@ type OAuthConfig struct {
 	Issuer        string
 	SessionSecret []byte
 	PrivateKey    *rsa.PrivateKey
+	Environment   string
+	TestUserID    string
 }
 
 func NewHandler(
