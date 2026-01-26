@@ -72,7 +72,7 @@ func newGroupsTableImpl(schemaName, tableName, alias string) groupsTable {
 		UpdatedAtColumn   = mysql.TimestampColumn("updated_at")
 		allColumns        = mysql.ColumnList{IDColumn, NameColumn, DescriptionColumn, ParentIDColumn, CreatedAtColumn, UpdatedAtColumn}
 		mutableColumns    = mysql.ColumnList{NameColumn, DescriptionColumn, ParentIDColumn, CreatedAtColumn, UpdatedAtColumn}
-		defaultColumns    = mysql.ColumnList{CreatedAtColumn, UpdatedAtColumn}
+		defaultColumns    = mysql.ColumnList{IDColumn, CreatedAtColumn, UpdatedAtColumn}
 	)
 
 	return groupsTable{

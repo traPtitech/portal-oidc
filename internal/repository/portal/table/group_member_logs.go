@@ -76,7 +76,7 @@ func newGroupMemberLogsTableImpl(schemaName, tableName, alias string) groupMembe
 		CreatedAtColumn = mysql.TimestampColumn("created_at")
 		allColumns      = mysql.ColumnList{IDColumn, GroupIDColumn, UserIDColumn, ActionColumn, ActorIDColumn, OldRolesColumn, NewRolesColumn, CreatedAtColumn}
 		mutableColumns  = mysql.ColumnList{GroupIDColumn, UserIDColumn, ActionColumn, ActorIDColumn, OldRolesColumn, NewRolesColumn, CreatedAtColumn}
-		defaultColumns  = mysql.ColumnList{CreatedAtColumn}
+		defaultColumns  = mysql.ColumnList{IDColumn, CreatedAtColumn}
 	)
 
 	return groupMemberLogsTable{

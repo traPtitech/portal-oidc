@@ -1,7 +1,7 @@
 -- OIDC Schema (MariaDB 10.11+)
 
 CREATE TABLE `clients` (
-  `client_id` uuid NOT NULL,
+  `client_id` uuid NOT NULL DEFAULT uuid(),
   `client_secret_hash` varchar(255) NULL,
   `name` varchar(255) NOT NULL,
   `client_type` ENUM('public', 'confidential') NOT NULL,

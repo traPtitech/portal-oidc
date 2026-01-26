@@ -74,7 +74,7 @@ func newInvitationsTableImpl(schemaName, tableName, alias string) invitationsTab
 		CreatedAtColumn = mysql.TimestampColumn("created_at")
 		allColumns      = mysql.ColumnList{IDColumn, CodeColumn, CreatedByColumn, UsedByColumn, ExpiresAtColumn, UsedAtColumn, CreatedAtColumn}
 		mutableColumns  = mysql.ColumnList{CodeColumn, CreatedByColumn, UsedByColumn, ExpiresAtColumn, UsedAtColumn, CreatedAtColumn}
-		defaultColumns  = mysql.ColumnList{CreatedAtColumn}
+		defaultColumns  = mysql.ColumnList{IDColumn, CreatedAtColumn}
 	)
 
 	return invitationsTable{

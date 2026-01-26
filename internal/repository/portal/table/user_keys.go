@@ -74,7 +74,7 @@ func newUserKeysTableImpl(schemaName, tableName, alias string) userKeysTable {
 		CreatedAtColumn           = mysql.TimestampColumn("created_at")
 		allColumns                = mysql.ColumnList{UserIDColumn, KeyIDColumn, PublicKeyColumn, EncryptedPrivateKeyColumn, AlgorithmColumn, IsActiveColumn, CreatedAtColumn}
 		mutableColumns            = mysql.ColumnList{PublicKeyColumn, EncryptedPrivateKeyColumn, AlgorithmColumn, IsActiveColumn, CreatedAtColumn}
-		defaultColumns            = mysql.ColumnList{AlgorithmColumn, IsActiveColumn, CreatedAtColumn}
+		defaultColumns            = mysql.ColumnList{KeyIDColumn, AlgorithmColumn, IsActiveColumn, CreatedAtColumn}
 	)
 
 	return userKeysTable{

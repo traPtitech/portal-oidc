@@ -2,7 +2,7 @@
 
 -- Users
 CREATE TABLE `users` (
-  `id` uuid NOT NULL COMMENT 'UUID v4',
+  `id` uuid NOT NULL DEFAULT uuid() COMMENT 'UUID v4',
   `trap_id` varchar(32) NOT NULL COMMENT 'traP ID (unique username)',
   `password_hash` varchar(255) NOT NULL COMMENT 'PBKDF2-SHA512 hash',
   `email` varbinary(512) NULL COMMENT 'AES-GCM encrypted email',
@@ -40,7 +40,7 @@ CREATE TABLE `user_links` (
 
 -- Invitations
 CREATE TABLE `invitations` (
-  `id` uuid NOT NULL COMMENT 'UUID v4',
+  `id` uuid NOT NULL DEFAULT uuid() COMMENT 'UUID v4',
   `code` varchar(20) NOT NULL COMMENT 'Invitation code (e.g., XXXX-XXXX-XXXX)',
   `created_by` uuid NULL COMMENT 'User who created this invitation',
   `used_by` uuid NULL COMMENT 'User who used this invitation',
@@ -55,7 +55,7 @@ CREATE TABLE `invitations` (
 
 -- Groups
 CREATE TABLE `groups` (
-  `id` uuid NOT NULL COMMENT 'UUID v4',
+  `id` uuid NOT NULL DEFAULT uuid() COMMENT 'UUID v4',
   `name` varchar(255) NOT NULL,
   `description` text NULL,
   `parent_id` uuid NULL COMMENT 'Parent group for hierarchical structure',
@@ -78,7 +78,7 @@ CREATE TABLE `group_members` (
 
 -- Group member logs (audit trail)
 CREATE TABLE `group_member_logs` (
-  `id` uuid NOT NULL COMMENT 'UUID v4',
+  `id` uuid NOT NULL DEFAULT uuid() COMMENT 'UUID v4',
   `group_id` uuid NOT NULL,
   `user_id` uuid NOT NULL,
   `action` ENUM('added', 'removed', 'role_changed') NOT NULL COMMENT 'Action type',
@@ -103,7 +103,7 @@ CREATE TABLE `group_permissions` (
 -- User keys (E2E encryption)
 CREATE TABLE `user_keys` (
   `user_id` uuid NOT NULL,
-  `key_id` uuid NOT NULL COMMENT 'UUID v4',
+  `key_id` uuid NOT NULL DEFAULT uuid() COMMENT 'UUID v4',
   `public_key` varbinary(4096) NOT NULL COMMENT 'User public key (DER format)',
   `encrypted_private_key` blob NOT NULL COMMENT 'Private key encrypted with user password-derived key',
   `algorithm` ENUM('RSA-OAEP-SHA256', 'ECDH-P256', 'ECDH-P384', 'Ed25519') NOT NULL DEFAULT 'RSA-OAEP-SHA256' COMMENT 'Key algorithm',
@@ -117,7 +117,7 @@ CREATE TABLE `user_keys` (
 CREATE TABLE `group_keys` (
   `group_id` uuid NOT NULL,
   `user_id` uuid NOT NULL,
-  `key_id` uuid NOT NULL COMMENT 'UUID v4',
+  `key_id` uuid NOT NULL DEFAULT uuid() COMMENT 'UUID v4',
   `encrypted_key` blob NOT NULL COMMENT 'Group symmetric key encrypted with user public key',
   `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`group_id`, `user_id`, `key_id`),
@@ -127,7 +127,7 @@ CREATE TABLE `group_keys` (
 
 -- Secrets (E2E encrypted secrets)
 CREATE TABLE `secrets` (
-  `id` uuid NOT NULL COMMENT 'UUID v4',
+  `id` uuid NOT NULL DEFAULT uuid() COMMENT 'UUID v4',
   `group_id` uuid NOT NULL COMMENT 'Owning group',
   `name` varchar(255) NOT NULL,
   `encrypted_value` blob NOT NULL COMMENT 'AES-GCM encrypted with group key',
@@ -142,7 +142,7 @@ CREATE TABLE `secrets` (
 
 -- Secret logs (audit trail)
 CREATE TABLE `secret_logs` (
-  `id` uuid NOT NULL COMMENT 'UUID v4',
+  `id` uuid NOT NULL DEFAULT uuid() COMMENT 'UUID v4',
   `secret_id` uuid NOT NULL,
   `action` ENUM('created', 'updated', 'deleted', 'accessed') NOT NULL COMMENT 'Action type',
   `actor_id` uuid NULL,
@@ -153,7 +153,7 @@ CREATE TABLE `secret_logs` (
 
 -- Webhooks
 CREATE TABLE `webhooks` (
-  `id` uuid NOT NULL COMMENT 'UUID v4',
+  `id` uuid NOT NULL DEFAULT uuid() COMMENT 'UUID v4',
   `name` varchar(255) NOT NULL,
   `url` varchar(2048) NOT NULL,
   `secret` varbinary(512) NULL COMMENT 'HMAC signing secret (encrypted)',
@@ -183,7 +183,7 @@ CREATE TABLE `namecards` (
 
 -- Mails
 CREATE TABLE `mails` (
-  `id` uuid NOT NULL COMMENT 'UUID v4',
+  `id` uuid NOT NULL DEFAULT uuid() COMMENT 'UUID v4',
   `to` text NULL COMMENT 'Recipients (format: @trap_id;@trap_id2)',
   `subject` varchar(255) NULL,
   `body` text NULL,
@@ -195,7 +195,7 @@ CREATE TABLE `mails` (
 
 -- Mail logs
 CREATE TABLE `mail_logs` (
-  `id` uuid NOT NULL COMMENT 'UUID v4',
+  `id` uuid NOT NULL DEFAULT uuid() COMMENT 'UUID v4',
   `mail_id` uuid NOT NULL,
   `status` ENUM('unsent', 'sent', 'failed') NOT NULL COMMENT 'Mail delivery status',
   `error` text NULL,

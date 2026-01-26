@@ -72,7 +72,7 @@ func newMailsTableImpl(schemaName, tableName, alias string) mailsTable {
 		CreatedAtColumn  = mysql.TimestampColumn("created_at")
 		allColumns       = mysql.ColumnList{IDColumn, ToColumn, SubjectColumn, BodyColumn, OperatorIDColumn, CreatedAtColumn}
 		mutableColumns   = mysql.ColumnList{ToColumn, SubjectColumn, BodyColumn, OperatorIDColumn, CreatedAtColumn}
-		defaultColumns   = mysql.ColumnList{CreatedAtColumn}
+		defaultColumns   = mysql.ColumnList{IDColumn, CreatedAtColumn}
 	)
 
 	return mailsTable{

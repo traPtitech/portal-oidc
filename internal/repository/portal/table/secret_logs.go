@@ -70,7 +70,7 @@ func newSecretLogsTableImpl(schemaName, tableName, alias string) secretLogsTable
 		CreatedAtColumn = mysql.TimestampColumn("created_at")
 		allColumns      = mysql.ColumnList{IDColumn, SecretIDColumn, ActionColumn, ActorIDColumn, CreatedAtColumn}
 		mutableColumns  = mysql.ColumnList{SecretIDColumn, ActionColumn, ActorIDColumn, CreatedAtColumn}
-		defaultColumns  = mysql.ColumnList{CreatedAtColumn}
+		defaultColumns  = mysql.ColumnList{IDColumn, CreatedAtColumn}
 	)
 
 	return secretLogsTable{

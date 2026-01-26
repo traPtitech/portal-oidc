@@ -76,7 +76,7 @@ func newWebhooksTableImpl(schemaName, tableName, alias string) webhooksTable {
 		UpdatedAtColumn = mysql.TimestampColumn("updated_at")
 		allColumns      = mysql.ColumnList{IDColumn, NameColumn, URLColumn, SecretColumn, OwnerIDColumn, IsActiveColumn, CreatedAtColumn, UpdatedAtColumn}
 		mutableColumns  = mysql.ColumnList{NameColumn, URLColumn, SecretColumn, OwnerIDColumn, IsActiveColumn, CreatedAtColumn, UpdatedAtColumn}
-		defaultColumns  = mysql.ColumnList{IsActiveColumn, CreatedAtColumn, UpdatedAtColumn}
+		defaultColumns  = mysql.ColumnList{IDColumn, IsActiveColumn, CreatedAtColumn, UpdatedAtColumn}
 	)
 
 	return webhooksTable{

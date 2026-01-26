@@ -74,7 +74,7 @@ func newClientsTableImpl(schemaName, tableName, alias string) clientsTable {
 		UpdatedAtColumn        = mysql.TimestampColumn("updated_at")
 		allColumns             = mysql.ColumnList{ClientIDColumn, ClientSecretHashColumn, NameColumn, ClientTypeColumn, RedirectUrisColumn, CreatedAtColumn, UpdatedAtColumn}
 		mutableColumns         = mysql.ColumnList{ClientSecretHashColumn, NameColumn, ClientTypeColumn, RedirectUrisColumn, CreatedAtColumn, UpdatedAtColumn}
-		defaultColumns         = mysql.ColumnList{CreatedAtColumn, UpdatedAtColumn}
+		defaultColumns         = mysql.ColumnList{ClientIDColumn, CreatedAtColumn, UpdatedAtColumn}
 	)
 
 	return clientsTable{

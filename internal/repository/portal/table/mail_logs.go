@@ -70,7 +70,7 @@ func newMailLogsTableImpl(schemaName, tableName, alias string) mailLogsTable {
 		CreatedAtColumn = mysql.TimestampColumn("created_at")
 		allColumns      = mysql.ColumnList{IDColumn, MailIDColumn, StatusColumn, ErrorColumn, CreatedAtColumn}
 		mutableColumns  = mysql.ColumnList{MailIDColumn, StatusColumn, ErrorColumn, CreatedAtColumn}
-		defaultColumns  = mysql.ColumnList{CreatedAtColumn}
+		defaultColumns  = mysql.ColumnList{IDColumn, CreatedAtColumn}
 	)
 
 	return mailLogsTable{

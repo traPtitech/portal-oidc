@@ -76,7 +76,7 @@ func newUsersTableImpl(schemaName, tableName, alias string) usersTable {
 		UpdatedAtColumn     = mysql.TimestampColumn("updated_at")
 		allColumns          = mysql.ColumnList{IDColumn, TrapIDColumn, PasswordHashColumn, EmailColumn, PersonalInfoColumn, StudentNumberColumn, CreatedAtColumn, UpdatedAtColumn}
 		mutableColumns      = mysql.ColumnList{TrapIDColumn, PasswordHashColumn, EmailColumn, PersonalInfoColumn, StudentNumberColumn, CreatedAtColumn, UpdatedAtColumn}
-		defaultColumns      = mysql.ColumnList{CreatedAtColumn, UpdatedAtColumn}
+		defaultColumns      = mysql.ColumnList{IDColumn, CreatedAtColumn, UpdatedAtColumn}
 	)
 
 	return usersTable{

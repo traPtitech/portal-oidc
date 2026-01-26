@@ -74,7 +74,7 @@ func newSecretsTableImpl(schemaName, tableName, alias string) secretsTable {
 		UpdatedAtColumn      = mysql.TimestampColumn("updated_at")
 		allColumns           = mysql.ColumnList{IDColumn, GroupIDColumn, NameColumn, EncryptedValueColumn, CreatedByColumn, CreatedAtColumn, UpdatedAtColumn}
 		mutableColumns       = mysql.ColumnList{GroupIDColumn, NameColumn, EncryptedValueColumn, CreatedByColumn, CreatedAtColumn, UpdatedAtColumn}
-		defaultColumns       = mysql.ColumnList{CreatedAtColumn, UpdatedAtColumn}
+		defaultColumns       = mysql.ColumnList{IDColumn, CreatedAtColumn, UpdatedAtColumn}
 	)
 
 	return secretsTable{

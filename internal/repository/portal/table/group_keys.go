@@ -70,7 +70,7 @@ func newGroupKeysTableImpl(schemaName, tableName, alias string) groupKeysTable {
 		CreatedAtColumn    = mysql.TimestampColumn("created_at")
 		allColumns         = mysql.ColumnList{GroupIDColumn, UserIDColumn, KeyIDColumn, EncryptedKeyColumn, CreatedAtColumn}
 		mutableColumns     = mysql.ColumnList{EncryptedKeyColumn, CreatedAtColumn}
-		defaultColumns     = mysql.ColumnList{CreatedAtColumn}
+		defaultColumns     = mysql.ColumnList{KeyIDColumn, CreatedAtColumn}
 	)
 
 	return groupKeysTable{
