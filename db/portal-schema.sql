@@ -1,8 +1,8 @@
--- Portal Schema
+-- Portal Schema (MariaDB 10.11+)
 
 -- Users
 CREATE TABLE `users` (
-  `id` char(36) NOT NULL COMMENT 'UUID v4',
+  `id` uuid NOT NULL COMMENT 'UUID v4',
   `trap_id` varchar(32) NOT NULL COMMENT 'traP ID (unique username)',
   `password_hash` varchar(255) NOT NULL COMMENT 'PBKDF2-SHA512 hash',
   `email` varbinary(512) NULL COMMENT 'AES-GCM encrypted email',
@@ -17,8 +17,8 @@ CREATE TABLE `users` (
 
 -- User statuses
 CREATE TABLE `user_statuses` (
-  `user_id` char(36) NOT NULL,
-  `status` varchar(64) NOT NULL COMMENT 'Status type: active, suspended, email-unconfirmed, etc.',
+  `user_id` uuid NOT NULL,
+  `status` ENUM('active', 'suspended', 'email_unconfirmed', 'pending_approval') NOT NULL COMMENT 'Status type',
   `detail` varchar(255) NULL COMMENT 'Additional detail/reason',
   `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`user_id`, `status`),
@@ -27,8 +27,8 @@ CREATE TABLE `user_statuses` (
 
 -- User links (SNS connections)
 CREATE TABLE `user_links` (
-  `user_id` char(36) NOT NULL,
-  `service` varchar(64) NOT NULL COMMENT 'Service name: twitter, github, discord, etc.',
+  `user_id` uuid NOT NULL,
+  `service` ENUM('twitter', 'github', 'discord', 'slack', 'google') NOT NULL COMMENT 'Service name',
   `external_id` varchar(255) NULL COMMENT 'External service user ID',
   `account_name` varchar(255) NULL COMMENT 'Display name/handle on the service',
   `access_token` varbinary(1024) NULL COMMENT 'Encrypted OAuth access token (if stored)',
@@ -40,10 +40,10 @@ CREATE TABLE `user_links` (
 
 -- Invitations
 CREATE TABLE `invitations` (
-  `id` char(36) NOT NULL COMMENT 'UUID v4',
+  `id` uuid NOT NULL COMMENT 'UUID v4',
   `code` varchar(20) NOT NULL COMMENT 'Invitation code (e.g., XXXX-XXXX-XXXX)',
-  `created_by` char(36) NULL COMMENT 'User who created this invitation',
-  `used_by` char(36) NULL COMMENT 'User who used this invitation',
+  `created_by` uuid NULL COMMENT 'User who created this invitation',
+  `used_by` uuid NULL COMMENT 'User who used this invitation',
   `expires_at` datetime(6) NULL COMMENT 'Expiration time (NULL = never expires)',
   `used_at` datetime(6) NULL,
   `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
@@ -55,10 +55,10 @@ CREATE TABLE `invitations` (
 
 -- Groups
 CREATE TABLE `groups` (
-  `id` char(36) NOT NULL COMMENT 'UUID v4',
+  `id` uuid NOT NULL COMMENT 'UUID v4',
   `name` varchar(255) NOT NULL,
   `description` text NULL,
-  `parent_id` char(36) NULL COMMENT 'Parent group for hierarchical structure',
+  `parent_id` uuid NULL COMMENT 'Parent group for hierarchical structure',
   `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),
@@ -67,8 +67,8 @@ CREATE TABLE `groups` (
 
 -- Group members
 CREATE TABLE `group_members` (
-  `group_id` char(36) NOT NULL,
-  `user_id` char(36) NOT NULL,
+  `group_id` uuid NOT NULL,
+  `user_id` uuid NOT NULL,
   `roles` json NOT NULL DEFAULT ('[]') COMMENT 'Member roles within group: ["admin", "owner", "member"]',
   `joined_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`group_id`, `user_id`),
@@ -78,11 +78,11 @@ CREATE TABLE `group_members` (
 
 -- Group member logs (audit trail)
 CREATE TABLE `group_member_logs` (
-  `id` char(36) NOT NULL COMMENT 'UUID v4',
-  `group_id` char(36) NOT NULL,
-  `user_id` char(36) NOT NULL,
-  `action` varchar(32) NOT NULL COMMENT 'Action: added, removed, role_changed',
-  `actor_id` char(36) NULL COMMENT 'User who performed the action',
+  `id` uuid NOT NULL COMMENT 'UUID v4',
+  `group_id` uuid NOT NULL,
+  `user_id` uuid NOT NULL,
+  `action` ENUM('added', 'removed', 'role_changed') NOT NULL COMMENT 'Action type',
+  `actor_id` uuid NULL COMMENT 'User who performed the action',
   `old_roles` json NULL,
   `new_roles` json NULL,
   `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
@@ -93,7 +93,7 @@ CREATE TABLE `group_member_logs` (
 
 -- Group permissions
 CREATE TABLE `group_permissions` (
-  `group_id` char(36) NOT NULL,
+  `group_id` uuid NOT NULL,
   `permission` varchar(64) NOT NULL COMMENT 'Permission: user:read, user:update, invitation:create, etc.',
   `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`group_id`, `permission`),
@@ -102,12 +102,12 @@ CREATE TABLE `group_permissions` (
 
 -- User keys (E2E encryption)
 CREATE TABLE `user_keys` (
-  `user_id` char(36) NOT NULL,
-  `key_id` char(36) NOT NULL COMMENT 'UUID v4',
+  `user_id` uuid NOT NULL,
+  `key_id` uuid NOT NULL COMMENT 'UUID v4',
   `public_key` varbinary(4096) NOT NULL COMMENT 'User public key (DER format)',
   `encrypted_private_key` blob NOT NULL COMMENT 'Private key encrypted with user password-derived key',
-  `algorithm` varchar(32) NOT NULL DEFAULT 'RSA-OAEP-SHA256' COMMENT 'Key algorithm',
-  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `algorithm` ENUM('RSA-OAEP-SHA256', 'ECDH-P256', 'ECDH-P384', 'Ed25519') NOT NULL DEFAULT 'RSA-OAEP-SHA256' COMMENT 'Key algorithm',
+  `is_active` boolean NOT NULL DEFAULT true,
   `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`user_id`, `key_id`),
   CONSTRAINT `fk_user_keys_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
@@ -115,9 +115,9 @@ CREATE TABLE `user_keys` (
 
 -- Group keys (E2E encryption for group secrets)
 CREATE TABLE `group_keys` (
-  `group_id` char(36) NOT NULL,
-  `user_id` char(36) NOT NULL,
-  `key_id` char(36) NOT NULL COMMENT 'UUID v4',
+  `group_id` uuid NOT NULL,
+  `user_id` uuid NOT NULL,
+  `key_id` uuid NOT NULL COMMENT 'UUID v4',
   `encrypted_key` blob NOT NULL COMMENT 'Group symmetric key encrypted with user public key',
   `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`group_id`, `user_id`, `key_id`),
@@ -127,11 +127,11 @@ CREATE TABLE `group_keys` (
 
 -- Secrets (E2E encrypted secrets)
 CREATE TABLE `secrets` (
-  `id` char(36) NOT NULL COMMENT 'UUID v4',
-  `group_id` char(36) NOT NULL COMMENT 'Owning group',
+  `id` uuid NOT NULL COMMENT 'UUID v4',
+  `group_id` uuid NOT NULL COMMENT 'Owning group',
   `name` varchar(255) NOT NULL,
   `encrypted_value` blob NOT NULL COMMENT 'AES-GCM encrypted with group key',
-  `created_by` char(36) NULL,
+  `created_by` uuid NULL,
   `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),
@@ -142,10 +142,10 @@ CREATE TABLE `secrets` (
 
 -- Secret logs (audit trail)
 CREATE TABLE `secret_logs` (
-  `id` char(36) NOT NULL COMMENT 'UUID v4',
-  `secret_id` char(36) NOT NULL,
-  `action` varchar(32) NOT NULL COMMENT 'Action: created, updated, deleted, accessed',
-  `actor_id` char(36) NULL,
+  `id` uuid NOT NULL COMMENT 'UUID v4',
+  `secret_id` uuid NOT NULL,
+  `action` ENUM('created', 'updated', 'deleted', 'accessed') NOT NULL COMMENT 'Action type',
+  `actor_id` uuid NULL,
   `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),
   KEY `idx_secret_logs_secret` (`secret_id`)
@@ -153,12 +153,12 @@ CREATE TABLE `secret_logs` (
 
 -- Webhooks
 CREATE TABLE `webhooks` (
-  `id` char(36) NOT NULL COMMENT 'UUID v4',
+  `id` uuid NOT NULL COMMENT 'UUID v4',
   `name` varchar(255) NOT NULL,
   `url` varchar(2048) NOT NULL,
   `secret` varbinary(512) NULL COMMENT 'HMAC signing secret (encrypted)',
-  `owner_id` char(36) NULL COMMENT 'User who owns this webhook',
-  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `owner_id` uuid NULL COMMENT 'User who owns this webhook',
+  `is_active` boolean NOT NULL DEFAULT true,
   `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),
@@ -167,7 +167,7 @@ CREATE TABLE `webhooks` (
 
 -- Webhook subscribe events
 CREATE TABLE `webhook_subscribe_events` (
-  `webhook_id` char(36) NOT NULL,
+  `webhook_id` uuid NOT NULL,
   `event_type` varchar(64) NOT NULL COMMENT 'Event type: user.created, group.member_added, etc.',
   `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`webhook_id`, `event_type`),
@@ -183,11 +183,11 @@ CREATE TABLE `namecards` (
 
 -- Mails
 CREATE TABLE `mails` (
-  `id` char(36) NOT NULL COMMENT 'UUID v4',
+  `id` uuid NOT NULL COMMENT 'UUID v4',
   `to` text NULL COMMENT 'Recipients (format: @trap_id;@trap_id2)',
   `subject` varchar(255) NULL,
   `body` text NULL,
-  `operator_id` char(36) NULL COMMENT 'User who sent this mail',
+  `operator_id` uuid NULL COMMENT 'User who sent this mail',
   `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),
   CONSTRAINT `fk_mails_operator` FOREIGN KEY (`operator_id`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE
@@ -195,9 +195,9 @@ CREATE TABLE `mails` (
 
 -- Mail logs
 CREATE TABLE `mail_logs` (
-  `id` char(36) NOT NULL COMMENT 'UUID v4',
-  `mail_id` char(36) NOT NULL,
-  `status` varchar(32) NOT NULL COMMENT 'Status: unsent, sent, failed',
+  `id` uuid NOT NULL COMMENT 'UUID v4',
+  `mail_id` uuid NOT NULL,
+  `status` ENUM('unsent', 'sent', 'failed') NOT NULL COMMENT 'Mail delivery status',
   `error` text NULL,
   `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),

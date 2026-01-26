@@ -1,10 +1,10 @@
--- OIDC Schema
+-- OIDC Schema (MariaDB 10.11+)
 
 CREATE TABLE `clients` (
-  `client_id` char(36) NOT NULL,
+  `client_id` uuid NOT NULL,
   `client_secret_hash` varchar(255) NULL,
   `name` varchar(255) NOT NULL,
-  `client_type` varchar(20) NOT NULL,
+  `client_type` ENUM('public', 'confidential') NOT NULL,
   `redirect_uris` json NOT NULL,
   `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),

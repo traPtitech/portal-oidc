@@ -4,7 +4,7 @@ golangci-lint = "2.8.0"
 atlas = "1.0.0"
 tbls = "1.92.3"
 pre-commit = "4.5.1"
-"go:github.com/sqlc-dev/sqlc/cmd/sqlc" = "1.30.0"
+"go:github.com/go-jet/jet/v2/cmd/jet" = "2.14.1"
 
 # =============================================================================
 # Development
@@ -37,22 +37,22 @@ outputs = ["coverage.out"]
 # =============================================================================
 
 [tasks.gen]
-description = "全コード生成 (sqlc + oapi)"
-depends = ["gen:sqlc", "gen:oapi"]
+description = "全コード生成 (jet + oapi)"
+depends = ["gen:jet", "gen:oapi"]
 
-[tasks."gen:sqlc"]
-description = "sqlcでDBコード生成"
-dir = "db"
-run = "sqlc generate"
+[tasks."gen:jet"]
+description = "jetでDBコード生成 (要: docker compose up -d oidc portal)"
+run = """
+jet -source=mariadb -dsn="mariadb://root:password@tcp(127.0.0.1:3307)/oidc" -path=./internal/repository
+jet -source=mariadb -dsn="mariadb://root:password@tcp(127.0.0.1:3306)/portal" -path=./internal/repository
+"""
 sources = [
-  "sqlc.yaml",
-  "schema.sql",
-  "portal-schema.sql",
-  "query/*.sql",
+  "db/schema.sql",
+  "db/portal-schema.sql",
 ]
 outputs = [
-  "../internal/repository/oidc/",
-  "../internal/repository/portal/",
+  "internal/repository/oidc/",
+  "internal/repository/portal/",
 ]
 
 [tasks."gen:oapi"]
