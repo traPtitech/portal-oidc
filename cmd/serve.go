@@ -10,21 +10,20 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
-	"github.com/traPtitech/portal-oidc/internal/repository/oidc"
 	"github.com/traPtitech/portal-oidc/internal/router/v1/gen"
 )
 
 type Handler struct {
-	queries *oidc.Queries
+	db *sql.DB
 }
 
 func newServer(cfg Config) (http.Handler, error) {
-	queries, err := setupDatabase(cfg.Database)
+	db, err := setupDatabase(cfg.Database)
 	if err != nil {
 		return nil, err
 	}
 
-	handler := &Handler{queries: queries}
+	handler := &Handler{db: db}
 
 	e := echo.New()
 	e.Use(middleware.Recover())
@@ -43,7 +42,7 @@ func newServer(cfg Config) (http.Handler, error) {
 	return e, nil
 }
 
-func setupDatabase(cfg DatabaseConfig) (*oidc.Queries, error) {
+func setupDatabase(cfg DatabaseConfig) (*sql.DB, error) {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
 		cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.Name)
 
@@ -56,10 +55,5 @@ func setupDatabase(cfg DatabaseConfig) (*oidc.Queries, error) {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	queries, err := oidc.Prepare(context.Background(), db)
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare queries: %w", err)
-	}
-
-	return queries, nil
+	return db, nil
 }
