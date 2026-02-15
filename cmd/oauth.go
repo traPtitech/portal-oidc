@@ -16,7 +16,7 @@ import (
 	"github.com/ory/fosite/compose"
 	"github.com/ory/fosite/token/jwt"
 
-	"github.com/traPtitech/portal-oidc/internal/repository"
+	"github.com/traPtitech/portal-oidc/internal/repository/oauth"
 )
 
 type OAuthProviderConfig struct {
@@ -39,7 +39,7 @@ func defaultOAuthProviderConfig() OAuthProviderConfig {
 	}
 }
 
-func newOAuthProvider(storage *repository.OAuthStorage, config OAuthProviderConfig, privateKey *rsa.PrivateKey) fosite.OAuth2Provider {
+func newOAuthProvider(storage *oauth.Storage, config OAuthProviderConfig, privateKey *rsa.PrivateKey) fosite.OAuth2Provider {
 	fositeConfig := &fosite.Config{
 		AccessTokenLifespan:            config.AccessTokenLifespan,
 		RefreshTokenLifespan:           config.RefreshTokenLifespan,
@@ -49,8 +49,8 @@ func newOAuthProvider(storage *repository.OAuthStorage, config OAuthProviderConf
 		ScopeStrategy:                  fosite.ExactScopeStrategy,
 		AudienceMatchingStrategy:       fosite.DefaultAudienceMatchingStrategy,
 		SendDebugMessagesToClients:     false,
-		EnforcePKCE:                    false,
-		EnforcePKCEForPublicClients:    false,
+		EnforcePKCE:                    true,
+		EnforcePKCEForPublicClients:    true,
 		EnablePKCEPlainChallengeMethod: false,
 		AccessTokenIssuer:              config.Issuer,
 		IDTokenIssuer:                  config.Issuer,

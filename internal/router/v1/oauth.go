@@ -12,7 +12,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/ory/fosite"
 
-	"github.com/traPtitech/portal-oidc/internal/repository"
+	"github.com/traPtitech/portal-oidc/internal/repository/oauth"
 	"github.com/traPtitech/portal-oidc/internal/router/v1/gen"
 )
 
@@ -38,7 +38,7 @@ func (h *Handler) Authorize(ctx echo.Context, params gen.AuthorizeParams) error 
 		return nil
 	}
 
-	session := repository.NewOAuthSession(userID)
+	session := oauth.NewSession(userID)
 	for _, scope := range ar.GetRequestedScopes() {
 		ar.GrantScope(scope)
 	}
@@ -58,7 +58,7 @@ func (h *Handler) Token(ctx echo.Context) error {
 	rw := ctx.Response()
 	req := ctx.Request()
 
-	session := repository.NewOAuthSession("")
+	session := oauth.NewSession("")
 	accessRequest, err := h.oauth2.NewAccessRequest(c, req, session)
 	if err != nil {
 		h.oauth2.WriteAccessError(c, rw, accessRequest, err)
@@ -116,7 +116,7 @@ func (h *Handler) extractBearerToken(ctx echo.Context) (string, error) {
 func (h *Handler) handleUserInfo(ctx echo.Context, token string) error {
 	c := ctx.Request().Context()
 
-	_, ar, err := h.oauth2.IntrospectToken(c, token, fosite.AccessToken, repository.NewOAuthSession(""))
+	_, ar, err := h.oauth2.IntrospectToken(c, token, fosite.AccessToken, oauth.NewSession(""))
 	if err != nil {
 		return ctx.JSON(http.StatusUnauthorized, gen.OAuthError{Error: gen.InvalidGrant})
 	}
@@ -125,6 +125,9 @@ func (h *Handler) handleUserInfo(ctx echo.Context, token string) error {
 }
 
 func (h *Handler) GetJWKS(ctx echo.Context) error {
+	if h.config.PrivateKey == nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "signing key not configured")
+	}
 	pubKey := &h.config.PrivateKey.PublicKey
 
 	hash := sha256.Sum256(pubKey.N.Bytes())
@@ -143,7 +146,7 @@ func (h *Handler) GetJWKS(ctx echo.Context) error {
 }
 
 func (h *Handler) GetOpenIDConfiguration(ctx echo.Context) error {
-	issuer := h.config.Issuer
+	issuer := strings.TrimRight(h.config.Issuer, "/")
 	scopesSupported := []string{"openid", "profile", "email"}
 	claimsSupported := []string{"sub", "name", "preferred_username", "email", "email_verified"}
 	codeChallengeMethodsSupported := []string{"S256", "plain"}

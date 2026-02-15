@@ -11,6 +11,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 
 	"github.com/traPtitech/portal-oidc/internal/repository"
+	"github.com/traPtitech/portal-oidc/internal/repository/oauth"
 	"github.com/traPtitech/portal-oidc/internal/repository/oidc"
 	"github.com/traPtitech/portal-oidc/internal/repository/portal"
 	v1 "github.com/traPtitech/portal-oidc/internal/router/v1"
@@ -34,7 +35,7 @@ func newServer(cfg Config) (http.Handler, error) {
 		return nil, fmt.Errorf("failed to load/generate RSA key: %w", err)
 	}
 
-	oauthStorage := repository.NewOAuthStorage(queries)
+	oauthStorage := oauth.NewStorage(queries)
 	defaults := defaultOAuthProviderConfig()
 	oauth2Provider := newOAuthProvider(oauthStorage, OAuthProviderConfig{
 		Issuer:               cfg.Host,

@@ -22,6 +22,7 @@ import (
 	"github.com/ory/fosite/compose"
 
 	"github.com/traPtitech/portal-oidc/internal/repository"
+	"github.com/traPtitech/portal-oidc/internal/repository/oauth"
 	"github.com/traPtitech/portal-oidc/internal/repository/oidc"
 	"github.com/traPtitech/portal-oidc/internal/router/v1/gen"
 	"github.com/traPtitech/portal-oidc/internal/testutil"
@@ -122,7 +123,7 @@ func setupTestHandler(t *testing.T) (*Handler, func()) {
 	clientRepo := repository.NewClientRepository(queries)
 	clientUseCase := usecase.NewClientUseCase(clientRepo)
 
-	oauthStorage := repository.NewOAuthStorage(queries)
+	oauthStorage := oauth.NewStorage(queries)
 	fositeConfig := &fosite.Config{
 		AccessTokenLifespan:            time.Hour,
 		RefreshTokenLifespan:           30 * 24 * time.Hour,
