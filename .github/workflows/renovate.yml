@@ -1,5 +1,8 @@
 name: Renovate
 
+permissions:
+  contents: write
+
 on:
   # For manual dispatch
   workflow_dispatch:
