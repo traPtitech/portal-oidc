@@ -23,7 +23,7 @@ on:
     - cron: "0 20 * * *"
   # For auto-merge and rebasing
   push:
-    branches: ["master"]
+    branches: ["main"]
 
 env:
   LOG_LEVEL: debug
