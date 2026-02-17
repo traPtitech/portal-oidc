@@ -123,8 +123,15 @@ func setupTestHandler(t *testing.T) (*Handler, func()) {
 	clientRepo := repository.NewClientRepository(queries)
 	clientUseCase := usecase.NewClientUseCase(clientRepo)
 
-	oauthStorage := oauth.NewStorage(queries)
-	fositeConfig := &fosite.Config{
+	oauthStorage := oauth.NewStorage(
+		testDB,
+		queries,
+		clientRepo,
+		repository.NewAuthCodeRepository(queries),
+		repository.NewTokenRepository(queries),
+		repository.NewOIDCSessionRepository(queries),
+	)
+	fositeConfig := &fosite.Config{ //nolint:gosec // test credentials
 		AccessTokenLifespan:            time.Hour,
 		RefreshTokenLifespan:           30 * 24 * time.Hour,
 		AuthorizeCodeLifespan:          5 * time.Minute,

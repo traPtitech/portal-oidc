@@ -54,10 +54,11 @@ func newServer(cfg Config) (http.Handler, error) {
 		Secret:               []byte(cfg.OAuth.Secret),
 	}, privateKey)
 
+	userUseCase := usecase.NewUserUseCase(repository.NewUserRepository(portalQueries))
 	handler := v1.NewHandler(
 		usecase.NewClientUseCase(clientRepo),
 		oauth2Provider,
-		repository.NewUserRepository(portalQueries),
+		userUseCase,
 		v1.OAuthConfig{
 			Issuer:        cfg.Host,
 			SessionSecret: []byte(cfg.OAuth.Secret),
@@ -75,6 +76,9 @@ func newServer(cfg Config) (http.Handler, error) {
 		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 	}))
 	gen.RegisterHandlers(e, handler)
+	e.POST("/oauth2/authorize", func(c echo.Context) error {
+		return handler.Authorize(c, gen.AuthorizeParams{})
+	})
 	e.GET("/login", handler.GetLogin)
 	e.POST("/login", handler.PostLogin)
 	e.GET("/logout", handler.Logout)

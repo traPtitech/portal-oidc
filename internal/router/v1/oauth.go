@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -22,24 +23,49 @@ func (h *Handler) Authorize(ctx echo.Context, params gen.AuthorizeParams) error 
 	rw := ctx.Response()
 	req := ctx.Request()
 
-	var userID string
-	if h.config.Environment != "production" {
-		userID = h.config.TestUserID
-	} else {
-		userID = h.getAuthenticatedUser(ctx)
-		if userID == "" {
-			returnURL := req.URL.String()
-			return ctx.Redirect(http.StatusFound, "/login?return_url="+url.QueryEscape(returnURL))
-		}
-	}
-
 	ar, err := h.oauth2.NewAuthorizeRequest(c, req)
 	if err != nil {
 		h.oauth2.WriteAuthorizeError(c, rw, ar, err)
 		return nil
 	}
 
-	session := oauth.NewSession(userID, time.Now())
+	prompt := ar.GetRequestForm().Get("prompt")
+	returnURL := req.URL.String()
+
+	if h.config.Environment != "production" {
+		return h.completeAuthorize(ctx, ar, h.config.TestUserID, time.Now())
+	}
+
+	info, authenticated := h.getAuthInfo(ctx)
+
+	switch prompt {
+	case "none":
+		if !authenticated {
+			h.oauth2.WriteAuthorizeError(c, rw, ar, fosite.ErrLoginRequired)
+			return nil
+		}
+	case "login":
+		if !authenticated || !h.isReauthCompleted(ctx, info.AuthTime) {
+			return h.redirectToLogin(ctx, returnURL)
+		}
+	default:
+		if !authenticated {
+			return ctx.Redirect(http.StatusFound, "/login?return_url="+url.QueryEscape(returnURL))
+		}
+	}
+
+	if h.isMaxAgeExpired(ar, info.AuthTime) && !h.isReauthCompleted(ctx, info.AuthTime) {
+		return h.redirectToLogin(ctx, returnURL)
+	}
+
+	return h.completeAuthorize(ctx, ar, info.UserID, info.AuthTime)
+}
+
+func (h *Handler) completeAuthorize(ctx echo.Context, ar fosite.AuthorizeRequester, userID string, authTime time.Time) error {
+	c := ctx.Request().Context()
+	rw := ctx.Response()
+
+	session := oauth.NewSession(userID, authTime)
 	for _, scope := range ar.GetRequestedScopes() {
 		ar.GrantScope(scope)
 	}
@@ -52,6 +78,48 @@ func (h *Handler) Authorize(ctx echo.Context, params gen.AuthorizeParams) error 
 
 	h.oauth2.WriteAuthorizeResponse(c, rw, ar, response)
 	return nil
+}
+
+func (h *Handler) isReauthCompleted(ctx echo.Context, authTime time.Time) bool {
+	session, err := h.sessions.Get(ctx.Request(), sessionName)
+	if err != nil {
+		return false
+	}
+
+	reqAt, ok := session.Values["reauth_requested_at"].(int64)
+	if !ok {
+		return false
+	}
+
+	return authTime.Unix() > reqAt
+}
+
+func (h *Handler) redirectToLogin(ctx echo.Context, returnURL string) error {
+	session, err := h.sessions.Get(ctx.Request(), sessionName)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get session")
+	}
+
+	session.Values["reauth_requested_at"] = time.Now().Unix()
+	session.Values["authenticated"] = false
+
+	if err := session.Save(ctx.Request(), ctx.Response()); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to save session")
+	}
+
+	return ctx.Redirect(http.StatusFound, "/login?return_url="+url.QueryEscape(returnURL))
+}
+
+func (h *Handler) isMaxAgeExpired(ar fosite.AuthorizeRequester, authTime time.Time) bool {
+	maxAgeStr := ar.GetRequestForm().Get("max_age")
+	if maxAgeStr == "" {
+		return false
+	}
+	maxAge, err := strconv.ParseInt(maxAgeStr, 10, 64)
+	if err != nil {
+		return false
+	}
+	return time.Since(authTime) > time.Duration(maxAge)*time.Second
 }
 
 func (h *Handler) Token(ctx echo.Context) error {
@@ -122,7 +190,18 @@ func (h *Handler) handleUserInfo(ctx echo.Context, token string) error {
 		return ctx.JSON(http.StatusUnauthorized, gen.OAuthError{Error: gen.InvalidGrant})
 	}
 
-	return ctx.JSON(http.StatusOK, gen.UserInfo{Sub: ar.GetSession().GetSubject()})
+	sub := ar.GetSession().GetSubject()
+	info := gen.UserInfo{Sub: sub}
+
+	if h.userUseCase != nil && ar.GetGrantedScopes().Has("profile") {
+		user, userErr := h.userUseCase.GetByID(c, sub)
+		if userErr == nil {
+			info.Name = &user.TrapID
+			info.PreferredUsername = &user.TrapID
+		}
+	}
+
+	return ctx.JSON(http.StatusOK, info)
 }
 
 func (h *Handler) GetJWKS(ctx echo.Context) error {
