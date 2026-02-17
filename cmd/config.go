@@ -27,12 +27,12 @@ type DatabaseConfig struct {
 	Host     string `koanf:"host"`
 	Port     int    `koanf:"port"`
 	User     string `koanf:"user"`
-	Password string `koanf:"password"`
+	Password string `koanf:"password"` // #nosec G117 -- config struct, not serialized
 	Name     string `koanf:"name"`
 }
 
 type OAuthConfig struct {
-	Secret     string `koanf:"secret"`
+	Secret     string `koanf:"secret"` // #nosec G117 -- config struct, not serialized
 	KeyFile    string `koanf:"key_file"`
 	TestUserID string `koanf:"test_user_id"`
 }
@@ -77,7 +77,7 @@ func loadConfig(configPath string) (*Config, error) {
 
 	if err := k.Load(env.Provider("OIDC_", ".", func(s string) string {
 		key := strings.ToLower(strings.TrimPrefix(s, "OIDC_"))
-		return strings.ReplaceAll(key, "_", ".")
+		return strings.ReplaceAll(key, "__", ".")
 	}), nil); err != nil {
 		return nil, err
 	}
