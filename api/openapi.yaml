@@ -140,6 +140,173 @@ paths:
         "404":
           description: Not Found
 
+  /.well-known/openid-configuration:
+    get:
+      operationId: getOpenIDConfiguration
+      summary: OpenID Provider Configuration
+      description: OpenID Connect Discovery 1.0 のメタデータを返却
+      tags:
+        - discovery
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenIDConfiguration"
+
+  /.well-known/jwks.json:
+    get:
+      operationId: getJWKS
+      summary: JSON Web Key Set
+      description: トークン検証用の公開鍵セットを返却
+      tags:
+        - discovery
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JWKS"
+
+  /oauth2/userinfo:
+    get:
+      operationId: getUserInfo
+      summary: UserInfo エンドポイント (GET)
+      description: アクセストークンに紐づくユーザー情報を返却
+      tags:
+        - oauth2/oidc
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserInfo"
+        "401":
+          description: Unauthorized
+    post:
+      operationId: postUserInfo
+      summary: UserInfo エンドポイント (POST)
+      description: アクセストークンに紐づくユーザー情報を返却 (OIDC Core 1.0 準拠)
+      tags:
+        - oauth2/oidc
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserInfo"
+        "401":
+          description: Unauthorized
+
+  /oauth2/authorize:
+    get:
+      operationId: authorize
+      summary: 認可エンドポイント
+      description: OAuth2/OIDC認可リクエストを処理し、ユーザー認証後にリダイレクト
+      tags:
+        - oauth2/oidc
+      parameters:
+        - name: response_type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [code]
+          description: レスポンスタイプ (現在は code のみサポート)
+        - name: client_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: redirect_uri
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uri
+        - name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+          description: スペース区切りのスコープ (openid, profile, email 等)
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+          description: CSRF対策用のランダム文字列
+        - name: nonce
+          in: query
+          required: false
+          schema:
+            type: string
+          description: リプレイ攻撃対策用 (OIDC)
+        - name: code_challenge
+          in: query
+          required: false
+          schema:
+            type: string
+          description: PKCE code_challenge
+        - name: code_challenge_method
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [S256, plain]
+          description: PKCE code_challenge_method
+      responses:
+        "302":
+          description: 認可成功時はredirect_uriへリダイレクト
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthError"
+
+  /oauth2/token:
+    post:
+      operationId: token
+      summary: トークンエンドポイント
+      description: 認可コードをトークンに交換、またはトークンをリフレッシュ
+      tags:
+        - oauth2/oidc
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: "#/components/schemas/TokenRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthError"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthError"
+
 components:
   schemas:
     ClientType:
@@ -238,3 +405,198 @@ components:
         client_secret:
           type: string
           description: 新しいクライアントシークレット
+
+    TokenRequest:
+      type: object
+      required:
+        - grant_type
+      properties:
+        grant_type:
+          type: string
+          enum:
+            - authorization_code
+            - refresh_token
+        code:
+          type: string
+          description: 認可コード (grant_type=authorization_code 時に必須)
+        redirect_uri:
+          type: string
+          format: uri
+          description: リダイレクトURI (grant_type=authorization_code 時に必須)
+        client_id:
+          type: string
+          format: uuid
+        client_secret:
+          type: string
+          description: クライアントシークレット (confidential client の場合)
+        refresh_token:
+          type: string
+          description: リフレッシュトークン (grant_type=refresh_token 時に必須)
+        code_verifier:
+          type: string
+          description: PKCE code_verifier
+
+    TokenResponse:
+      type: object
+      required:
+        - access_token
+        - token_type
+        - expires_in
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          enum: [Bearer]
+        expires_in:
+          type: integer
+          description: アクセストークンの有効期限 (秒)
+        refresh_token:
+          type: string
+        id_token:
+          type: string
+          description: ID トークン (scope に openid が含まれる場合)
+        scope:
+          type: string
+          description: 付与されたスコープ
+
+    OAuthError:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          enum:
+            - invalid_request
+            - invalid_client
+            - invalid_grant
+            - unauthorized_client
+            - unsupported_grant_type
+            - invalid_scope
+            - access_denied
+            - server_error
+        error_description:
+          type: string
+          description: エラーの詳細説明
+
+    OpenIDConfiguration:
+      type: object
+      required:
+        - issuer
+        - authorization_endpoint
+        - token_endpoint
+        - userinfo_endpoint
+        - jwks_uri
+        - response_types_supported
+        - subject_types_supported
+        - id_token_signing_alg_values_supported
+      properties:
+        issuer:
+          type: string
+          format: uri
+        authorization_endpoint:
+          type: string
+          format: uri
+        token_endpoint:
+          type: string
+          format: uri
+        userinfo_endpoint:
+          type: string
+          format: uri
+        jwks_uri:
+          type: string
+          format: uri
+        response_types_supported:
+          type: array
+          items:
+            type: string
+        subject_types_supported:
+          type: array
+          items:
+            type: string
+        id_token_signing_alg_values_supported:
+          type: array
+          items:
+            type: string
+        scopes_supported:
+          type: array
+          items:
+            type: string
+        token_endpoint_auth_methods_supported:
+          type: array
+          items:
+            type: string
+        claims_supported:
+          type: array
+          items:
+            type: string
+        code_challenge_methods_supported:
+          type: array
+          items:
+            type: string
+
+    JWKS:
+      type: object
+      required:
+        - keys
+      properties:
+        keys:
+          type: array
+          items:
+            $ref: "#/components/schemas/JWK"
+
+    JWK:
+      type: object
+      required:
+        - kty
+        - kid
+        - use
+      properties:
+        kty:
+          type: string
+          description: Key Type (RSA, EC 等)
+        kid:
+          type: string
+          description: Key ID
+        use:
+          type: string
+          enum: [sig, enc]
+        alg:
+          type: string
+          description: Algorithm (RS256 等)
+        n:
+          type: string
+          description: RSA modulus (Base64url)
+        e:
+          type: string
+          description: RSA exponent (Base64url)
+
+    UserInfo:
+      type: object
+      required:
+        - sub
+      properties:
+        sub:
+          type: string
+          description: Subject Identifier
+        name:
+          type: string
+        preferred_username:
+          type: string
+        email:
+          type: string
+          format: email
+        email_verified:
+          type: boolean
+        picture:
+          type: string
+          format: uri
+        updated_at:
+          type: integer
+          description: Unix timestamp
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer

@@ -10,6 +10,20 @@ import (
 	"time"
 )
 
+type AuthorizationCode struct {
+	Code                string         `json:"code"`
+	ClientID            string         `json:"client_id"`
+	UserID              string         `json:"user_id"`
+	RedirectUri         string         `json:"redirect_uri"`
+	Scopes              string         `json:"scopes"`
+	CodeChallenge       sql.NullString `json:"code_challenge"`
+	CodeChallengeMethod sql.NullString `json:"code_challenge_method"`
+	Nonce               sql.NullString `json:"nonce"`
+	Used                bool           `json:"used"`
+	ExpiresAt           time.Time      `json:"expires_at"`
+	CreatedAt           time.Time      `json:"created_at"`
+}
+
 type Client struct {
 	ClientID         string          `json:"client_id"`
 	ClientSecretHash sql.NullString  `json:"client_secret_hash"`
@@ -18,4 +32,27 @@ type Client struct {
 	RedirectUris     json.RawMessage `json:"redirect_uris"`
 	CreatedAt        time.Time       `json:"created_at"`
 	UpdatedAt        time.Time       `json:"updated_at"`
+}
+
+type OidcSession struct {
+	AuthorizeCode string         `json:"authorize_code"`
+	ClientID      string         `json:"client_id"`
+	UserID        string         `json:"user_id"`
+	Scopes        string         `json:"scopes"`
+	Nonce         sql.NullString `json:"nonce"`
+	AuthTime      time.Time      `json:"auth_time"`
+	RequestedAt   time.Time      `json:"requested_at"`
+	CreatedAt     time.Time      `json:"created_at"`
+}
+
+type Token struct {
+	ID           string         `json:"id"`
+	RequestID    string         `json:"request_id"`
+	ClientID     string         `json:"client_id"`
+	UserID       string         `json:"user_id"`
+	AccessToken  string         `json:"access_token"`
+	RefreshToken sql.NullString `json:"refresh_token"`
+	Scopes       string         `json:"scopes"`
+	ExpiresAt    time.Time      `json:"expires_at"`
+	CreatedAt    time.Time      `json:"created_at"`
 }
