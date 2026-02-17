@@ -1,0 +1,147 @@
+name: OIDC Conformance Suite
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: read
+
+env:
+  GO_VERSION_FILE: go.mod
+  CONFORMANCE_SUITE_TAG: release-v5.1.35
+  IMAGE_PREFIX: ghcr.io/traptitech/portal-oidc/conformance
+
+jobs:
+  conformance:
+    name: Conformance Suite
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    services:
+      oidc-db:
+        image: mariadb:10.11.15
+        env:
+          MARIADB_ROOT_PASSWORD: password
+          MARIADB_DATABASE: oidc
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: ${{ env.GO_VERSION_FILE }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: pip install httpx
+
+      - name: Apply DB schema
+        run: |
+          mysql -h 127.0.0.1 -P 3307 -u root -ppassword oidc < db/schema.sql
+
+      - name: Build portal-oidc
+        run: go build -o portal-oidc ./cmd/
+
+      - name: Generate RSA key
+        run: |
+          mkdir -p data
+          openssl genpkey -algorithm RSA -out data/private.pem -pkeyopt rsa_keygen_bits:2048
+
+      - name: Start portal-oidc
+        run: |
+          ./portal-oidc serve > /tmp/portal-oidc.log 2>&1 &
+          echo $! > /tmp/portal-oidc.pid
+        env:
+          OIDC_HOST: http://host.docker.internal:8080
+          OIDC_DATABASE__HOST: 127.0.0.1
+          OIDC_DATABASE__PORT: "3307"
+          OIDC_DATABASE__USER: root
+          OIDC_DATABASE__PASSWORD: password
+          OIDC_DATABASE__NAME: oidc
+          OIDC_OAUTH__SECRET: conformance-test-secret-key-32!!
+
+      - name: Wait for portal-oidc health check
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
+              echo "portal-oidc is ready"
+              exit 0
+            fi
+            echo "Waiting for portal-oidc... ($i/30)"
+            sleep 2
+          done
+          echo "portal-oidc failed to start"
+          exit 1
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Start conformance suite
+        run: docker compose -f .github/conformance/docker-compose.yml up -d
+        env:
+          CONFORMANCE_HTTPD_IMAGE: ${{ env.IMAGE_PREFIX }}-httpd:${{ env.CONFORMANCE_SUITE_TAG }}
+          CONFORMANCE_SERVER_IMAGE: ${{ env.IMAGE_PREFIX }}-server:${{ env.CONFORMANCE_SUITE_TAG }}
+
+      - name: Wait for conformance suite
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sfk https://localhost:8443 > /dev/null 2>&1; then
+              echo "Conformance suite is ready"
+              exit 0
+            fi
+            echo "Waiting for conformance suite... ($i/60)"
+            sleep 5
+          done
+          echo "Conformance suite failed to start"
+          docker compose -f .github/conformance/docker-compose.yml logs
+          exit 1
+
+      - name: Run conformance tests
+        working-directory: ${{ github.workspace }}
+        run: |
+          chmod +x .github/conformance/run.sh
+          bash .github/conformance/run.sh
+        env:
+          CONFORMANCE_SERVER: https://localhost:8443
+          CONFORMANCE_TOKEN: ""
+          CONFORMANCE_DEV_MODE: "1"
+          PORTAL_OIDC_URL: http://localhost:8080
+          DISCOVERY_URL: http://host.docker.internal:8080/.well-known/openid-configuration
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: conformance-results
+          path: .github/conformance/results/
+          retention-days: 30
+
+      - name: Portal OIDC server logs
+        if: always()
+        run: cat /tmp/portal-oidc.log || true
+
+      - name: Conformance suite logs
+        if: failure()
+        run: docker compose -f .github/conformance/docker-compose.yml logs --tail=200

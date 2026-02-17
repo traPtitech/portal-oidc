@@ -1,0 +1,11 @@
+{
+  "alias": "portal-oidc",
+  "description": "portal-oidc OIDC conformance test",
+  "server": {
+    "discoveryUrl": "${DISCOVERY_URL}"
+  },
+  "client": {
+    "client_id": "${CLIENT_ID}",
+    "client_secret": "${CLIENT_SECRET}"
+  }
+}
