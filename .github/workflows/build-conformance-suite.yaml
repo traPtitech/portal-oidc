@@ -1,0 +1,62 @@
+name: Build Conformance Suite Images
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Conformance suite release tag (e.g. release-v5.1.35)"
+        required: true
+        default: "release-v5.1.35"
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/traptitech/portal-oidc/conformance
+
+jobs:
+  build:
+    name: Build and Push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone conformance suite
+        run: |
+          git clone --depth 1 --branch "${{ inputs.tag }}" \
+            https://gitlab.com/openid/conformance-suite.git
+
+      - name: Build with Maven
+        working-directory: conformance-suite
+        env:
+          MAVEN_CACHE: /tmp/m2
+        run: |
+          mkdir -p "$MAVEN_CACHE"
+          docker compose -f builder-compose.yml run --rm builder
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push httpd
+        run: |
+          docker build \
+            -t "$IMAGE_PREFIX-httpd:${{ inputs.tag }}" \
+            conformance-suite/httpd
+          docker push "$IMAGE_PREFIX-httpd:${{ inputs.tag }}"
+
+      - name: Build and push server
+        run: |
+          cat > /tmp/Dockerfile <<'EOF'
+          FROM eclipse-temurin:17
+          RUN apt-get update && apt-get install -y redir && rm -rf /var/lib/apt/lists/*
+          COPY fapi-test-suite.jar /server/fapi-test-suite.jar
+          EOF
+          cp conformance-suite/target/fapi-test-suite.jar /tmp/
+          docker build \
+            -t "$IMAGE_PREFIX-server:${{ inputs.tag }}" \
+            /tmp
+          docker push "$IMAGE_PREFIX-server:${{ inputs.tag }}"
