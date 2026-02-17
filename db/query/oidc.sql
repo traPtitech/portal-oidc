@@ -54,6 +54,9 @@ SELECT * FROM authorization_codes WHERE code = ?;
 -- name: DeleteAuthorizationCode :exec
 DELETE FROM authorization_codes WHERE code = ?;
 
+-- name: MarkAuthorizationCodeUsed :exec
+UPDATE authorization_codes SET used = TRUE WHERE code = ?;
+
 -- name: UpdateAuthorizationCodePKCE :exec
 UPDATE authorization_codes SET
     code_challenge = ?,
@@ -71,13 +74,14 @@ DELETE FROM authorization_codes;
 -- name: CreateToken :exec
 INSERT INTO tokens (
     id,
+    request_id,
     client_id,
     user_id,
     access_token,
     refresh_token,
     scopes,
     expires_at
-) VALUES (?, ?, ?, ?, ?, ?, ?);
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: GetTokenByAccessToken :one
 SELECT * FROM tokens WHERE access_token = ?;
@@ -103,5 +107,30 @@ DELETE FROM tokens WHERE expires_at < NOW();
 -- name: DeleteTokensByUserAndClient :exec
 DELETE FROM tokens WHERE user_id = ? AND client_id = ?;
 
+-- name: DeleteTokensByRequestID :exec
+DELETE FROM tokens WHERE request_id = ?;
+
 -- name: DeleteAllTokens :exec
 DELETE FROM tokens;
+
+-- OIDC Session queries
+
+-- name: CreateOIDCSession :exec
+INSERT INTO oidc_sessions (
+    authorize_code,
+    client_id,
+    user_id,
+    scopes,
+    nonce,
+    auth_time,
+    requested_at
+) VALUES (?, ?, ?, ?, ?, ?, ?);
+
+-- name: GetOIDCSession :one
+SELECT * FROM oidc_sessions WHERE authorize_code = ?;
+
+-- name: DeleteOIDCSession :exec
+DELETE FROM oidc_sessions WHERE authorize_code = ?;
+
+-- name: DeleteAllOIDCSessions :exec
+DELETE FROM oidc_sessions;

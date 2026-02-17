@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/go-jose/go-jose/v4"
 	"github.com/labstack/echo/v4"
@@ -38,7 +39,7 @@ func (h *Handler) Authorize(ctx echo.Context, params gen.AuthorizeParams) error 
 		return nil
 	}
 
-	session := oauth.NewSession(userID)
+	session := oauth.NewSession(userID, time.Now())
 	for _, scope := range ar.GetRequestedScopes() {
 		ar.GrantScope(scope)
 	}
@@ -58,7 +59,7 @@ func (h *Handler) Token(ctx echo.Context) error {
 	rw := ctx.Response()
 	req := ctx.Request()
 
-	session := oauth.NewSession("")
+	session := oauth.NewSession("", time.Time{})
 	accessRequest, err := h.oauth2.NewAccessRequest(c, req, session)
 	if err != nil {
 		h.oauth2.WriteAccessError(c, rw, accessRequest, err)
@@ -116,7 +117,7 @@ func (h *Handler) extractBearerToken(ctx echo.Context) (string, error) {
 func (h *Handler) handleUserInfo(ctx echo.Context, token string) error {
 	c := ctx.Request().Context()
 
-	_, ar, err := h.oauth2.IntrospectToken(c, token, fosite.AccessToken, oauth.NewSession(""))
+	_, ar, err := h.oauth2.IntrospectToken(c, token, fosite.AccessToken, oauth.NewSession("", time.Time{}))
 	if err != nil {
 		return ctx.JSON(http.StatusUnauthorized, gen.OAuthError{Error: gen.InvalidGrant})
 	}

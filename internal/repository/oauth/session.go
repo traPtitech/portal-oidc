@@ -20,16 +20,16 @@ type Session struct {
 	idTokenHeaders *jwt.Headers
 }
 
-func NewSession(subject string) *Session {
-	now := time.Now()
+func NewSession(subject string, authTime time.Time) *Session {
 	return &Session{
 		subject:   subject,
 		username:  subject,
 		expiresAt: make(map[fosite.TokenType]time.Time),
 		extra:     make(map[string]interface{}),
 		idTokenClaims: &jwt.IDTokenClaims{
-			Subject:  subject,
-			AuthTime: now,
+			Subject:     subject,
+			AuthTime:    authTime,
+			RequestedAt: authTime,
 		},
 		idTokenHeaders: &jwt.Headers{
 			Extra: make(map[string]interface{}),

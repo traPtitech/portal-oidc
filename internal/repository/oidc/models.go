@@ -19,6 +19,7 @@ type AuthorizationCode struct {
 	CodeChallenge       sql.NullString `json:"code_challenge"`
 	CodeChallengeMethod sql.NullString `json:"code_challenge_method"`
 	Nonce               sql.NullString `json:"nonce"`
+	Used                bool           `json:"used"`
 	ExpiresAt           time.Time      `json:"expires_at"`
 	CreatedAt           time.Time      `json:"created_at"`
 }
@@ -33,8 +34,20 @@ type Client struct {
 	UpdatedAt        time.Time       `json:"updated_at"`
 }
 
+type OidcSession struct {
+	AuthorizeCode string         `json:"authorize_code"`
+	ClientID      string         `json:"client_id"`
+	UserID        string         `json:"user_id"`
+	Scopes        string         `json:"scopes"`
+	Nonce         sql.NullString `json:"nonce"`
+	AuthTime      time.Time      `json:"auth_time"`
+	RequestedAt   time.Time      `json:"requested_at"`
+	CreatedAt     time.Time      `json:"created_at"`
+}
+
 type Token struct {
 	ID           string         `json:"id"`
+	RequestID    string         `json:"request_id"`
 	ClientID     string         `json:"client_id"`
 	UserID       string         `json:"user_id"`
 	AccessToken  string         `json:"access_token"`

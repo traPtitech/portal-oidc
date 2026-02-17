@@ -86,21 +86,60 @@ func (q *Queries) CreateClient(ctx context.Context, arg CreateClientParams) erro
 	return err
 }
 
+const createOIDCSession = `-- name: CreateOIDCSession :exec
+
+INSERT INTO oidc_sessions (
+    authorize_code,
+    client_id,
+    user_id,
+    scopes,
+    nonce,
+    auth_time,
+    requested_at
+) VALUES (?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateOIDCSessionParams struct {
+	AuthorizeCode string         `json:"authorize_code"`
+	ClientID      string         `json:"client_id"`
+	UserID        string         `json:"user_id"`
+	Scopes        string         `json:"scopes"`
+	Nonce         sql.NullString `json:"nonce"`
+	AuthTime      time.Time      `json:"auth_time"`
+	RequestedAt   time.Time      `json:"requested_at"`
+}
+
+// OIDC Session queries
+func (q *Queries) CreateOIDCSession(ctx context.Context, arg CreateOIDCSessionParams) error {
+	_, err := q.exec(ctx, q.createOIDCSessionStmt, createOIDCSession,
+		arg.AuthorizeCode,
+		arg.ClientID,
+		arg.UserID,
+		arg.Scopes,
+		arg.Nonce,
+		arg.AuthTime,
+		arg.RequestedAt,
+	)
+	return err
+}
+
 const createToken = `-- name: CreateToken :exec
 
 INSERT INTO tokens (
     id,
+    request_id,
     client_id,
     user_id,
     access_token,
     refresh_token,
     scopes,
     expires_at
-) VALUES (?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateTokenParams struct {
 	ID           string         `json:"id"`
+	RequestID    string         `json:"request_id"`
 	ClientID     string         `json:"client_id"`
 	UserID       string         `json:"user_id"`
 	AccessToken  string         `json:"access_token"`
@@ -113,6 +152,7 @@ type CreateTokenParams struct {
 func (q *Queries) CreateToken(ctx context.Context, arg CreateTokenParams) error {
 	_, err := q.exec(ctx, q.createTokenStmt, createToken,
 		arg.ID,
+		arg.RequestID,
 		arg.ClientID,
 		arg.UserID,
 		arg.AccessToken,
@@ -138,6 +178,15 @@ DELETE FROM clients
 
 func (q *Queries) DeleteAllClients(ctx context.Context) error {
 	_, err := q.exec(ctx, q.deleteAllClientsStmt, deleteAllClients)
+	return err
+}
+
+const deleteAllOIDCSessions = `-- name: DeleteAllOIDCSessions :exec
+DELETE FROM oidc_sessions
+`
+
+func (q *Queries) DeleteAllOIDCSessions(ctx context.Context) error {
+	_, err := q.exec(ctx, q.deleteAllOIDCSessionsStmt, deleteAllOIDCSessions)
 	return err
 }
 
@@ -186,6 +235,15 @@ func (q *Queries) DeleteExpiredTokens(ctx context.Context) error {
 	return err
 }
 
+const deleteOIDCSession = `-- name: DeleteOIDCSession :exec
+DELETE FROM oidc_sessions WHERE authorize_code = ?
+`
+
+func (q *Queries) DeleteOIDCSession(ctx context.Context, authorizeCode string) error {
+	_, err := q.exec(ctx, q.deleteOIDCSessionStmt, deleteOIDCSession, authorizeCode)
+	return err
+}
+
 const deleteToken = `-- name: DeleteToken :exec
 DELETE FROM tokens WHERE id = ?
 `
@@ -213,6 +271,15 @@ func (q *Queries) DeleteTokenByRefreshToken(ctx context.Context, refreshToken sq
 	return err
 }
 
+const deleteTokensByRequestID = `-- name: DeleteTokensByRequestID :exec
+DELETE FROM tokens WHERE request_id = ?
+`
+
+func (q *Queries) DeleteTokensByRequestID(ctx context.Context, requestID string) error {
+	_, err := q.exec(ctx, q.deleteTokensByRequestIDStmt, deleteTokensByRequestID, requestID)
+	return err
+}
+
 const deleteTokensByUserAndClient = `-- name: DeleteTokensByUserAndClient :exec
 DELETE FROM tokens WHERE user_id = ? AND client_id = ?
 `
@@ -228,7 +295,7 @@ func (q *Queries) DeleteTokensByUserAndClient(ctx context.Context, arg DeleteTok
 }
 
 const getAuthorizationCode = `-- name: GetAuthorizationCode :one
-SELECT code, client_id, user_id, redirect_uri, scopes, code_challenge, code_challenge_method, nonce, expires_at, created_at FROM authorization_codes WHERE code = ?
+SELECT code, client_id, user_id, redirect_uri, scopes, code_challenge, code_challenge_method, nonce, used, expires_at, created_at FROM authorization_codes WHERE code = ?
 `
 
 func (q *Queries) GetAuthorizationCode(ctx context.Context, code string) (AuthorizationCode, error) {
@@ -243,6 +310,7 @@ func (q *Queries) GetAuthorizationCode(ctx context.Context, code string) (Author
 		&i.CodeChallenge,
 		&i.CodeChallengeMethod,
 		&i.Nonce,
+		&i.Used,
 		&i.ExpiresAt,
 		&i.CreatedAt,
 	)
@@ -268,8 +336,28 @@ func (q *Queries) GetClient(ctx context.Context, clientID string) (Client, error
 	return i, err
 }
 
+const getOIDCSession = `-- name: GetOIDCSession :one
+SELECT authorize_code, client_id, user_id, scopes, nonce, auth_time, requested_at, created_at FROM oidc_sessions WHERE authorize_code = ?
+`
+
+func (q *Queries) GetOIDCSession(ctx context.Context, authorizeCode string) (OidcSession, error) {
+	row := q.queryRow(ctx, q.getOIDCSessionStmt, getOIDCSession, authorizeCode)
+	var i OidcSession
+	err := row.Scan(
+		&i.AuthorizeCode,
+		&i.ClientID,
+		&i.UserID,
+		&i.Scopes,
+		&i.Nonce,
+		&i.AuthTime,
+		&i.RequestedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getTokenByAccessToken = `-- name: GetTokenByAccessToken :one
-SELECT id, client_id, user_id, access_token, refresh_token, scopes, expires_at, created_at FROM tokens WHERE access_token = ?
+SELECT id, request_id, client_id, user_id, access_token, refresh_token, scopes, expires_at, created_at FROM tokens WHERE access_token = ?
 `
 
 func (q *Queries) GetTokenByAccessToken(ctx context.Context, accessToken string) (Token, error) {
@@ -277,6 +365,7 @@ func (q *Queries) GetTokenByAccessToken(ctx context.Context, accessToken string)
 	var i Token
 	err := row.Scan(
 		&i.ID,
+		&i.RequestID,
 		&i.ClientID,
 		&i.UserID,
 		&i.AccessToken,
@@ -289,7 +378,7 @@ func (q *Queries) GetTokenByAccessToken(ctx context.Context, accessToken string)
 }
 
 const getTokenByID = `-- name: GetTokenByID :one
-SELECT id, client_id, user_id, access_token, refresh_token, scopes, expires_at, created_at FROM tokens WHERE id = ?
+SELECT id, request_id, client_id, user_id, access_token, refresh_token, scopes, expires_at, created_at FROM tokens WHERE id = ?
 `
 
 func (q *Queries) GetTokenByID(ctx context.Context, id string) (Token, error) {
@@ -297,6 +386,7 @@ func (q *Queries) GetTokenByID(ctx context.Context, id string) (Token, error) {
 	var i Token
 	err := row.Scan(
 		&i.ID,
+		&i.RequestID,
 		&i.ClientID,
 		&i.UserID,
 		&i.AccessToken,
@@ -309,7 +399,7 @@ func (q *Queries) GetTokenByID(ctx context.Context, id string) (Token, error) {
 }
 
 const getTokenByRefreshToken = `-- name: GetTokenByRefreshToken :one
-SELECT id, client_id, user_id, access_token, refresh_token, scopes, expires_at, created_at FROM tokens WHERE refresh_token = ?
+SELECT id, request_id, client_id, user_id, access_token, refresh_token, scopes, expires_at, created_at FROM tokens WHERE refresh_token = ?
 `
 
 func (q *Queries) GetTokenByRefreshToken(ctx context.Context, refreshToken sql.NullString) (Token, error) {
@@ -317,6 +407,7 @@ func (q *Queries) GetTokenByRefreshToken(ctx context.Context, refreshToken sql.N
 	var i Token
 	err := row.Scan(
 		&i.ID,
+		&i.RequestID,
 		&i.ClientID,
 		&i.UserID,
 		&i.AccessToken,
@@ -361,6 +452,15 @@ func (q *Queries) ListClients(ctx context.Context) ([]Client, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const markAuthorizationCodeUsed = `-- name: MarkAuthorizationCodeUsed :exec
+UPDATE authorization_codes SET used = TRUE WHERE code = ?
+`
+
+func (q *Queries) MarkAuthorizationCodeUsed(ctx context.Context, code string) error {
+	_, err := q.exec(ctx, q.markAuthorizationCodeUsedStmt, markAuthorizationCodeUsed, code)
+	return err
 }
 
 const updateAuthorizationCodePKCE = `-- name: UpdateAuthorizationCodePKCE :exec

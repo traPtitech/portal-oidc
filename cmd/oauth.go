@@ -15,8 +15,6 @@ import (
 	"github.com/ory/fosite"
 	"github.com/ory/fosite/compose"
 	"github.com/ory/fosite/token/jwt"
-
-	"github.com/traPtitech/portal-oidc/internal/repository/oauth"
 )
 
 type OAuthProviderConfig struct {
@@ -25,7 +23,7 @@ type OAuthProviderConfig struct {
 	RefreshTokenLifespan time.Duration
 	AuthCodeLifespan     time.Duration
 	IDTokenLifespan      time.Duration
-	Secret               []byte
+	Secret               []byte // #nosec G117 -- internal config, not serialized
 }
 
 func defaultOAuthProviderConfig() OAuthProviderConfig {
@@ -39,7 +37,7 @@ func defaultOAuthProviderConfig() OAuthProviderConfig {
 	}
 }
 
-func newOAuthProvider(storage *oauth.Storage, config OAuthProviderConfig, privateKey *rsa.PrivateKey) fosite.OAuth2Provider {
+func newOAuthProvider(storage fosite.Storage, config OAuthProviderConfig, privateKey *rsa.PrivateKey) fosite.OAuth2Provider {
 	fositeConfig := &fosite.Config{
 		AccessTokenLifespan:            config.AccessTokenLifespan,
 		RefreshTokenLifespan:           config.RefreshTokenLifespan,

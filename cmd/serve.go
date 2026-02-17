@@ -20,7 +20,7 @@ import (
 )
 
 func newServer(cfg Config) (http.Handler, error) {
-	queries, err := setupOIDCDatabase(cfg.Database)
+	oidcDB, queries, err := setupOIDCDatabase(cfg.Database)
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +35,15 @@ func newServer(cfg Config) (http.Handler, error) {
 		return nil, fmt.Errorf("failed to load/generate RSA key: %w", err)
 	}
 
-	oauthStorage := oauth.NewStorage(queries)
+	clientRepo := repository.NewClientRepository(queries)
+	oauthStorage := oauth.NewStorage(
+		oidcDB,
+		queries,
+		clientRepo,
+		repository.NewAuthCodeRepository(queries),
+		repository.NewTokenRepository(queries),
+		repository.NewOIDCSessionRepository(queries),
+	)
 	defaults := defaultOAuthProviderConfig()
 	oauth2Provider := newOAuthProvider(oauthStorage, OAuthProviderConfig{
 		Issuer:               cfg.Host,
@@ -47,7 +55,7 @@ func newServer(cfg Config) (http.Handler, error) {
 	}, privateKey)
 
 	handler := v1.NewHandler(
-		usecase.NewClientUseCase(repository.NewClientRepository(queries)),
+		usecase.NewClientUseCase(clientRepo),
 		oauth2Provider,
 		repository.NewUserRepository(portalQueries),
 		v1.OAuthConfig{
@@ -77,25 +85,25 @@ func newServer(cfg Config) (http.Handler, error) {
 	return e, nil
 }
 
-func setupOIDCDatabase(cfg DatabaseConfig) (*oidc.Queries, error) {
+func setupOIDCDatabase(cfg DatabaseConfig) (*sql.DB, *oidc.Queries, error) {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
 		cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.Name)
 
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open oidc database: %w", err)
+		return nil, nil, fmt.Errorf("failed to open oidc database: %w", err)
 	}
 
 	if err := db.PingContext(context.Background()); err != nil {
-		return nil, fmt.Errorf("failed to ping oidc database: %w", err)
+		return nil, nil, fmt.Errorf("failed to ping oidc database: %w", err)
 	}
 
 	queries, err := oidc.Prepare(context.Background(), db)
 	if err != nil {
-		return nil, fmt.Errorf("failed to prepare oidc queries: %w", err)
+		return nil, nil, fmt.Errorf("failed to prepare oidc queries: %w", err)
 	}
 
-	return queries, nil
+	return db, queries, nil
 }
 
 func setupPortalDatabase(cfg DatabaseConfig) (*portal.Queries, error) {

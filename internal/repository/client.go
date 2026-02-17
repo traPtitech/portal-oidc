@@ -17,6 +17,7 @@ var ErrClientNotFound = errors.New("client not found")
 type ClientRepository interface {
 	Create(ctx context.Context, client *domain.Client, secretHash string) error
 	Get(ctx context.Context, clientID uuid.UUID) (*domain.Client, error)
+	GetWithSecretHash(ctx context.Context, clientID uuid.UUID) (*domain.Client, string, error)
 	List(ctx context.Context) ([]*domain.Client, error)
 	Update(ctx context.Context, client *domain.Client) error
 	UpdateSecret(ctx context.Context, clientID uuid.UUID, secretHash string) error
@@ -59,6 +60,23 @@ func (r *clientRepository) Get(ctx context.Context, clientID uuid.UUID) (*domain
 	}
 
 	return r.toDomain(dbClient)
+}
+
+func (r *clientRepository) GetWithSecretHash(ctx context.Context, clientID uuid.UUID) (*domain.Client, string, error) {
+	dbClient, err := r.queries.GetClient(ctx, clientID.String())
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, "", ErrClientNotFound
+		}
+		return nil, "", err
+	}
+
+	client, err := r.toDomain(dbClient)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return client, dbClient.ClientSecretHash.String, nil
 }
 
 func (r *clientRepository) List(ctx context.Context) ([]*domain.Client, error) {

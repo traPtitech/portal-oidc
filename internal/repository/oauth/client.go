@@ -9,7 +9,7 @@ var _ fosite.Client = (*Client)(nil)
 
 type Client struct {
 	ID            string
-	Secret        []byte
+	Secret        []byte // #nosec G117 -- hashed secret, not plaintext
 	RedirectURIs  []string
 	GrantTypes    []string
 	ResponseTypes []string

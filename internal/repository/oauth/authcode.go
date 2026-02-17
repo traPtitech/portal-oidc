@@ -2,14 +2,14 @@ package oauth
 
 import (
 	"context"
-	"database/sql"
 	"errors"
-	"strings"
+	"net/url"
 	"time"
 
 	"github.com/ory/fosite"
 
-	"github.com/traPtitech/portal-oidc/internal/repository/oidc"
+	"github.com/traPtitech/portal-oidc/internal/domain"
+	"github.com/traPtitech/portal-oidc/internal/repository"
 )
 
 func (s *Storage) CreateAuthorizeCodeSession(ctx context.Context, code string, request fosite.Requester) error {
@@ -18,76 +18,61 @@ func (s *Storage) CreateAuthorizeCodeSession(ctx context.Context, code string, r
 		return errors.New("invalid session type")
 	}
 
-	return s.queries.CreateAuthorizationCode(ctx, oidc.CreateAuthorizationCodeParams{
-		Code:                code,
-		ClientID:            request.GetClient().GetID(),
-		UserID:              sess.GetSubject(),
-		RedirectUri:         request.GetRequestForm().Get("redirect_uri"),
-		Scopes:              strings.Join(request.GetRequestedScopes(), " "),
-		CodeChallenge:       sql.NullString{Valid: false},
-		CodeChallengeMethod: sql.NullString{Valid: false},
-		Nonce: sql.NullString{
-			String: request.GetRequestForm().Get("nonce"),
-			Valid:  request.GetRequestForm().Get("nonce") != "",
-		},
-		ExpiresAt: sess.GetExpiresAt(fosite.AuthorizeCode),
+	return s.getAuthCodes(ctx).Create(ctx, domain.AuthCode{
+		Code:        code,
+		ClientID:    request.GetClient().GetID(),
+		UserID:      sess.GetSubject(),
+		RedirectURI: request.GetRequestForm().Get("redirect_uri"),
+		Scopes:      request.GetRequestedScopes(),
+		Nonce:       request.GetRequestForm().Get("nonce"),
+		ExpiresAt:   sess.GetExpiresAt(fosite.AuthorizeCode),
 	})
 }
 
 func (s *Storage) GetAuthorizeCodeSession(ctx context.Context, code string, session fosite.Session) (fosite.Requester, error) {
-	dbCode, err := s.queries.GetAuthorizationCode(ctx, code)
+	authCode, err := s.getAuthCodes(ctx).Get(ctx, code)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, repository.ErrAuthCodeNotFound) {
 			return nil, fosite.ErrNotFound
 		}
 		return nil, err
 	}
 
-	if time.Now().After(dbCode.ExpiresAt) {
+	if time.Now().After(authCode.ExpiresAt) {
 		return nil, fosite.ErrTokenExpired
 	}
 
-	client, err := s.GetClient(ctx, dbCode.ClientID)
+	client, err := s.GetClient(ctx, authCode.ClientID)
 	if err != nil {
 		return nil, err
 	}
 
-	scopes := strings.Split(dbCode.Scopes, " ")
-	if dbCode.Scopes == "" {
-		scopes = []string{}
+	sess := NewSession(authCode.UserID, time.Time{})
+	sess.SetExpiresAt(fosite.AuthorizeCode, authCode.ExpiresAt)
+
+	form := url.Values{}
+	form.Set("redirect_uri", authCode.RedirectURI)
+	if authCode.CodeChallenge != "" {
+		form.Set("code_challenge", authCode.CodeChallenge)
+	}
+	if authCode.CodeChallengeMethod != "" {
+		form.Set("code_challenge_method", authCode.CodeChallengeMethod)
+	}
+	if authCode.Nonce != "" {
+		form.Set("nonce", authCode.Nonce)
 	}
 
-	sess := NewSession(dbCode.UserID)
-	sess.SetExpiresAt(fosite.AuthorizeCode, dbCode.ExpiresAt)
+	req := newFositeRequest(code, authCode.CreatedAt, client, sess, authCode.Scopes, form)
 
-	form := make(map[string][]string)
-	form["redirect_uri"] = []string{dbCode.RedirectUri}
-	if dbCode.CodeChallenge.Valid {
-		form["code_challenge"] = []string{dbCode.CodeChallenge.String}
-	}
-	if dbCode.CodeChallengeMethod.Valid {
-		form["code_challenge_method"] = []string{dbCode.CodeChallengeMethod.String}
-	}
-	if dbCode.Nonce.Valid {
-		form["nonce"] = []string{dbCode.Nonce.String}
+	if authCode.Used {
+		return req, fosite.ErrInvalidatedAuthorizeCode
 	}
 
-	req := &fosite.Request{
-		ID:          code,
-		RequestedAt: dbCode.CreatedAt,
-		Client:      client,
-		Form:        form,
-		Session:     sess,
-	}
-	req.SetRequestedScopes(scopes)
-	for _, scope := range scopes {
-		req.GrantScope(scope)
-	}
 	return req, nil
 }
 
 func (s *Storage) InvalidateAuthorizeCodeSession(ctx context.Context, code string) error {
-	return s.queries.DeleteAuthorizationCode(ctx, code)
+	return s.getAuthCodes(ctx).MarkUsed(ctx, code)
 }
 
 func (s *Storage) GetPKCERequestSession(ctx context.Context, signature string, session fosite.Session) (fosite.Requester, error) {
@@ -102,17 +87,7 @@ func (s *Storage) CreatePKCERequestSession(ctx context.Context, signature string
 		return nil
 	}
 
-	return s.queries.UpdateAuthorizationCodePKCE(ctx, oidc.UpdateAuthorizationCodePKCEParams{
-		CodeChallenge: sql.NullString{
-			String: challenge,
-			Valid:  true,
-		},
-		CodeChallengeMethod: sql.NullString{
-			String: method,
-			Valid:  method != "",
-		},
-		Code: signature,
-	})
+	return s.getAuthCodes(ctx).UpdatePKCE(ctx, signature, challenge, method)
 }
 
 func (s *Storage) DeletePKCERequestSession(ctx context.Context, signature string) error {
