@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -47,7 +48,7 @@ func newOAuthProvider(storage fosite.Storage, config OAuthProviderConfig, privat
 		ScopeStrategy:                  fosite.ExactScopeStrategy,
 		AudienceMatchingStrategy:       fosite.DefaultAudienceMatchingStrategy,
 		SendDebugMessagesToClients:     false,
-		EnforcePKCE:                    true,
+		EnforcePKCE:                    false,
 		EnforcePKCEForPublicClients:    true,
 		EnablePKCEPlainChallengeMethod: false,
 		AccessTokenIssuer:              config.Issuer,
@@ -130,7 +131,22 @@ func loadKey(path string) (key *rsa.PrivateKey, err error) {
 		return nil, errors.New("failed to decode PEM")
 	}
 
-	return x509.ParsePKCS1PrivateKey(block.Bytes)
+	switch block.Type {
+	case "RSA PRIVATE KEY":
+		return x509.ParsePKCS1PrivateKey(block.Bytes)
+	case "PRIVATE KEY":
+		parsed, pkcs8Err := x509.ParsePKCS8PrivateKey(block.Bytes)
+		if pkcs8Err != nil {
+			return nil, pkcs8Err
+		}
+		rsaKey, ok := parsed.(*rsa.PrivateKey)
+		if !ok {
+			return nil, errors.New("private key is not RSA")
+		}
+		return rsaKey, nil
+	default:
+		return nil, fmt.Errorf("unsupported PEM type: %s", block.Type)
+	}
 }
 
 func openKeyRoot(path string) (*os.Root, string, error) {

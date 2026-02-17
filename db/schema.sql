@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS `tokens` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE IF NOT EXISTS `oidc_sessions` (
-  `authorize_code` varchar(64) NOT NULL,
+  `authorize_code` varchar(255) NOT NULL,
   `client_id` char(36) NOT NULL,
   `user_id` char(36) NOT NULL,
   `scopes` text NOT NULL,

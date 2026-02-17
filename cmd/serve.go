@@ -25,11 +25,6 @@ func newServer(cfg Config) (http.Handler, error) {
 		return nil, err
 	}
 
-	portalQueries, err := setupPortalDatabase(cfg.Portal.Database)
-	if err != nil {
-		return nil, err
-	}
-
 	privateKey, err := loadOrGenerateKey(cfg.OAuth.KeyFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load/generate RSA key: %w", err)
@@ -54,7 +49,14 @@ func newServer(cfg Config) (http.Handler, error) {
 		Secret:               []byte(cfg.OAuth.Secret),
 	}, privateKey)
 
-	userUseCase := usecase.NewUserUseCase(repository.NewUserRepository(portalQueries))
+	var userUseCase usecase.UserUseCase
+	if cfg.Environment == "production" {
+		portalQueries, portalErr := setupPortalDatabase(cfg.Portal.Database)
+		if portalErr != nil {
+			return nil, portalErr
+		}
+		userUseCase = usecase.NewUserUseCase(repository.NewUserRepository(portalQueries))
+	}
 	handler := v1.NewHandler(
 		usecase.NewClientUseCase(clientRepo),
 		oauth2Provider,
