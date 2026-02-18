@@ -9,7 +9,6 @@
     "security:openssf-scorecard"
   ],
   "timezone": "Asia/Tokyo",
-  "schedule": ["after 9am and before 5pm every weekday"],
   "labels": ["dependencies"],
   "prHourlyLimit": 5,
   "prConcurrentLimit": 10,
