@@ -42,6 +42,15 @@ func (q *Queries) CreateClient(ctx context.Context, arg CreateClientParams) erro
 	return err
 }
 
+const deleteAllClients = `-- name: DeleteAllClients :exec
+DELETE FROM clients
+`
+
+func (q *Queries) DeleteAllClients(ctx context.Context) error {
+	_, err := q.exec(ctx, q.deleteAllClientsStmt, deleteAllClients)
+	return err
+}
+
 const deleteClient = `-- name: DeleteClient :exec
 DELETE FROM clients WHERE client_id = ?
 `

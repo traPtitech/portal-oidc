@@ -13,7 +13,228 @@ servers:
   - url: "http://localhost:8080"
     description: local
 
-paths: {}
+paths:
+  /api/v1/admin/clients:
+    get:
+      operationId: getClients
+      summary: クライアント一覧取得
+      tags:
+        - clients
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Client"
+        "401":
+          description: Unauthorized
+    post:
+      operationId: createClient
+      summary: クライアント作成
+      tags:
+        - clients
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientWithSecret"
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+
+  /api/v1/admin/clients/{clientId}:
+    parameters:
+      - name: clientId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getClient
+      summary: クライアント取得
+      tags:
+        - clients
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Client"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not Found
+    put:
+      operationId: updateClient
+      summary: クライアント更新
+      tags:
+        - clients
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientUpdate"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Client"
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not Found
+    delete:
+      operationId: deleteClient
+      summary: クライアント削除
+      tags:
+        - clients
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not Found
+
+  /api/v1/admin/clients/{clientId}/secret:
+    parameters:
+      - name: clientId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: regenerateClientSecret
+      summary: クライアントシークレット再生成
+      tags:
+        - clients
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientSecret"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not Found
 
 components:
-  schemas: {}
+  schemas:
+    ClientType:
+      type: string
+      enum:
+        - public
+        - confidential
+      description: |
+        - public: クライアントシークレットを安全に保持できないクライアント (SPA, モバイルアプリ等) <将来実装>
+        - confidential: クライアントシークレットを安全に保持できるクライアント (サーバーサイドアプリ)
+
+    Client:
+      type: object
+      required:
+        - client_id
+        - name
+        - client_type
+        - redirect_uris
+        - created_at
+        - updated_at
+      properties:
+        client_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 255
+        client_type:
+          $ref: "#/components/schemas/ClientType"
+        redirect_uris:
+          type: array
+          items:
+            type: string
+            format: uri
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ClientCreate:
+      type: object
+      required:
+        - name
+        - client_type
+        - redirect_uris
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        client_type:
+          $ref: "#/components/schemas/ClientType"
+        redirect_uris:
+          type: array
+          items:
+            type: string
+            format: uri
+          minItems: 1
+
+    ClientUpdate:
+      type: object
+      required:
+        - name
+        - client_type
+        - redirect_uris
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        client_type:
+          $ref: "#/components/schemas/ClientType"
+        redirect_uris:
+          type: array
+          items:
+            type: string
+            format: uri
+          minItems: 1
+
+    ClientWithSecret:
+      allOf:
+        - $ref: "#/components/schemas/Client"
+        - type: object
+          required:
+            - client_secret
+          properties:
+            client_secret:
+              type: string
+              description: クライアントシークレット (作成時のみ返却、再取得不可)
+
+    ClientSecret:
+      type: object
+      required:
+        - client_secret
+      properties:
+        client_secret:
+          type: string
+          description: 新しいクライアントシークレット
