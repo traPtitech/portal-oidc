@@ -16,8 +16,8 @@ permissions:
 
 env:
   GO_VERSION_FILE: go.mod
-  CONFORMANCE_SUITE_TAG: release-v5.1.35
-  IMAGE_PREFIX: ghcr.io/traptitech/portal-oidc/conformance
+  CONFORMANCE_HTTPD_IMAGE: ghcr.io/traptitech/portal-oidc/conformance-httpd:release-v5.1.35
+  CONFORMANCE_SERVER_IMAGE: ghcr.io/traptitech/portal-oidc/conformance-server:release-v5.1.35
 
 jobs:
   conformance:
@@ -26,9 +26,6 @@ jobs:
     permissions:
       contents: read
       packages: read
-    env:
-      CONFORMANCE_HTTPD_IMAGE: ${{ env.IMAGE_PREFIX }}-httpd:${{ env.CONFORMANCE_SUITE_TAG }}
-      CONFORMANCE_SERVER_IMAGE: ${{ env.IMAGE_PREFIX }}-server:${{ env.CONFORMANCE_SUITE_TAG }}
     services:
       oidc-db:
         image: mariadb:10.11.15
