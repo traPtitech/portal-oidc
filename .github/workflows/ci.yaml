@@ -124,12 +124,6 @@ jobs:
         with:
           args: -exclude-generated -fmt sarif -out gosec.sarif ./...
 
-      - name: Upload Gosec SARIF
-        uses: github/codeql-action/upload-sarif@v4
-        if: always() && hashFiles('gosec.sarif') != ''
-        with:
-          sarif_file: gosec.sarif
-
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@0.33.1
         with:
@@ -138,8 +132,15 @@ jobs:
           output: 'trivy.sarif'
           exit-code: '0'
 
-      - name: Upload Trivy SARIF
+      - name: Merge SARIF results
+        if: always()
+        run: |
+          jq -s '{ "$schema": .[0]["$schema"], version: .[0].version, runs: [.[].runs[]] }' \
+            gosec.sarif trivy.sarif > security.sarif
+
+      - name: Upload SARIF
         uses: github/codeql-action/upload-sarif@v4
-        if: always() && hashFiles('trivy.sarif') != ''
+        if: always() && hashFiles('security.sarif') != ''
         with:
-          sarif_file: trivy.sarif
+          sarif_file: security.sarif
+          category: security
