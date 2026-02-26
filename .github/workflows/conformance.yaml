@@ -54,8 +54,9 @@ jobs:
         run: pip install httpx
 
       - name: Apply DB schema
-        run: |
-          mysql -h 127.0.0.1 -P 3307 -u root -ppassword oidc < db/schema.sql
+        run: mysql -h 127.0.0.1 -P 3307 -u root oidc < db/schema.sql
+        env:
+          MYSQL_PWD: password
 
       - name: Build portal-oidc
         run: go build -o portal-oidc ./cmd/
