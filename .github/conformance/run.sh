@@ -25,8 +25,13 @@ RESPONSE=$(curl -sf -X POST "$PORTAL_OIDC_URL/api/v1/admin/clients" \
     \"redirect_uris\": [\"$REDIRECT_URI\"]
   }")
 
-CLIENT_ID=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['client_id'])")
-CLIENT_SECRET=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['client_secret'])")
+CLIENT_ID=$(echo "$RESPONSE" | jq -r '.client_id')
+CLIENT_SECRET=$(echo "$RESPONSE" | jq -r '.client_secret')
+
+if [[ -z "$CLIENT_ID" || -z "$CLIENT_SECRET" ]]; then
+  echo "Error: Failed to extract client credentials from response"
+  exit 1
+fi
 
 echo "    client_id=$CLIENT_ID"
 echo "    client_secret=***"
@@ -46,6 +51,7 @@ python3 "$REPO_DIR/.github/scripts/run-test-plan.py" \
   --variant "$TEST_VARIANT" \
   --config "$SCRIPT_DIR/results/config.json" \
   --output "$SCRIPT_DIR/results" \
-  --oidc-server "$OIDC_SERVER_LOCAL"
+  --oidc-server "$OIDC_SERVER_LOCAL" \
+  --expected-skips "$SCRIPT_DIR/expected-skips.json"
 
 echo "==> Done. Results saved to $SCRIPT_DIR/results/"

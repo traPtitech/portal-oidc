@@ -26,6 +26,7 @@ def create_api_client(base_url: str, token: str) -> httpx.Client:
 
 
 def create_browser_client() -> httpx.Client:
+    # SSL verification disabled: conformance suite uses self-signed certificates
     return httpx.Client(
         verify=False,
         timeout=30.0,
@@ -90,7 +91,7 @@ def perform_browser_interaction(
     if oidc_server_url:
         auth_url = auth_url.replace("host.docker.internal:8080", oidc_server_url)
 
-    print(f"  Browser: visiting authorize URL")
+    print("  Browser: visiting authorize URL")
     try:
         resp = browser.get(auth_url, follow_redirects=False)
     except httpx.HTTPError as e:
@@ -103,10 +104,10 @@ def perform_browser_interaction(
 
     callback_url = resp.headers.get("location", "")
     if not callback_url:
-        print(f"  Browser: redirect with no location header")
+        print("  Browser: redirect with no location header")
         return
 
-    print(f"  Browser: following redirect to callback")
+    print("  Browser: following redirect to callback")
     try:
         cb_resp = browser.get(callback_url)
     except httpx.HTTPError as e:
@@ -119,7 +120,7 @@ def perform_browser_interaction(
         return
 
     implicit_url = match.group(1).replace("\\/", "/")
-    print(f"  Browser: submitting fragment to implicit endpoint")
+    print("  Browser: submitting fragment to implicit endpoint")
     try:
         browser.post(implicit_url, content="", headers={"Content-Type": "text/plain"})
     except httpx.HTTPError as e:
@@ -149,6 +150,14 @@ def wait_for_test(
     raise TimeoutError(f"Test {module_id} did not finish within {timeout}s")
 
 
+def load_expected_skips(path: str | None) -> set[str]:
+    if not path or not os.path.exists(path):
+        return set()
+    with open(path) as f:
+        entries = json.load(f)
+    return {e["test_module"] for e in entries}
+
+
 def run_plan(
     api_client: httpx.Client,
     browser: httpx.Client,
@@ -157,6 +166,7 @@ def run_plan(
     config: dict,
     output_dir: str,
     oidc_server_url: str,
+    expected_skips: set[str] | None = None,
 ) -> bool:
     print(f"Creating test plan: {plan_name}")
     plan = create_test_plan(api_client, plan_name, variant, config)
@@ -168,8 +178,14 @@ def run_plan(
     all_passed = True
     results = []
 
+    skips = expected_skips or set()
+
     for module_entry in modules:
         module_name = module_entry["testModule"]
+        if module_name in skips:
+            print(f"\n--- Skipping: {module_name} (expected skip) ---")
+            results.append({"module": module_name, "result": "SKIPPED"})
+            continue
         print(f"\n--- Running: {module_name} ---")
 
         started = start_test_module(api_client, plan_id, module_name)
@@ -196,7 +212,7 @@ def run_plan(
 
         results.append({"module": module_name, "result": result})
 
-        if result not in ("PASSED", "WARNING", "REVIEW"):
+        if result not in ("PASSED", "WARNING", "REVIEW", "SKIPPED"):
             all_passed = False
 
     summary_path = os.path.join(output_dir, "summary.json")
@@ -208,9 +224,23 @@ def run_plan(
         )
 
     print("\n=== Summary ===")
+    passed_count = 0
+    failed_count = 0
+    skipped_count = 0
     for r in results:
-        status_mark = "PASS" if r["result"] in ("PASSED", "WARNING", "REVIEW") else "FAIL"
+        if r["result"] == "SKIPPED":
+            status_mark = "SKIP"
+            skipped_count += 1
+        elif r["result"] in ("PASSED", "WARNING", "REVIEW"):
+            status_mark = "PASS"
+            passed_count += 1
+        else:
+            status_mark = "FAIL"
+            failed_count += 1
         print(f"  [{status_mark}] {r['module']}: {r['result']}")
+
+    total = len(results)
+    print(f"\n  Total: {total}  Passed: {passed_count}  Failed: {failed_count}  Skipped: {skipped_count}")
 
     return all_passed
 
@@ -227,12 +257,17 @@ def main() -> None:
         "--oidc-server", default="",
         help="Local OIDC server host:port for URL rewriting (e.g., localhost:8080)",
     )
+    parser.add_argument(
+        "--expected-skips", default=None,
+        help="Path to JSON file listing test modules to skip",
+    )
     args = parser.parse_args()
 
     with open(args.config) as f:
         config = json.load(f)
 
     variant = json.loads(args.variant) if args.variant else None
+    skips = load_expected_skips(args.expected_skips)
 
     os.makedirs(args.output, exist_ok=True)
 
@@ -242,7 +277,7 @@ def main() -> None:
     try:
         passed = run_plan(
             api_client, browser, args.plan, variant, config, args.output,
-            args.oidc_server,
+            args.oidc_server, skips,
         )
     finally:
         api_client.close()
