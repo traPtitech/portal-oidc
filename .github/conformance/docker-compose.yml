@@ -1,0 +1,27 @@
+services:
+  mongodb:
+    image: mongo:6.0.13
+  httpd:
+    image: ${CONFORMANCE_HTTPD_IMAGE}
+    ports:
+      - "8443:8443"
+    depends_on:
+      - server
+  server:
+    image: ${CONFORMANCE_SERVER_IMAGE}
+    command: >
+      java
+      -Djdk.tls.maxHandshakeMessageSize=65536
+      -jar /server/fapi-test-suite.jar
+      --fintechlabs.base_url=https://localhost.emobix.co.uk:8443
+      --fintechlabs.devmode=true
+      --fintechlabs.startredir=true
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - mongodb
+    logging:
+      driver: json-file
+      options:
+        max-size: "500k"
+        max-file: "5"

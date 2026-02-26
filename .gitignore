@@ -43,3 +43,6 @@ Thumbs.db
 
 # Local data (secrets, keys)
 data/
+
+# Conformance suite results
+.github/conformance/results/
