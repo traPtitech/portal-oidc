@@ -141,17 +141,3 @@ jobs:
         if: always() && hashFiles('gosec.sarif') != ''
         with:
           sarif_file: gosec.sarif
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.33.1
-        with:
-          scan-type: 'fs'
-          format: 'sarif'
-          output: 'trivy.sarif'
-          exit-code: '0'
-
-      - name: Upload Trivy SARIF
-        uses: github/codeql-action/upload-sarif@v4
-        if: always() && hashFiles('trivy.sarif') != ''
-        with:
-          sarif_file: trivy.sarif
