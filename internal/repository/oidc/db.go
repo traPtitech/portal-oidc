@@ -27,6 +27,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createClientStmt, err = db.PrepareContext(ctx, createClient); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateClient: %w", err)
 	}
+	if q.deleteAllClientsStmt, err = db.PrepareContext(ctx, deleteAllClients); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteAllClients: %w", err)
+	}
 	if q.deleteClientStmt, err = db.PrepareContext(ctx, deleteClient); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteClient: %w", err)
 	}
@@ -50,6 +53,11 @@ func (q *Queries) Close() error {
 	if q.createClientStmt != nil {
 		if cerr := q.createClientStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createClientStmt: %w", cerr)
+		}
+	}
+	if q.deleteAllClientsStmt != nil {
+		if cerr := q.deleteAllClientsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteAllClientsStmt: %w", cerr)
 		}
 	}
 	if q.deleteClientStmt != nil {
@@ -117,6 +125,7 @@ type Queries struct {
 	db                     DBTX
 	tx                     *sql.Tx
 	createClientStmt       *sql.Stmt
+	deleteAllClientsStmt   *sql.Stmt
 	deleteClientStmt       *sql.Stmt
 	getClientStmt          *sql.Stmt
 	listClientsStmt        *sql.Stmt
@@ -129,6 +138,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		db:                     tx,
 		tx:                     tx,
 		createClientStmt:       q.createClientStmt,
+		deleteAllClientsStmt:   q.deleteAllClientsStmt,
 		deleteClientStmt:       q.deleteClientStmt,
 		getClientStmt:          q.getClientStmt,
 		listClientsStmt:        q.listClientsStmt,

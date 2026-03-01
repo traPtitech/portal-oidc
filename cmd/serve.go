@@ -10,13 +10,12 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
+	"github.com/traPtitech/portal-oidc/internal/repository"
 	"github.com/traPtitech/portal-oidc/internal/repository/oidc"
+	v1 "github.com/traPtitech/portal-oidc/internal/router/v1"
 	"github.com/traPtitech/portal-oidc/internal/router/v1/gen"
+	"github.com/traPtitech/portal-oidc/internal/usecase"
 )
-
-type Handler struct {
-	queries *oidc.Queries
-}
 
 func newServer(cfg Config) (http.Handler, error) {
 	queries, err := setupDatabase(cfg.Database)
@@ -24,7 +23,9 @@ func newServer(cfg Config) (http.Handler, error) {
 		return nil, err
 	}
 
-	handler := &Handler{queries: queries}
+	clientRepo := repository.NewClientRepository(queries)
+	clientUC := usecase.NewClientUseCase(clientRepo)
+	handler := v1.NewHandler(clientUC)
 
 	e := echo.New()
 	e.Use(middleware.Recover())

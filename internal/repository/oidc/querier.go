@@ -11,6 +11,7 @@ import (
 type Querier interface {
 	// Client queries
 	CreateClient(ctx context.Context, arg CreateClientParams) error
+	DeleteAllClients(ctx context.Context) error
 	DeleteClient(ctx context.Context, clientID string) error
 	GetClient(ctx context.Context, clientID string) (Client, error)
 	ListClients(ctx context.Context) ([]Client, error)
