@@ -1,6 +1,6 @@
 [tools]
-go = "1.25"
-golangci-lint = "2.8.0"
+go = "1.26.0"
+golangci-lint = "2.10.1"
 atlas = "1.0.0"
 tbls = "1.92.3"
 pre-commit = "4.5.1"
