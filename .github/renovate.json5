@@ -18,6 +18,16 @@
   },
   "packageRules": [
     {
+      "description": "Group Go security updates (non-major)",
+      "matchManagers": ["gomod"],
+      "commitMessagePrefix": ":arrow_up: chore(go-deps):",
+      "automerge": true,
+      "automergeType": "pr",
+      "isVulnerabilityAlert": true,
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "go security updates"
+    },
+    {
       "description": "Go dependencies",
       "matchManagers": ["gomod"],
       "commitMessagePrefix": ":arrow_up: chore(go-deps):",
