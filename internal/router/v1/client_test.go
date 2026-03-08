@@ -179,7 +179,7 @@ func TestIntegration_CreateClient(t *testing.T) {
 	gen.RegisterHandlers(e, handler)
 
 	reqBody := `{"name":"integration-test-client","client_type":"confidential","redirect_uris":["http://localhost:3000/callback"]}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/clients", strings.NewReader(reqBody))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/admin/clients", strings.NewReader(reqBody))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 
@@ -216,12 +216,12 @@ func TestIntegration_GetClients(t *testing.T) {
 	gen.RegisterHandlers(e, handler)
 
 	reqBody := `{"name":"test-client","client_type":"confidential","redirect_uris":["http://localhost:3000/callback"]}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/clients", strings.NewReader(reqBody))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/admin/clients", strings.NewReader(reqBody))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/admin/clients", nil)
+	req = httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/clients", nil)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -247,7 +247,7 @@ func TestIntegration_GetClient(t *testing.T) {
 	gen.RegisterHandlers(e, handler)
 
 	reqBody := `{"name":"test-client","client_type":"confidential","redirect_uris":["http://localhost:3000/callback"]}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/clients", strings.NewReader(reqBody))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/admin/clients", strings.NewReader(reqBody))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -257,7 +257,7 @@ func TestIntegration_GetClient(t *testing.T) {
 		t.Fatalf("failed to unmarshal response: %v", err)
 	}
 
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/admin/clients/"+created.ClientId.String(), nil)
+	req = httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/clients/"+created.ClientId.String(), nil)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -285,7 +285,7 @@ func TestIntegration_GetClient_NotFound(t *testing.T) {
 	e := echo.New()
 	gen.RegisterHandlers(e, handler)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/clients/00000000-0000-0000-0000-000000000000", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/clients/00000000-0000-0000-0000-000000000000", nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -302,7 +302,7 @@ func TestIntegration_UpdateClient(t *testing.T) {
 	gen.RegisterHandlers(e, handler)
 
 	reqBody := `{"name":"original","client_type":"confidential","redirect_uris":["http://localhost:3000/callback"]}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/clients", strings.NewReader(reqBody))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/admin/clients", strings.NewReader(reqBody))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -313,7 +313,7 @@ func TestIntegration_UpdateClient(t *testing.T) {
 	}
 
 	updateBody := `{"name":"updated","client_type":"public","redirect_uris":["http://localhost:4000/callback"]}`
-	req = httptest.NewRequest(http.MethodPut, "/api/v1/admin/clients/"+created.ClientId.String(), strings.NewReader(updateBody))
+	req = httptest.NewRequestWithContext(context.Background(), http.MethodPut, "/api/v1/admin/clients/"+created.ClientId.String(), strings.NewReader(updateBody))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -346,7 +346,7 @@ func TestIntegration_DeleteClient(t *testing.T) {
 	gen.RegisterHandlers(e, handler)
 
 	reqBody := `{"name":"to-delete","client_type":"confidential","redirect_uris":["http://localhost:3000/callback"]}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/clients", strings.NewReader(reqBody))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/admin/clients", strings.NewReader(reqBody))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -356,7 +356,7 @@ func TestIntegration_DeleteClient(t *testing.T) {
 		t.Fatalf("failed to unmarshal response: %v", err)
 	}
 
-	req = httptest.NewRequest(http.MethodDelete, "/api/v1/admin/clients/"+created.ClientId.String(), nil)
+	req = httptest.NewRequestWithContext(context.Background(), http.MethodDelete, "/api/v1/admin/clients/"+created.ClientId.String(), nil)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -364,7 +364,7 @@ func TestIntegration_DeleteClient(t *testing.T) {
 		t.Errorf("status = %d, want %d", rec.Code, http.StatusNoContent)
 	}
 
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/admin/clients/"+created.ClientId.String(), nil)
+	req = httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/clients/"+created.ClientId.String(), nil)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -381,7 +381,7 @@ func TestIntegration_RegenerateClientSecret(t *testing.T) {
 	gen.RegisterHandlers(e, handler)
 
 	reqBody := `{"name":"test-client","client_type":"confidential","redirect_uris":["http://localhost:3000/callback"]}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/clients", strings.NewReader(reqBody))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/admin/clients", strings.NewReader(reqBody))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -391,7 +391,7 @@ func TestIntegration_RegenerateClientSecret(t *testing.T) {
 		t.Fatalf("failed to unmarshal response: %v", err)
 	}
 
-	req = httptest.NewRequest(http.MethodPost, "/api/v1/admin/clients/"+created.ClientId.String()+"/secret", nil)
+	req = httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/admin/clients/"+created.ClientId.String()+"/secret", nil)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -421,7 +421,7 @@ func TestIntegration_FullWorkflow(t *testing.T) {
 
 	// 1. Create client
 	createBody := `{"name":"workflow-test","client_type":"confidential","redirect_uris":["http://localhost:3000/callback"]}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/clients", strings.NewReader(createBody))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/admin/clients", strings.NewReader(createBody))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -436,7 +436,7 @@ func TestIntegration_FullWorkflow(t *testing.T) {
 	}
 
 	// 2. Verify in list
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/admin/clients", nil)
+	req = httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/clients", nil)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -450,7 +450,7 @@ func TestIntegration_FullWorkflow(t *testing.T) {
 
 	// 3. Update client
 	updateBody := `{"name":"workflow-updated","client_type":"public","redirect_uris":["http://localhost:4000/callback"]}`
-	req = httptest.NewRequest(http.MethodPut, "/api/v1/admin/clients/"+created.ClientId.String(), strings.NewReader(updateBody))
+	req = httptest.NewRequestWithContext(context.Background(), http.MethodPut, "/api/v1/admin/clients/"+created.ClientId.String(), strings.NewReader(updateBody))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -460,7 +460,7 @@ func TestIntegration_FullWorkflow(t *testing.T) {
 	}
 
 	// 4. Regenerate secret
-	req = httptest.NewRequest(http.MethodPost, "/api/v1/admin/clients/"+created.ClientId.String()+"/secret", nil)
+	req = httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/admin/clients/"+created.ClientId.String()+"/secret", nil)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -469,7 +469,7 @@ func TestIntegration_FullWorkflow(t *testing.T) {
 	}
 
 	// 5. Delete client
-	req = httptest.NewRequest(http.MethodDelete, "/api/v1/admin/clients/"+created.ClientId.String(), nil)
+	req = httptest.NewRequestWithContext(context.Background(), http.MethodDelete, "/api/v1/admin/clients/"+created.ClientId.String(), nil)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -478,7 +478,7 @@ func TestIntegration_FullWorkflow(t *testing.T) {
 	}
 
 	// 6. Verify list is empty
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/admin/clients", nil)
+	req = httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/clients", nil)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
