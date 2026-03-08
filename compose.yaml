@@ -13,6 +13,9 @@ services:
     environment:
       - CONFIG_FILE=/app/config.yaml
       - TZ=Asia/Tokyo
+      - OIDC_DATABASE__HOST=oidc
+      - OIDC_DATABASE__PORT=3306
+      - OIDC_PORTAL__DATABASE__HOST=portal
     depends_on:
       portal:
         condition: service_healthy
