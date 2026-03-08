@@ -15,34 +15,44 @@ type Config struct {
 	Host        string         `koanf:"host"`
 	Environment string         `koanf:"environment"`
 	Database    DatabaseConfig `koanf:"database"`
+	Portal      PortalConfig   `koanf:"portal"`
 	OAuth       OAuthConfig    `koanf:"oauth"`
+}
+
+type PortalConfig struct {
+	Database DatabaseConfig `koanf:"database"`
 }
 
 type DatabaseConfig struct {
 	Host     string `koanf:"host"`
 	Port     int    `koanf:"port"`
 	User     string `koanf:"user"`
-	Password string `koanf:"password"`
+	Password string `koanf:"password"` // #nosec G117 -- config struct, not serialized
 	Name     string `koanf:"name"`
 }
 
 type OAuthConfig struct {
-	Secret     string `koanf:"secret"`
+	Secret     string `koanf:"secret"` // #nosec G117 -- config struct, not serialized
 	KeyFile    string `koanf:"key_file"`
 	TestUserID string `koanf:"test_user_id"`
 }
 
 var defaults = map[string]any{
-	"host":               "http://localhost:8080",
-	"environment":        "development",
-	"database.host":      "localhost",
-	"database.port":      3307,
-	"database.user":      "root",
-	"database.password":  "password",
-	"database.name":      "oidc",
-	"oauth.secret":       "my-super-secret-signing-key-32!!",
-	"oauth.key_file":     "data/private.pem",
-	"oauth.test_user_id": "testuser",
+	"host":                     "http://localhost:8080",
+	"environment":              "development",
+	"database.host":            "localhost",
+	"database.port":            3307,
+	"database.user":            "root",
+	"database.password":        "password",
+	"database.name":            "oidc",
+	"portal.database.host":     "localhost",
+	"portal.database.port":     3306,
+	"portal.database.user":     "root",
+	"portal.database.password": "password",
+	"portal.database.name":     "portal",
+	"oauth.secret":             "my-super-secret-signing-key-32!!",
+	"oauth.key_file":           "data/private.pem",
+	"oauth.test_user_id":       "testuser",
 }
 
 func loadConfig(configPath string) (*Config, error) {
@@ -66,7 +76,8 @@ func loadConfig(configPath string) (*Config, error) {
 	}
 
 	if err := k.Load(env.Provider("OIDC_", ".", func(s string) string {
-		return strings.ToLower(strings.TrimPrefix(s, "OIDC_"))
+		key := strings.ToLower(strings.TrimPrefix(s, "OIDC_"))
+		return strings.ReplaceAll(key, "__", ".")
 	}), nil); err != nil {
 		return nil, err
 	}

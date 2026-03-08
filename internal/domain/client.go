@@ -24,5 +24,5 @@ type Client struct {
 
 type ClientWithSecret struct {
 	Client
-	ClientSecret string
+	ClientSecret string // #nosec G117 -- returned only on creation, not persisted
 }

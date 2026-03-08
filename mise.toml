@@ -5,6 +5,7 @@ atlas = "1.0.0"
 tbls = "1.92.3"
 pre-commit = "4.5.1"
 "go:github.com/sqlc-dev/sqlc/cmd/sqlc" = "1.30.0"
+"go:github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen" = "2.5.1"
 
 # =============================================================================
 # Development
@@ -59,8 +60,8 @@ outputs = [
 description = "OpenAPIでサーバー/モデル生成"
 dir = "api"
 run = """
-go tool oapi-codegen --config oapi.server.yaml openapi.yaml
-go tool oapi-codegen --config oapi.models.yaml openapi.yaml
+oapi-codegen --config oapi.server.yaml openapi.yaml
+oapi-codegen --config oapi.models.yaml openapi.yaml
 """
 sources = [
   "openapi.yaml",
