@@ -1,0 +1,15 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "packageRules": [
+    {
+      "description": "mise tool versions (non-major)",
+      "matchManagers": ["mise"],
+      "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
+      "description": "mise tool versions (major)",
+      "matchManagers": ["mise"],
+      "matchUpdateTypes": ["major"]
+    }
+  ]
+}

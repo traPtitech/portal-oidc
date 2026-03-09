@@ -7,6 +7,10 @@
     ":automergeMinor",
     ":automergePatch",
     "security:openssf-scorecard",
+    "github>traPtitech/portal-oidc//.github/renovate/gomod.json5",
+    "github>traPtitech/portal-oidc//.github/renovate/mise.json5",
+    "github>traPtitech/portal-oidc//.github/renovate/docker.json5",
+    "github>traPtitech/portal-oidc//.github/renovate/github-actions.json5",
     "github>traPtitech/portal-oidc//.github/renovate/commit-message.json5",
     "github>traPtitech/portal-oidc//.github/renovate/labels.json5",
   ],
@@ -16,65 +20,4 @@
   "vulnerabilityAlerts": {
     "enabled": true,
   },
-  "packageRules": [
-    {
-      "description": "Group Go security updates (non-major)",
-      "matchManagers": ["gomod"],
-      "automerge": true,
-      "automergeType": "pr",
-      "isVulnerabilityAlert": true,
-      "matchUpdateTypes": ["minor", "patch"],
-      "groupName": "go security updates"
-    },
-    {
-      "description": "Go dependencies",
-      "matchManagers": ["gomod"],
-      "automerge": true,
-      "automergeType": "pr",
-      "matchUpdateTypes": ["minor", "patch"]
-    },
-    {
-      "description": "Go major updates",
-      "matchManagers": ["gomod"],
-      "matchUpdateTypes": ["major"],
-      "automerge": false
-    },
-    {
-      "description": "Docker Compose images",
-      "matchManagers": ["docker-compose"],
-      "automerge": true,
-      "automergeType": "pr",
-      "matchUpdateTypes": ["minor", "patch"]
-    },
-    {
-      "description": "Docker Compose major updates",
-      "matchManagers": ["docker-compose"],
-      "matchUpdateTypes": ["major"],
-      "automerge": false
-    },
-    {
-      "description": "mise tool versions",
-      "matchManagers": ["mise"],
-      "automerge": true,
-      "automergeType": "pr",
-      "matchUpdateTypes": ["minor", "patch"]
-    },
-    {
-      "description": "mise major updates",
-      "matchManagers": ["mise"],
-      "matchUpdateTypes": ["major"],
-      "automerge": false
-    },
-    {
-      "description": "GitHub Actions",
-      "matchManagers": ["github-actions"],
-      "automerge": true,
-      "automergeType": "pr"
-    },
-    {
-      "description": "Group test dependencies",
-      "matchPackagePatterns": ["^github.com/stretchr/testify"],
-      "groupName": "test dependencies"
-    }
-  ]
 }

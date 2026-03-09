@@ -1,0 +1,15 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "packageRules": [
+    {
+      "description": "Docker images (non-major)",
+      "matchDatasources": ["docker"],
+      "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
+      "description": "Docker images (major)",
+      "matchDatasources": ["docker"],
+      "matchUpdateTypes": ["major"]
+    }
+  ]
+}
