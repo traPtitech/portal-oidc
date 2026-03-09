@@ -207,63 +207,78 @@ paths:
           description: Unauthorized
 
   /oauth2/authorize:
+    parameters:
+      - name: response_type
+        in: query
+        required: true
+        schema:
+          type: string
+          enum: [code]
+        description: レスポンスタイプ (現在は code のみサポート)
+      - name: client_id
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: redirect_uri
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uri
+      - name: scope
+        in: query
+        required: false
+        schema:
+          type: string
+        description: スペース区切りのスコープ (openid, profile, email 等)
+      - name: state
+        in: query
+        required: false
+        schema:
+          type: string
+        description: CSRF対策用のランダム文字列
+      - name: nonce
+        in: query
+        required: false
+        schema:
+          type: string
+        description: リプレイ攻撃対策用 (OIDC)
+      - name: code_challenge
+        in: query
+        required: false
+        schema:
+          type: string
+        description: PKCE code_challenge
+      - name: code_challenge_method
+        in: query
+        required: false
+        schema:
+          type: string
+          enum: [S256, plain]
+        description: PKCE code_challenge_method
     get:
-      operationId: authorize
-      summary: 認可エンドポイント
+      operationId: getAuthorize
+      summary: 認可エンドポイント (GET)
       description: OAuth2/OIDC認可リクエストを処理し、ユーザー認証後にリダイレクト
       tags:
         - oauth2/oidc
-      parameters:
-        - name: response_type
-          in: query
-          required: true
-          schema:
-            type: string
-            enum: [code]
-          description: レスポンスタイプ (現在は code のみサポート)
-        - name: client_id
-          in: query
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - name: redirect_uri
-          in: query
-          required: true
-          schema:
-            type: string
-            format: uri
-        - name: scope
-          in: query
-          required: false
-          schema:
-            type: string
-          description: スペース区切りのスコープ (openid, profile, email 等)
-        - name: state
-          in: query
-          required: false
-          schema:
-            type: string
-          description: CSRF対策用のランダム文字列
-        - name: nonce
-          in: query
-          required: false
-          schema:
-            type: string
-          description: リプレイ攻撃対策用 (OIDC)
-        - name: code_challenge
-          in: query
-          required: false
-          schema:
-            type: string
-          description: PKCE code_challenge
-        - name: code_challenge_method
-          in: query
-          required: false
-          schema:
-            type: string
-            enum: [S256, plain]
-          description: PKCE code_challenge_method
+      responses:
+        "302":
+          description: 認可成功時はredirect_uriへリダイレクト
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthError"
+    post:
+      operationId: postAuthorize
+      summary: 認可エンドポイント (POST)
+      description: OAuth2/OIDC認可リクエストを処理し、ユーザー認証後にリダイレクト
+      tags:
+        - oauth2/oidc
       responses:
         "302":
           description: 認可成功時はredirect_uriへリダイレクト

@@ -18,7 +18,15 @@ import (
 	"github.com/traPtitech/portal-oidc/internal/router/v1/gen"
 )
 
-func (h *Handler) Authorize(ctx echo.Context, params gen.AuthorizeParams) error {
+func (h *Handler) GetAuthorize(ctx echo.Context, params gen.GetAuthorizeParams) error {
+	return h.authorize(ctx)
+}
+
+func (h *Handler) PostAuthorize(ctx echo.Context, params gen.PostAuthorizeParams) error {
+	return h.authorize(ctx)
+}
+
+func (h *Handler) authorize(ctx echo.Context) error {
 	c := ctx.Request().Context()
 	rw := ctx.Response()
 	req := ctx.Request()
