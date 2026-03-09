@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 permissions:
   contents: read
@@ -32,9 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
+      - uses: jdx/mise-action@v3
 
       - name: Run tests
         run: go test -race ./...
@@ -55,9 +53,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
+        uses: jdx/mise-action@v3
 
       - name: Build binary
         run: |
