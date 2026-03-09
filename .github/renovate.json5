@@ -7,6 +7,7 @@
     ":automergeMinor",
     ":automergePatch",
     "security:openssf-scorecard",
+    "github>traPtitech/portal-oidc//.github/renovate/commit-message.json5",
     "github>traPtitech/portal-oidc//.github/renovate/labels.json5",
   ],
   "timezone": "Asia/Tokyo",
@@ -19,7 +20,6 @@
     {
       "description": "Group Go security updates (non-major)",
       "matchManagers": ["gomod"],
-      "commitMessagePrefix": ":arrow_up: chore(go-deps):",
       "automerge": true,
       "automergeType": "pr",
       "isVulnerabilityAlert": true,
@@ -29,7 +29,6 @@
     {
       "description": "Go dependencies",
       "matchManagers": ["gomod"],
-      "commitMessagePrefix": ":arrow_up: chore(go-deps):",
       "automerge": true,
       "automergeType": "pr",
       "matchUpdateTypes": ["minor", "patch"]
@@ -37,14 +36,12 @@
     {
       "description": "Go major updates",
       "matchManagers": ["gomod"],
-      "commitMessagePrefix": ":arrow_up: chore(go-deps):",
       "matchUpdateTypes": ["major"],
       "automerge": false
     },
     {
       "description": "Docker Compose images",
       "matchManagers": ["docker-compose"],
-      "commitMessagePrefix": ":arrow_up: chore(docker-deps):",
       "automerge": true,
       "automergeType": "pr",
       "matchUpdateTypes": ["minor", "patch"]
@@ -52,14 +49,12 @@
     {
       "description": "Docker Compose major updates",
       "matchManagers": ["docker-compose"],
-      "commitMessagePrefix": ":arrow_up: chore(docker-deps):",
       "matchUpdateTypes": ["major"],
       "automerge": false
     },
     {
       "description": "mise tool versions",
       "matchManagers": ["mise"],
-      "commitMessagePrefix": ":arrow_up: chore(mise-deps):",
       "automerge": true,
       "automergeType": "pr",
       "matchUpdateTypes": ["minor", "patch"]
@@ -67,14 +62,12 @@
     {
       "description": "mise major updates",
       "matchManagers": ["mise"],
-      "commitMessagePrefix": ":arrow_up: chore(mise-deps):",
       "matchUpdateTypes": ["major"],
       "automerge": false
     },
     {
       "description": "GitHub Actions",
       "matchManagers": ["github-actions"],
-      "commitMessagePrefix": ":arrow_up: chore(gha-deps):",
       "automerge": true,
       "automergeType": "pr"
     },
