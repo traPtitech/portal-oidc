@@ -1,11 +1,11 @@
 [tools]
-go = "1.25"
+go = "1.26.1"
 golangci-lint = "2.11.2"
 atlas = "1.0.0"
 tbls = "1.92.3"
 pre-commit = "4.5.1"
 "go:github.com/sqlc-dev/sqlc/cmd/sqlc" = "1.30.0"
-"go:github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen" = "2.5.1"
+"go:github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen" = "2.6.0"
 
 # =============================================================================
 # Development
