@@ -1,0 +1,25 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "packageRules": [
+    {
+      "matchDatasources": ["go"],
+      "commitMessagePrefix": ":arrow_up: chore(go-deps):",
+    },
+    {
+      "matchDatasources": ["golang-version"],
+      "commitMessagePrefix": ":arrow_up: chore(go):",
+    },
+    {
+      "matchManagers": ["mise"],
+      "commitMessagePrefix": ":arrow_up: chore(mise-deps):",
+    },
+    {
+      "matchDatasources": ["docker"],
+      "commitMessagePrefix": ":arrow_up: chore(docker-deps):",
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "commitMessagePrefix": ":arrow_up: chore(gha-deps):",
+    },
+  ]
+}

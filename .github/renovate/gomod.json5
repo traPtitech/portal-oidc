@@ -1,0 +1,50 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "postUpdateOptions": ["gomodTidy", "gomodMassage"],
+  "packageRules": [
+    // golang
+    {
+      "description": "Go version (patch) - bump go directive",
+      "matchDatasources": ["golang-version"],
+      "rangeStrategy": "bump",
+      "automerge": true,
+      "matchUpdateTypes": ["patch"]
+    },
+    {
+      "description": "Go version (minor/major) - bump go directive",
+      "matchDatasources": ["golang-version"],
+      "rangeStrategy": "bump",
+      "automerge": false,
+      "matchUpdateTypes": ["minor", "major"]
+    },
+
+    // gomod dependencies
+    {
+      "description": "Group Go security updates (non-major)",
+      "matchDatasources": ["go"],
+      "automerge": true,
+      "automergeType": "pr",
+      "isVulnerabilityAlert": true,
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "go security updates"
+    },
+    {
+      "description": "Go dependencies (non-major)",
+      "matchDatasources": ["go"],
+      "automerge": true,
+      "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
+      "description": "Go dependencies (major)",
+      "matchDatasources": ["go"],
+      "automerge": false,
+      "matchUpdateTypes": ["major"]
+    },
+    {
+      "description": "Group test dependencies",
+      "matchPackagePatterns": ["^github.com/stretchr/testify"],
+      "automerge": false,
+      "groupName": "test dependencies"
+    }
+  ]
+}

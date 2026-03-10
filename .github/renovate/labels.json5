@@ -1,0 +1,40 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "labels": ["dependencies"],
+  "vulnerabilityAlerts": {
+    "addLabels": ["security"]
+  },
+  "packageRules": [
+    // update types
+    {
+      "matchUpdateTypes": ["major"],
+      "addLabels": ["type/major"],
+    },
+    {
+      "matchUpdateTypes": ["minor"],
+      "addLabels": ["type/minor"],
+    },
+    {
+      "matchUpdateTypes": ["patch"],
+      "addLabels": ["type/patch"],
+    },
+
+    // package managers
+    {
+      "matchManagers": ["gomod"],
+      "addLabels": ["renovate/gomod"],
+    },
+    {
+      "matchManagers": ["mise"],
+      "addLabels": ["renovate/mise"],
+    },
+    {
+      "matchDatasources": ["docker"],
+      "addLabels": ["renovate/docker"],
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "addLabels": ["renovate/actions"],
+    },
+  ],
+}
