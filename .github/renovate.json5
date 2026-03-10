@@ -4,8 +4,6 @@
     "config:recommended",
     ":semanticCommitTypeAll(chore)",
     "group:allNonMajor",
-    ":automergeMinor",
-    ":automergePatch",
     "security:openssf-scorecard",
     "github>traPtitech/portal-oidc//.github/renovate/gomod.json5",
     "github>traPtitech/portal-oidc//.github/renovate/mise.json5",

@@ -4,11 +4,13 @@
     {
       "description": "Docker images (non-major)",
       "matchDatasources": ["docker"],
+      "automerge": true,
       "matchUpdateTypes": ["minor", "patch"]
     },
     {
       "description": "Docker images (major)",
       "matchDatasources": ["docker"],
+      "automerge": false,
       "matchUpdateTypes": ["major"]
     }
   ]

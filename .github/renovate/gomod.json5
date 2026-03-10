@@ -7,6 +7,7 @@
       "description": "Go version (patch) - bump go directive",
       "matchDatasources": ["golang-version"],
       "rangeStrategy": "bump",
+      "automerge": true,
       "matchUpdateTypes": ["patch"]
     },
     {
@@ -30,16 +31,19 @@
     {
       "description": "Go dependencies (non-major)",
       "matchDatasources": ["go"],
+      "automerge": true,
       "matchUpdateTypes": ["minor", "patch"]
     },
     {
       "description": "Go dependencies (major)",
       "matchDatasources": ["go"],
+      "automerge": false,
       "matchUpdateTypes": ["major"]
     },
     {
       "description": "Group test dependencies",
       "matchPackagePatterns": ["^github.com/stretchr/testify"],
+      "automerge": false,
       "groupName": "test dependencies"
     }
   ]
