@@ -41,11 +41,17 @@ func (h *Handler) authorize(ctx echo.Context) error {
 	returnURL := req.URL.String()
 	info, authenticated := h.getAuthInfo(ctx)
 
+	maxAge, err := parseMaxAge(ar)
+	if err != nil {
+		h.oauth2.WriteAuthorizeError(c, rw, ar, fosite.ErrInvalidRequest.WithHint("invalid max_age parameter"))
+		return nil
+	}
+
 	action := h.oauthUseCase.EvaluateAuthorize(usecase.AuthorizeInput{
 		Prompt:          ar.GetRequestForm().Get("prompt"),
 		Authenticated:   authenticated,
 		AuthTime:        info.AuthTime,
-		MaxAge:          parseMaxAge(ar),
+		MaxAge:          maxAge,
 		ReauthCompleted: h.isReauthCompleted(ctx, info.AuthTime),
 		IsNonProd:       h.config.Environment != "production",
 	})
@@ -122,16 +128,22 @@ func (h *Handler) redirectToLogin(ctx echo.Context, returnURL string) error {
 // since max_age is an OPTIONAL parameter in OpenID Connect Core 1.0 (Section 3.1.2.1).
 // The value is extracted via fosite's GetRequestForm() (not oapi-codegen's auto-binding)
 // because fosite reads from http.Request.Form which unifies GET query params and POST form body.
-func parseMaxAge(ar fosite.AuthorizeRequester) *int64 {
+func parseMaxAge(ar fosite.AuthorizeRequester) (*int64, error) {
 	maxAgeStr := ar.GetRequestForm().Get("max_age")
 	if maxAgeStr == "" {
-		return nil
+		return nil, nil
 	}
+
 	maxAge, err := strconv.ParseInt(maxAgeStr, 10, 64)
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	return &maxAge
+
+	if maxAge < 0 {
+		return nil, errors.New("max_age must be non-negative")
+	}
+
+	return &maxAge, nil
 }
 
 func (h *Handler) Token(ctx echo.Context) error {
