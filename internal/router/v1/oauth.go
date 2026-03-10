@@ -117,6 +117,11 @@ func (h *Handler) redirectToLogin(ctx echo.Context, returnURL string) error {
 	return ctx.Redirect(http.StatusFound, "/login?return_url="+url.QueryEscape(returnURL))
 }
 
+// parseMaxAge returns the max_age parameter as a pointer.
+// Returns nil if the parameter is absent or not a valid integer,
+// since max_age is an OPTIONAL parameter in OpenID Connect Core 1.0 (Section 3.1.2.1).
+// The value is extracted via fosite's GetRequestForm() (not oapi-codegen's auto-binding)
+// because fosite reads from http.Request.Form which unifies GET query params and POST form body.
 func parseMaxAge(ar fosite.AuthorizeRequester) *int64 {
 	maxAgeStr := ar.GetRequestForm().Get("max_age")
 	if maxAgeStr == "" {
