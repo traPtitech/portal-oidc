@@ -211,6 +211,20 @@ func (w *ServerInterfaceWrapper) GetAuthorize(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter nonce: %s", err))
 	}
 
+	// ------------- Optional query parameter "prompt" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "prompt", ctx.QueryParams(), &params.Prompt)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter prompt: %s", err))
+	}
+
+	// ------------- Optional query parameter "max_age" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "max_age", ctx.QueryParams(), &params.MaxAge)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter max_age: %s", err))
+	}
+
 	// ------------- Optional query parameter "code_challenge" -------------
 
 	err = runtime.BindQueryParameter("form", true, false, "code_challenge", ctx.QueryParams(), &params.CodeChallenge)

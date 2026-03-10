@@ -251,19 +251,33 @@ paths:
           schema:
             type: string
           description: リプレイ攻撃対策用 (OIDC)
+        - name: prompt
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [none, login, consent, select_account]
+          description: 認証・同意画面の表示制御 (OIDC Core 1.0 Section 3.1.2.1)
+        - name: max_age
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+          description: 最終認証からの最大許容経過秒数 (OIDC Core 1.0 Section 3.1.2.1)
         - name: code_challenge
           in: query
           required: false
           schema:
             type: string
-          description: PKCE code_challenge
+          description: PKCE code_challenge (RFC 7636)
         - name: code_challenge_method
           in: query
           required: false
           schema:
             type: string
             enum: [S256, plain]
-          description: PKCE code_challenge_method
+          description: PKCE code_challenge_method (RFC 7636)
       responses:
         "302":
           description: 認可成功時はredirect_uriへリダイレクト
@@ -356,13 +370,21 @@ components:
         nonce:
           type: string
           description: リプレイ攻撃対策用 (OIDC)
+        prompt:
+          type: string
+          enum: [none, login, consent, select_account]
+          description: 認証・同意画面の表示制御 (OIDC Core 1.0 Section 3.1.2.1)
+        max_age:
+          type: integer
+          minimum: 0
+          description: 最終認証からの最大許容経過秒数 (OIDC Core 1.0 Section 3.1.2.1)
         code_challenge:
           type: string
-          description: PKCE code_challenge
+          description: PKCE code_challenge (RFC 7636)
         code_challenge_method:
           type: string
           enum: [S256, plain]
-          description: PKCE code_challenge_method
+          description: PKCE code_challenge_method (RFC 7636)
 
     ClientType:
       type: string

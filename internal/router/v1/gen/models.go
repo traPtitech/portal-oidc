@@ -19,6 +19,14 @@ const (
 	AuthorizeRequestCodeChallengeMethodS256  AuthorizeRequestCodeChallengeMethod = "S256"
 )
 
+// Defines values for AuthorizeRequestPrompt.
+const (
+	AuthorizeRequestPromptConsent       AuthorizeRequestPrompt = "consent"
+	AuthorizeRequestPromptLogin         AuthorizeRequestPrompt = "login"
+	AuthorizeRequestPromptNone          AuthorizeRequestPrompt = "none"
+	AuthorizeRequestPromptSelectAccount AuthorizeRequestPrompt = "select_account"
+)
+
 // Defines values for AuthorizeRequestResponseType.
 const (
 	AuthorizeRequestResponseTypeCode AuthorizeRequestResponseType = "code"
@@ -64,6 +72,14 @@ const (
 	GetAuthorizeParamsResponseTypeCode GetAuthorizeParamsResponseType = "code"
 )
 
+// Defines values for GetAuthorizeParamsPrompt.
+const (
+	GetAuthorizeParamsPromptConsent       GetAuthorizeParamsPrompt = "consent"
+	GetAuthorizeParamsPromptLogin         GetAuthorizeParamsPrompt = "login"
+	GetAuthorizeParamsPromptNone          GetAuthorizeParamsPrompt = "none"
+	GetAuthorizeParamsPromptSelectAccount GetAuthorizeParamsPrompt = "select_account"
+)
+
 // Defines values for GetAuthorizeParamsCodeChallengeMethod.
 const (
 	GetAuthorizeParamsCodeChallengeMethodPlain GetAuthorizeParamsCodeChallengeMethod = "plain"
@@ -74,15 +90,21 @@ const (
 type AuthorizeRequest struct {
 	ClientId openapi_types.UUID `json:"client_id"`
 
-	// CodeChallenge PKCE code_challenge
+	// CodeChallenge PKCE code_challenge (RFC 7636)
 	CodeChallenge *string `json:"code_challenge,omitempty"`
 
-	// CodeChallengeMethod PKCE code_challenge_method
+	// CodeChallengeMethod PKCE code_challenge_method (RFC 7636)
 	CodeChallengeMethod *AuthorizeRequestCodeChallengeMethod `json:"code_challenge_method,omitempty"`
 
+	// MaxAge 最終認証からの最大許容経過秒数 (OIDC Core 1.0 Section 3.1.2.1)
+	MaxAge *int `json:"max_age,omitempty"`
+
 	// Nonce リプレイ攻撃対策用 (OIDC)
-	Nonce       *string `json:"nonce,omitempty"`
-	RedirectUri string  `json:"redirect_uri"`
+	Nonce *string `json:"nonce,omitempty"`
+
+	// Prompt 認証・同意画面の表示制御 (OIDC Core 1.0 Section 3.1.2.1)
+	Prompt      *AuthorizeRequestPrompt `json:"prompt,omitempty"`
+	RedirectUri string                  `json:"redirect_uri"`
 
 	// ResponseType レスポンスタイプ (現在は code のみサポート)
 	ResponseType AuthorizeRequestResponseType `json:"response_type"`
@@ -94,8 +116,11 @@ type AuthorizeRequest struct {
 	State *string `json:"state,omitempty"`
 }
 
-// AuthorizeRequestCodeChallengeMethod PKCE code_challenge_method
+// AuthorizeRequestCodeChallengeMethod PKCE code_challenge_method (RFC 7636)
 type AuthorizeRequestCodeChallengeMethod string
+
+// AuthorizeRequestPrompt 認証・同意画面の表示制御 (OIDC Core 1.0 Section 3.1.2.1)
+type AuthorizeRequestPrompt string
 
 // AuthorizeRequestResponseType レスポンスタイプ (現在は code のみサポート)
 type AuthorizeRequestResponseType string
@@ -285,15 +310,24 @@ type GetAuthorizeParams struct {
 	// Nonce リプレイ攻撃対策用 (OIDC)
 	Nonce *string `form:"nonce,omitempty" json:"nonce,omitempty"`
 
-	// CodeChallenge PKCE code_challenge
+	// Prompt 認証・同意画面の表示制御 (OIDC Core 1.0 Section 3.1.2.1)
+	Prompt *GetAuthorizeParamsPrompt `form:"prompt,omitempty" json:"prompt,omitempty"`
+
+	// MaxAge 最終認証からの最大許容経過秒数 (OIDC Core 1.0 Section 3.1.2.1)
+	MaxAge *int `form:"max_age,omitempty" json:"max_age,omitempty"`
+
+	// CodeChallenge PKCE code_challenge (RFC 7636)
 	CodeChallenge *string `form:"code_challenge,omitempty" json:"code_challenge,omitempty"`
 
-	// CodeChallengeMethod PKCE code_challenge_method
+	// CodeChallengeMethod PKCE code_challenge_method (RFC 7636)
 	CodeChallengeMethod *GetAuthorizeParamsCodeChallengeMethod `form:"code_challenge_method,omitempty" json:"code_challenge_method,omitempty"`
 }
 
 // GetAuthorizeParamsResponseType defines parameters for GetAuthorize.
 type GetAuthorizeParamsResponseType string
+
+// GetAuthorizeParamsPrompt defines parameters for GetAuthorize.
+type GetAuthorizeParamsPrompt string
 
 // GetAuthorizeParamsCodeChallengeMethod defines parameters for GetAuthorize.
 type GetAuthorizeParamsCodeChallengeMethod string
