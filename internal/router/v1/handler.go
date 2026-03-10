@@ -13,6 +13,7 @@ import (
 
 type Handler struct {
 	clientUseCase usecase.ClientUseCase
+	oauthUseCase  usecase.OAuthUseCase
 	oauth2        fosite.OAuth2Provider
 	userUseCase   usecase.UserUseCase
 	sessions      *sessions.CookieStore
@@ -29,6 +30,7 @@ type OAuthConfig struct {
 
 func NewHandler(
 	clientUseCase usecase.ClientUseCase,
+	oauthUseCase usecase.OAuthUseCase,
 	oauth2 fosite.OAuth2Provider,
 	userUseCase usecase.UserUseCase,
 	config OAuthConfig,
@@ -44,6 +46,7 @@ func NewHandler(
 
 	return &Handler{
 		clientUseCase: clientUseCase,
+		oauthUseCase:  oauthUseCase,
 		oauth2:        oauth2,
 		userUseCase:   userUseCase,
 		sessions:      store,

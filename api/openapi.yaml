@@ -208,9 +208,9 @@ paths:
 
   /oauth2/authorize:
     get:
-      operationId: authorize
-      summary: 認可エンドポイント
-      description: OAuth2/OIDC認可リクエストを処理し、ユーザー認証後にリダイレクト
+      operationId: getAuthorize
+      summary: 認可エンドポイント (GET)
+      description: OAuth2/OIDC認可リクエストを処理し、ユーザー認証後にリダイレクト (Query String Serialization)
       tags:
         - oauth2/oidc
       parameters:
@@ -251,19 +251,54 @@ paths:
           schema:
             type: string
           description: リプレイ攻撃対策用 (OIDC)
+        - name: prompt
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [none, login, consent, select_account]
+          description: 認証・同意画面の表示制御 (OIDC Core 1.0 Section 3.1.2.1)
+        - name: max_age
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+          description: 最終認証からの最大許容経過秒数 (OIDC Core 1.0 Section 3.1.2.1)
         - name: code_challenge
           in: query
           required: false
           schema:
             type: string
-          description: PKCE code_challenge
+          description: PKCE code_challenge (RFC 7636)
         - name: code_challenge_method
           in: query
           required: false
           schema:
             type: string
             enum: [S256, plain]
-          description: PKCE code_challenge_method
+          description: PKCE code_challenge_method (RFC 7636)
+      responses:
+        "302":
+          description: 認可成功時はredirect_uriへリダイレクト
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthError"
+    post:
+      operationId: postAuthorize
+      summary: 認可エンドポイント (POST)
+      description: OAuth2/OIDC認可リクエストを処理し、ユーザー認証後にリダイレクト (Form Serialization)
+      tags:
+        - oauth2/oidc
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: "#/components/schemas/AuthorizeRequest"
       responses:
         "302":
           description: 認可成功時はredirect_uriへリダイレクト
@@ -309,6 +344,48 @@ paths:
 
 components:
   schemas:
+    AuthorizeRequest:
+      type: object
+      required:
+        - response_type
+        - client_id
+        - redirect_uri
+      properties:
+        response_type:
+          type: string
+          enum: [code]
+          description: レスポンスタイプ (現在は code のみサポート)
+        client_id:
+          type: string
+          format: uuid
+        redirect_uri:
+          type: string
+          format: uri
+        scope:
+          type: string
+          description: スペース区切りのスコープ (openid, profile, email 等)
+        state:
+          type: string
+          description: CSRF対策用のランダム文字列
+        nonce:
+          type: string
+          description: リプレイ攻撃対策用 (OIDC)
+        prompt:
+          type: string
+          enum: [none, login, consent, select_account]
+          description: 認証・同意画面の表示制御 (OIDC Core 1.0 Section 3.1.2.1)
+        max_age:
+          type: integer
+          minimum: 0
+          description: 最終認証からの最大許容経過秒数 (OIDC Core 1.0 Section 3.1.2.1)
+        code_challenge:
+          type: string
+          description: PKCE code_challenge (RFC 7636)
+        code_challenge_method:
+          type: string
+          enum: [S256, plain]
+          description: PKCE code_challenge_method (RFC 7636)
+
     ClientType:
       type: string
       enum:

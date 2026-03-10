@@ -123,6 +123,8 @@ func setupTestHandler(t *testing.T) (*Handler, func()) {
 	clientRepo := repository.NewClientRepository(queries)
 	clientUseCase := usecase.NewClientUseCase(clientRepo)
 
+	oauthUsecase := usecase.NewOAuthUseCase()
+
 	oauthStorage := oauth.NewStorage(
 		testDB,
 		queries,
@@ -157,7 +159,7 @@ func setupTestHandler(t *testing.T) (*Handler, func()) {
 		compose.OAuth2TokenRevocationFactory,
 	)
 
-	handler := NewHandler(clientUseCase, oauth2Provider, nil, OAuthConfig{
+	handler := NewHandler(clientUseCase, oauthUsecase, oauth2Provider, nil, OAuthConfig{
 		Issuer:      "http://localhost:8080",
 		Environment: "development",
 		TestUserID:  "testuser",

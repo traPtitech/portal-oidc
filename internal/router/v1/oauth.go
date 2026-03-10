@@ -16,9 +16,18 @@ import (
 
 	"github.com/traPtitech/portal-oidc/internal/repository/oauth"
 	"github.com/traPtitech/portal-oidc/internal/router/v1/gen"
+	"github.com/traPtitech/portal-oidc/internal/usecase"
 )
 
-func (h *Handler) Authorize(ctx echo.Context, params gen.AuthorizeParams) error {
+func (h *Handler) GetAuthorize(ctx echo.Context, params gen.GetAuthorizeParams) error {
+	return h.authorize(ctx)
+}
+
+func (h *Handler) PostAuthorize(ctx echo.Context) error {
+	return h.authorize(ctx)
+}
+
+func (h *Handler) authorize(ctx echo.Context) error {
 	c := ctx.Request().Context()
 	rw := ctx.Response()
 	req := ctx.Request()
@@ -29,36 +38,45 @@ func (h *Handler) Authorize(ctx echo.Context, params gen.AuthorizeParams) error 
 		return nil
 	}
 
-	prompt := ar.GetRequestForm().Get("prompt")
-	returnURL := req.URL.String()
-
-	if h.config.Environment != "production" {
-		return h.completeAuthorize(ctx, ar, h.config.TestUserID, time.Now())
-	}
+	// Copy req.URL to avoid unintended mutation of the original request URL.
+	// RawQuery is overwritten with fosite's merged form values (GET query + POST body)
+	// so that POST parameters are preserved when redirecting back via GET after login.
+	returnURL := *req.URL
+	returnURL.RawQuery = ar.GetRequestForm().Encode()
 
 	info, authenticated := h.getAuthInfo(ctx)
 
-	switch prompt {
-	case "none":
-		if !authenticated {
-			h.oauth2.WriteAuthorizeError(c, rw, ar, fosite.ErrLoginRequired)
-			return nil
-		}
-	case "login":
-		if !authenticated || !h.isReauthCompleted(ctx, info.AuthTime) {
-			return h.redirectToLogin(ctx, returnURL)
-		}
-	default:
-		if !authenticated {
-			return ctx.Redirect(http.StatusFound, "/login?return_url="+url.QueryEscape(returnURL))
-		}
+	maxAge, err := parseMaxAge(ar)
+	if err != nil {
+		h.oauth2.WriteAuthorizeError(c, rw, ar, fosite.ErrInvalidRequest.WithHint("invalid max_age parameter").WithDebug(err.Error()))
+		return nil
 	}
 
-	if h.isMaxAgeExpired(ar, info.AuthTime) && !h.isReauthCompleted(ctx, info.AuthTime) {
-		return h.redirectToLogin(ctx, returnURL)
+	action := h.oauthUseCase.EvaluateAuthorize(usecase.AuthorizeInput{
+		Prompt:          ar.GetRequestForm().Get("prompt"),
+		Authenticated:   authenticated,
+		AuthTime:        info.AuthTime,
+		MaxAge:          maxAge,
+		ReauthCompleted: h.isReauthCompleted(ctx, info.AuthTime),
+		IsNonProd:       h.config.Environment != "production",
+	})
+
+	if action == usecase.AuthorizeActionLoginError {
+		h.oauth2.WriteAuthorizeError(c, rw, ar, fosite.ErrLoginRequired)
+		return nil
+	}
+	if action == usecase.AuthorizeActionLogin {
+		return h.redirectToLogin(ctx, &returnURL)
 	}
 
-	return h.completeAuthorize(ctx, ar, info.UserID, info.AuthTime)
+	userID := info.UserID
+	authTime := info.AuthTime
+	if h.config.Environment != "production" {
+		userID = h.config.TestUserID
+		authTime = time.Now()
+	}
+
+	return h.completeAuthorize(ctx, ar, userID, authTime)
 }
 
 func (h *Handler) completeAuthorize(ctx echo.Context, ar fosite.AuthorizeRequester, userID string, authTime time.Time) error {
@@ -94,7 +112,7 @@ func (h *Handler) isReauthCompleted(ctx echo.Context, authTime time.Time) bool {
 	return authTime.Unix() > reqAt
 }
 
-func (h *Handler) redirectToLogin(ctx echo.Context, returnURL string) error {
+func (h *Handler) redirectToLogin(ctx echo.Context, returnURL *url.URL) error {
 	session, err := h.sessions.Get(ctx.Request(), sessionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get session")
@@ -107,19 +125,32 @@ func (h *Handler) redirectToLogin(ctx echo.Context, returnURL string) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to save session")
 	}
 
-	return ctx.Redirect(http.StatusFound, "/login?return_url="+url.QueryEscape(returnURL))
+	return ctx.Redirect(http.StatusFound, "/login?return_url="+url.QueryEscape(returnURL.String()))
 }
 
-func (h *Handler) isMaxAgeExpired(ar fosite.AuthorizeRequester, authTime time.Time) bool {
+// parseMaxAge returns the max_age parameter as a pointer.
+// Returns nil if the parameter is absent or not a valid integer,
+// since max_age is an OPTIONAL parameter in OpenID Connect Core 1.0 (Section 3.1.2.1).
+// The value is extracted via fosite's GetRequestForm() (not oapi-codegen's auto-binding)
+// because fosite reads from http.Request.Form which unifies GET query params and POST form body.
+func parseMaxAge(ar fosite.AuthorizeRequester) (*int64, error) {
 	maxAgeStr := ar.GetRequestForm().Get("max_age")
 	if maxAgeStr == "" {
-		return false
+		// max_age is optional, so return nil if it's not present or empty.
+		//nolint:nilnil
+		return nil, nil
 	}
+
 	maxAge, err := strconv.ParseInt(maxAgeStr, 10, 64)
 	if err != nil {
-		return false
+		return nil, err
 	}
-	return time.Since(authTime) > time.Duration(maxAge)*time.Second
+
+	if maxAge < 0 {
+		return nil, errors.New("max_age must be non-negative")
+	}
+
+	return &maxAge, nil
 }
 
 func (h *Handler) Token(ctx echo.Context) error {
