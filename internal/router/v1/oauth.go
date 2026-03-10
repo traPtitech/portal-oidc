@@ -50,11 +50,11 @@ func (h *Handler) authorize(ctx echo.Context) error {
 		IsNonProd:       h.config.Environment != "production",
 	})
 
-	switch action {
-	case usecase.AuthorizeActionLoginError:
+	if action == usecase.AuthorizeActionLoginError {
 		h.oauth2.WriteAuthorizeError(c, rw, ar, fosite.ErrLoginRequired)
 		return nil
-	case usecase.AuthorizeActionLogin:
+	}
+	if action == usecase.AuthorizeActionLogin {
 		return h.redirectToLogin(ctx, returnURL)
 	}
 
