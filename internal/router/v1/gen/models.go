@@ -13,6 +13,17 @@ const (
 	BearerAuthScopes = "bearerAuth.Scopes"
 )
 
+// Defines values for AuthorizeRequestCodeChallengeMethod.
+const (
+	AuthorizeRequestCodeChallengeMethodPlain AuthorizeRequestCodeChallengeMethod = "plain"
+	AuthorizeRequestCodeChallengeMethodS256  AuthorizeRequestCodeChallengeMethod = "S256"
+)
+
+// Defines values for AuthorizeRequestResponseType.
+const (
+	AuthorizeRequestResponseTypeCode AuthorizeRequestResponseType = "code"
+)
+
 // Defines values for ClientType.
 const (
 	Confidential ClientType = "confidential"
@@ -47,6 +58,47 @@ const (
 const (
 	Bearer TokenResponseTokenType = "Bearer"
 )
+
+// Defines values for GetAuthorizeParamsResponseType.
+const (
+	GetAuthorizeParamsResponseTypeCode GetAuthorizeParamsResponseType = "code"
+)
+
+// Defines values for GetAuthorizeParamsCodeChallengeMethod.
+const (
+	GetAuthorizeParamsCodeChallengeMethodPlain GetAuthorizeParamsCodeChallengeMethod = "plain"
+	GetAuthorizeParamsCodeChallengeMethodS256  GetAuthorizeParamsCodeChallengeMethod = "S256"
+)
+
+// AuthorizeRequest defines model for AuthorizeRequest.
+type AuthorizeRequest struct {
+	ClientId openapi_types.UUID `json:"client_id"`
+
+	// CodeChallenge PKCE code_challenge
+	CodeChallenge *string `json:"code_challenge,omitempty"`
+
+	// CodeChallengeMethod PKCE code_challenge_method
+	CodeChallengeMethod *AuthorizeRequestCodeChallengeMethod `json:"code_challenge_method,omitempty"`
+
+	// Nonce リプレイ攻撃対策用 (OIDC)
+	Nonce       *string `json:"nonce,omitempty"`
+	RedirectUri string  `json:"redirect_uri"`
+
+	// ResponseType レスポンスタイプ (現在は code のみサポート)
+	ResponseType AuthorizeRequestResponseType `json:"response_type"`
+
+	// Scope スペース区切りのスコープ (openid, profile, email 等)
+	Scope *string `json:"scope,omitempty"`
+
+	// State CSRF対策用のランダム文字列
+	State *string `json:"state,omitempty"`
+}
+
+// AuthorizeRequestCodeChallengeMethod PKCE code_challenge_method
+type AuthorizeRequestCodeChallengeMethod string
+
+// AuthorizeRequestResponseType レスポンスタイプ (現在は code のみサポート)
+type AuthorizeRequestResponseType string
 
 // Client defines model for Client.
 type Client struct {
@@ -220,9 +272,9 @@ type UserInfo struct {
 // GetAuthorizeParams defines parameters for GetAuthorize.
 type GetAuthorizeParams struct {
 	// ResponseType レスポンスタイプ (現在は code のみサポート)
-	ResponseType string             `form:"response_type" json:"response_type"`
-	ClientId     openapi_types.UUID `form:"client_id" json:"client_id"`
-	RedirectUri  string             `form:"redirect_uri" json:"redirect_uri"`
+	ResponseType GetAuthorizeParamsResponseType `form:"response_type" json:"response_type"`
+	ClientId     openapi_types.UUID             `form:"client_id" json:"client_id"`
+	RedirectUri  string                         `form:"redirect_uri" json:"redirect_uri"`
 
 	// Scope スペース区切りのスコープ (openid, profile, email 等)
 	Scope *string `form:"scope,omitempty" json:"scope,omitempty"`
@@ -237,37 +289,23 @@ type GetAuthorizeParams struct {
 	CodeChallenge *string `form:"code_challenge,omitempty" json:"code_challenge,omitempty"`
 
 	// CodeChallengeMethod PKCE code_challenge_method
-	CodeChallengeMethod *string `form:"code_challenge_method,omitempty" json:"code_challenge_method,omitempty"`
+	CodeChallengeMethod *GetAuthorizeParamsCodeChallengeMethod `form:"code_challenge_method,omitempty" json:"code_challenge_method,omitempty"`
 }
 
-// PostAuthorizeParams defines parameters for PostAuthorize.
-type PostAuthorizeParams struct {
-	// ResponseType レスポンスタイプ (現在は code のみサポート)
-	ResponseType string             `form:"response_type" json:"response_type"`
-	ClientId     openapi_types.UUID `form:"client_id" json:"client_id"`
-	RedirectUri  string             `form:"redirect_uri" json:"redirect_uri"`
+// GetAuthorizeParamsResponseType defines parameters for GetAuthorize.
+type GetAuthorizeParamsResponseType string
 
-	// Scope スペース区切りのスコープ (openid, profile, email 等)
-	Scope *string `form:"scope,omitempty" json:"scope,omitempty"`
-
-	// State CSRF対策用のランダム文字列
-	State *string `form:"state,omitempty" json:"state,omitempty"`
-
-	// Nonce リプレイ攻撃対策用 (OIDC)
-	Nonce *string `form:"nonce,omitempty" json:"nonce,omitempty"`
-
-	// CodeChallenge PKCE code_challenge
-	CodeChallenge *string `form:"code_challenge,omitempty" json:"code_challenge,omitempty"`
-
-	// CodeChallengeMethod PKCE code_challenge_method
-	CodeChallengeMethod *string `form:"code_challenge_method,omitempty" json:"code_challenge_method,omitempty"`
-}
+// GetAuthorizeParamsCodeChallengeMethod defines parameters for GetAuthorize.
+type GetAuthorizeParamsCodeChallengeMethod string
 
 // CreateClientJSONRequestBody defines body for CreateClient for application/json ContentType.
 type CreateClientJSONRequestBody = ClientCreate
 
 // UpdateClientJSONRequestBody defines body for UpdateClient for application/json ContentType.
 type UpdateClientJSONRequestBody = ClientUpdate
+
+// PostAuthorizeFormdataRequestBody defines body for PostAuthorize for application/x-www-form-urlencoded ContentType.
+type PostAuthorizeFormdataRequestBody = AuthorizeRequest
 
 // TokenFormdataRequestBody defines body for Token for application/x-www-form-urlencoded ContentType.
 type TokenFormdataRequestBody = TokenRequest

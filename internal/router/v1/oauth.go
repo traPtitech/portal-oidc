@@ -22,7 +22,7 @@ func (h *Handler) GetAuthorize(ctx echo.Context, params gen.GetAuthorizeParams) 
 	return h.authorize(ctx)
 }
 
-func (h *Handler) PostAuthorize(ctx echo.Context, params gen.PostAuthorizeParams) error {
+func (h *Handler) PostAuthorize(ctx echo.Context) error {
 	return h.authorize(ctx)
 }
 

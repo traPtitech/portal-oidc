@@ -46,7 +46,7 @@ type ServerInterface interface {
 	GetAuthorize(ctx echo.Context, params GetAuthorizeParams) error
 	// 認可エンドポイント (POST)
 	// (POST /oauth2/authorize)
-	PostAuthorize(ctx echo.Context, params PostAuthorizeParams) error
+	PostAuthorize(ctx echo.Context) error
 	// トークンエンドポイント
 	// (POST /oauth2/token)
 	Token(ctx echo.Context) error
@@ -234,66 +234,8 @@ func (w *ServerInterfaceWrapper) GetAuthorize(ctx echo.Context) error {
 func (w *ServerInterfaceWrapper) PostAuthorize(ctx echo.Context) error {
 	var err error
 
-	// Parameter object where we will unmarshal all parameters from the context
-	var params PostAuthorizeParams
-	// ------------- Required query parameter "response_type" -------------
-
-	err = runtime.BindQueryParameter("form", true, true, "response_type", ctx.QueryParams(), &params.ResponseType)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter response_type: %s", err))
-	}
-
-	// ------------- Required query parameter "client_id" -------------
-
-	err = runtime.BindQueryParameter("form", true, true, "client_id", ctx.QueryParams(), &params.ClientId)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter client_id: %s", err))
-	}
-
-	// ------------- Required query parameter "redirect_uri" -------------
-
-	err = runtime.BindQueryParameter("form", true, true, "redirect_uri", ctx.QueryParams(), &params.RedirectUri)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter redirect_uri: %s", err))
-	}
-
-	// ------------- Optional query parameter "scope" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "scope", ctx.QueryParams(), &params.Scope)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter scope: %s", err))
-	}
-
-	// ------------- Optional query parameter "state" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "state", ctx.QueryParams(), &params.State)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter state: %s", err))
-	}
-
-	// ------------- Optional query parameter "nonce" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "nonce", ctx.QueryParams(), &params.Nonce)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter nonce: %s", err))
-	}
-
-	// ------------- Optional query parameter "code_challenge" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "code_challenge", ctx.QueryParams(), &params.CodeChallenge)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter code_challenge: %s", err))
-	}
-
-	// ------------- Optional query parameter "code_challenge_method" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "code_challenge_method", ctx.QueryParams(), &params.CodeChallengeMethod)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter code_challenge_method: %s", err))
-	}
-
 	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.PostAuthorize(ctx, params)
+	err = w.Handler.PostAuthorize(ctx)
 	return err
 }
 
@@ -627,7 +569,7 @@ func (response GetAuthorize400JSONResponse) VisitGetAuthorizeResponse(w http.Res
 }
 
 type PostAuthorizeRequestObject struct {
-	Params PostAuthorizeParams
+	Body *PostAuthorizeFormdataRequestBody
 }
 
 type PostAuthorizeResponseObject interface {
@@ -1019,10 +961,18 @@ func (sh *strictHandler) GetAuthorize(ctx echo.Context, params GetAuthorizeParam
 }
 
 // PostAuthorize operation middleware
-func (sh *strictHandler) PostAuthorize(ctx echo.Context, params PostAuthorizeParams) error {
+func (sh *strictHandler) PostAuthorize(ctx echo.Context) error {
 	var request PostAuthorizeRequestObject
 
-	request.Params = params
+	if form, err := ctx.FormParams(); err == nil {
+		var body PostAuthorizeFormdataRequestBody
+		if err := runtime.BindForm(&body, form, nil, nil); err != nil {
+			return err
+		}
+		request.Body = &body
+	} else {
+		return err
+	}
 
 	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
 		return sh.ssi.PostAuthorize(ctx.Request().Context(), request.(PostAuthorizeRequestObject))
