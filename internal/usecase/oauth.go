@@ -52,11 +52,8 @@ func (u *oauthUseCase) EvaluateAuthorize(input AuthorizeInput) AuthorizeAction {
 		}
 	}
 
-	if input.MaxAge != nil {
-		maxAgeDur := time.Duration(*input.MaxAge) * time.Second
-		if time.Since(input.AuthTime) > maxAgeDur && !input.ReauthCompleted {
-			return AuthorizeActionLogin
-		}
+	if input.MaxAge != nil && time.Since(input.AuthTime) > time.Duration(*input.MaxAge)*time.Second && !input.ReauthCompleted {
+		return AuthorizeActionLogin
 	}
 
 	return AuthorizeActionProceed
