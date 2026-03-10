@@ -16,6 +16,7 @@ import (
 
 	"github.com/traPtitech/portal-oidc/internal/repository/oauth"
 	"github.com/traPtitech/portal-oidc/internal/router/v1/gen"
+	"github.com/traPtitech/portal-oidc/internal/usecase"
 )
 
 func (h *Handler) GetAuthorize(ctx echo.Context, params gen.GetAuthorizeParams) error {
@@ -37,36 +38,34 @@ func (h *Handler) authorize(ctx echo.Context) error {
 		return nil
 	}
 
-	prompt := ar.GetRequestForm().Get("prompt")
 	returnURL := req.URL.String()
-
-	if h.config.Environment != "production" {
-		return h.completeAuthorize(ctx, ar, h.config.TestUserID, time.Now())
-	}
-
 	info, authenticated := h.getAuthInfo(ctx)
 
-	switch prompt {
-	case "none":
-		if !authenticated {
-			h.oauth2.WriteAuthorizeError(c, rw, ar, fosite.ErrLoginRequired)
-			return nil
-		}
-	case "login":
-		if !authenticated || !h.isReauthCompleted(ctx, info.AuthTime) {
-			return h.redirectToLogin(ctx, returnURL)
-		}
-	default:
-		if !authenticated {
-			return ctx.Redirect(http.StatusFound, "/login?return_url="+url.QueryEscape(returnURL))
-		}
-	}
+	action := h.oauthUseCase.EvaluateAuthorize(usecase.AuthorizeInput{
+		Prompt:          ar.GetRequestForm().Get("prompt"),
+		Authenticated:   authenticated,
+		AuthTime:        info.AuthTime,
+		MaxAge:          parseMaxAge(ar),
+		ReauthCompleted: h.isReauthCompleted(ctx, info.AuthTime),
+		IsNonProd:       h.config.Environment != "production",
+	})
 
-	if h.isMaxAgeExpired(ar, info.AuthTime) && !h.isReauthCompleted(ctx, info.AuthTime) {
+	switch action {
+	case usecase.AuthorizeActionLoginError:
+		h.oauth2.WriteAuthorizeError(c, rw, ar, fosite.ErrLoginRequired)
+		return nil
+	case usecase.AuthorizeActionLogin:
 		return h.redirectToLogin(ctx, returnURL)
 	}
 
-	return h.completeAuthorize(ctx, ar, info.UserID, info.AuthTime)
+	userID := info.UserID
+	authTime := info.AuthTime
+	if h.config.Environment != "production" {
+		userID = h.config.TestUserID
+		authTime = time.Now()
+	}
+
+	return h.completeAuthorize(ctx, ar, userID, authTime)
 }
 
 func (h *Handler) completeAuthorize(ctx echo.Context, ar fosite.AuthorizeRequester, userID string, authTime time.Time) error {
@@ -118,16 +117,16 @@ func (h *Handler) redirectToLogin(ctx echo.Context, returnURL string) error {
 	return ctx.Redirect(http.StatusFound, "/login?return_url="+url.QueryEscape(returnURL))
 }
 
-func (h *Handler) isMaxAgeExpired(ar fosite.AuthorizeRequester, authTime time.Time) bool {
+func parseMaxAge(ar fosite.AuthorizeRequester) *int64 {
 	maxAgeStr := ar.GetRequestForm().Get("max_age")
 	if maxAgeStr == "" {
-		return false
+		return nil
 	}
 	maxAge, err := strconv.ParseInt(maxAgeStr, 10, 64)
 	if err != nil {
-		return false
+		return nil
 	}
-	return time.Since(authTime) > time.Duration(maxAge)*time.Second
+	return &maxAge
 }
 
 func (h *Handler) Token(ctx echo.Context) error {
