@@ -38,7 +38,12 @@ func (h *Handler) authorize(ctx echo.Context) error {
 		return nil
 	}
 
-	returnURL := req.URL.String()
+	// Copy req.URL to avoid unintended mutation of the original request URL.
+	// RawQuery is overwritten with fosite's merged form values (GET query + POST body)
+	// so that POST parameters are preserved when redirecting back via GET after login.
+	returnURL := *req.URL
+	returnURL.RawQuery = ar.GetRequestForm().Encode()
+
 	info, authenticated := h.getAuthInfo(ctx)
 
 	maxAge, err := parseMaxAge(ar)
@@ -61,7 +66,7 @@ func (h *Handler) authorize(ctx echo.Context) error {
 		return nil
 	}
 	if action == usecase.AuthorizeActionLogin {
-		return h.redirectToLogin(ctx, returnURL)
+		return h.redirectToLogin(ctx, &returnURL)
 	}
 
 	userID := info.UserID
@@ -107,7 +112,7 @@ func (h *Handler) isReauthCompleted(ctx echo.Context, authTime time.Time) bool {
 	return authTime.Unix() > reqAt
 }
 
-func (h *Handler) redirectToLogin(ctx echo.Context, returnURL string) error {
+func (h *Handler) redirectToLogin(ctx echo.Context, returnURL *url.URL) error {
 	session, err := h.sessions.Get(ctx.Request(), sessionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get session")
@@ -120,7 +125,7 @@ func (h *Handler) redirectToLogin(ctx echo.Context, returnURL string) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to save session")
 	}
 
-	return ctx.Redirect(http.StatusFound, "/login?return_url="+url.QueryEscape(returnURL))
+	return ctx.Redirect(http.StatusFound, "/login?return_url="+url.QueryEscape(returnURL.String()))
 }
 
 // parseMaxAge returns the max_age parameter as a pointer.
