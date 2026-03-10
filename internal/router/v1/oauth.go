@@ -48,7 +48,7 @@ func (h *Handler) authorize(ctx echo.Context) error {
 
 	maxAge, err := parseMaxAge(ar)
 	if err != nil {
-		h.oauth2.WriteAuthorizeError(c, rw, ar, fosite.ErrInvalidRequest.WithHint("invalid max_age parameter"))
+		h.oauth2.WriteAuthorizeError(c, rw, ar, fosite.ErrInvalidRequest.WithHint("invalid max_age parameter").WithDebug(err.Error()))
 		return nil
 	}
 
@@ -136,6 +136,8 @@ func (h *Handler) redirectToLogin(ctx echo.Context, returnURL *url.URL) error {
 func parseMaxAge(ar fosite.AuthorizeRequester) (*int64, error) {
 	maxAgeStr := ar.GetRequestForm().Get("max_age")
 	if maxAgeStr == "" {
+		// max_age is optional, so return nil if it's not present or empty.
+		//nolint:nilnil
 		return nil, nil
 	}
 
