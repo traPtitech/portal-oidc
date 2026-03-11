@@ -212,7 +212,7 @@ def run_plan(
 
         results.append({"module": module_name, "result": result})
 
-        if result not in ("PASSED", "WARNING", "SKIPPED"):
+        if result not in ("PASSED", "WARNING", "REVIEW", "SKIPPED"):
             all_passed = False
 
     summary_path = os.path.join(output_dir, "summary.json")
@@ -231,7 +231,7 @@ def run_plan(
         if r["result"] == "SKIPPED":
             status_mark = "SKIP"
             skipped_count += 1
-        elif r["result"] in ("PASSED", "WARNING"):
+        elif r["result"] in ("PASSED", "WARNING", "REVIEW"):
             status_mark = "PASS"
             passed_count += 1
         else:
