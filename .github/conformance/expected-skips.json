@@ -1,0 +1,14 @@
+[
+  {"test_module": "oidcc-response-type-missing"},
+  {"test_module": "oidcc-prompt-login"},
+  {"test_module": "oidcc-prompt-none-not-logged-in"},
+  {"test_module": "oidcc-prompt-none-logged-in"},
+  {"test_module": "oidcc-max-age-1"},
+  {"test_module": "oidcc-max-age-10000"},
+  {"test_module": "oidcc-id-token-hint"},
+  {"test_module": "oidcc-ensure-registered-redirect-uri"},
+  {"test_module": "oidcc-server-client-secret-post"},
+  {"test_module": "oidcc-unsigned-request-object-supported-correctly-or-rejected-as-unsupported"},
+  {"test_module": "oidcc-ensure-request-object-with-redirect-uri"},
+  {"test_module": "oidcc-refresh-token"}
+]
