@@ -28,7 +28,7 @@ RESPONSE=$(curl -sf -X POST "$PORTAL_OIDC_URL/api/v1/admin/clients" \
 CLIENT_ID=$(echo "$RESPONSE" | jq -r '.client_id')
 CLIENT_SECRET=$(echo "$RESPONSE" | jq -r '.client_secret')
 
-if [[ -z "$CLIENT_ID" || -z "$CLIENT_SECRET" ]]; then
+if [[ -z "$CLIENT_ID" || "$CLIENT_ID" == "null" || -z "$CLIENT_SECRET" || "$CLIENT_SECRET" == "null" ]]; then
   echo "Error: Failed to extract client credentials from response"
   exit 1
 fi
