@@ -28,7 +28,7 @@ jobs:
       packages: read
     services:
       oidc-db:
-        image: mariadb:10.11.16
+        image: mariadb:12.2.2
         env:
           MARIADB_ROOT_PASSWORD: password
           MARIADB_DATABASE: oidc
