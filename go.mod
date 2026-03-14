@@ -13,7 +13,8 @@ require (
 	github.com/knadh/koanf/providers/env v1.1.0
 	github.com/knadh/koanf/providers/file v1.2.1
 	github.com/knadh/koanf/v2 v2.3.3
-	github.com/labstack/echo/v4 v4.15.1
+	github.com/labstack/echo/v4 v4.11.4
+	github.com/labstack/echo/v5 v5.0.4
 	github.com/oapi-codegen/runtime v1.2.0
 	github.com/ory/fosite v0.49.0
 	golang.org/x/crypto v0.49.0
@@ -37,6 +38,7 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/gobuffalo/pop/v6 v6.1.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
