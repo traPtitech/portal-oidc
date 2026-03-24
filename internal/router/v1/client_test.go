@@ -15,7 +15,7 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/knadh/koanf/providers/confmap"
-	"github.com/knadh/koanf/providers/env"
+	"github.com/knadh/koanf/providers/env/v2"
 	"github.com/knadh/koanf/v2"
 	"github.com/labstack/echo/v4"
 	"github.com/ory/fosite"
@@ -46,8 +46,11 @@ func TestMain(m *testing.M) {
 		"mariadb.port":     "3307",
 	}, "."), nil)
 
-	_ = k.Load(env.Provider("MARIADB_", ".", func(s string) string {
-		return strings.ToLower(strings.TrimPrefix(s, "MARIADB_"))
+	_ = k.Load(env.Provider(".", env.Opt{
+		Prefix: "MARIADB_",
+		TransformFunc: func(k, v string) (string, any) {
+			return strings.ToLower(strings.TrimPrefix(k, "MARIADB_")), v
+		},
 	}), nil)
 
 	user := k.String("mariadb.username")

@@ -6,7 +6,7 @@ import (
 
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/confmap"
-	"github.com/knadh/koanf/providers/env"
+	"github.com/knadh/koanf/providers/env/v2"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
 )
@@ -75,9 +75,12 @@ func loadConfig(configPath string) (*Config, error) {
 		return nil, err
 	}
 
-	if err := k.Load(env.Provider("OIDC_", ".", func(s string) string {
-		key := strings.ToLower(strings.TrimPrefix(s, "OIDC_"))
-		return strings.ReplaceAll(key, "__", ".")
+	if err := k.Load(env.Provider(".", env.Opt{
+		Prefix: "OIDC_",
+		TransformFunc: func(k, v string) (string, any) {
+			key := strings.ToLower(strings.TrimPrefix(k, "OIDC_"))
+			return strings.ReplaceAll(key, "__", "."), v
+		},
 	}), nil); err != nil {
 		return nil, err
 	}
