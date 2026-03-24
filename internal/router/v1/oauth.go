@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/go-jose/go-jose/v4"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/ory/fosite"
 
 	"github.com/traPtitech/portal-oidc/internal/repository/oauth"
@@ -19,15 +19,15 @@ import (
 	"github.com/traPtitech/portal-oidc/internal/usecase"
 )
 
-func (h *Handler) GetAuthorize(ctx echo.Context, params gen.GetAuthorizeParams) error {
+func (h *Handler) GetAuthorize(ctx *echo.Context, params gen.GetAuthorizeParams) error {
 	return h.authorize(ctx)
 }
 
-func (h *Handler) PostAuthorize(ctx echo.Context) error {
+func (h *Handler) PostAuthorize(ctx *echo.Context) error {
 	return h.authorize(ctx)
 }
 
-func (h *Handler) authorize(ctx echo.Context) error {
+func (h *Handler) authorize(ctx *echo.Context) error {
 	c := ctx.Request().Context()
 	rw := ctx.Response()
 	req := ctx.Request()
@@ -79,7 +79,7 @@ func (h *Handler) authorize(ctx echo.Context) error {
 	return h.completeAuthorize(ctx, ar, userID, authTime)
 }
 
-func (h *Handler) completeAuthorize(ctx echo.Context, ar fosite.AuthorizeRequester, userID string, authTime time.Time) error {
+func (h *Handler) completeAuthorize(ctx *echo.Context, ar fosite.AuthorizeRequester, userID string, authTime time.Time) error {
 	c := ctx.Request().Context()
 	rw := ctx.Response()
 
@@ -98,7 +98,7 @@ func (h *Handler) completeAuthorize(ctx echo.Context, ar fosite.AuthorizeRequest
 	return nil
 }
 
-func (h *Handler) isReauthCompleted(ctx echo.Context, authTime time.Time) bool {
+func (h *Handler) isReauthCompleted(ctx *echo.Context, authTime time.Time) bool {
 	session, err := h.sessions.Get(ctx.Request(), sessionName)
 	if err != nil {
 		return false
@@ -112,7 +112,7 @@ func (h *Handler) isReauthCompleted(ctx echo.Context, authTime time.Time) bool {
 	return authTime.Unix() > reqAt
 }
 
-func (h *Handler) redirectToLogin(ctx echo.Context, returnURL *url.URL) error {
+func (h *Handler) redirectToLogin(ctx *echo.Context, returnURL *url.URL) error {
 	session, err := h.sessions.Get(ctx.Request(), sessionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get session")
@@ -153,7 +153,7 @@ func parseMaxAge(ar fosite.AuthorizeRequester) (*int64, error) {
 	return &maxAge, nil
 }
 
-func (h *Handler) Token(ctx echo.Context) error {
+func (h *Handler) Token(ctx *echo.Context) error {
 	c := ctx.Request().Context()
 	rw := ctx.Response()
 	req := ctx.Request()
@@ -179,7 +179,7 @@ func (h *Handler) Token(ctx echo.Context) error {
 	return nil
 }
 
-func (h *Handler) GetUserInfo(ctx echo.Context) error {
+func (h *Handler) GetUserInfo(ctx *echo.Context) error {
 	token, err := h.extractBearerToken(ctx)
 	if err != nil {
 		return ctx.JSON(http.StatusUnauthorized, gen.OAuthError{Error: gen.InvalidRequest})
@@ -187,7 +187,7 @@ func (h *Handler) GetUserInfo(ctx echo.Context) error {
 	return h.handleUserInfo(ctx, token)
 }
 
-func (h *Handler) PostUserInfo(ctx echo.Context) error {
+func (h *Handler) PostUserInfo(ctx *echo.Context) error {
 	// RFC 6750: POST can use Authorization header OR form body
 	token, err := h.extractBearerToken(ctx)
 	if err != nil {
@@ -200,7 +200,7 @@ func (h *Handler) PostUserInfo(ctx echo.Context) error {
 	return h.handleUserInfo(ctx, token)
 }
 
-func (h *Handler) extractBearerToken(ctx echo.Context) (string, error) {
+func (h *Handler) extractBearerToken(ctx *echo.Context) (string, error) {
 	authHeader := ctx.Request().Header.Get("Authorization")
 	if authHeader == "" {
 		return "", errors.New("no authorization header")
@@ -213,7 +213,7 @@ func (h *Handler) extractBearerToken(ctx echo.Context) (string, error) {
 	return "", errors.New("invalid authorization header")
 }
 
-func (h *Handler) handleUserInfo(ctx echo.Context, token string) error {
+func (h *Handler) handleUserInfo(ctx *echo.Context, token string) error {
 	c := ctx.Request().Context()
 
 	_, ar, err := h.oauth2.IntrospectToken(c, token, fosite.AccessToken, oauth.NewSession("", time.Time{}))
@@ -235,7 +235,7 @@ func (h *Handler) handleUserInfo(ctx echo.Context, token string) error {
 	return ctx.JSON(http.StatusOK, info)
 }
 
-func (h *Handler) GetJWKS(ctx echo.Context) error {
+func (h *Handler) GetJWKS(ctx *echo.Context) error {
 	if h.config.PrivateKey == nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "signing key not configured")
 	}
@@ -256,7 +256,7 @@ func (h *Handler) GetJWKS(ctx echo.Context) error {
 	})
 }
 
-func (h *Handler) GetOpenIDConfiguration(ctx echo.Context) error {
+func (h *Handler) GetOpenIDConfiguration(ctx *echo.Context) error {
 	issuer := strings.TrimRight(h.config.Issuer, "/")
 	scopesSupported := []string{"openid", "profile", "email"}
 	claimsSupported := []string{"sub", "name", "preferred_username", "email", "email_verified"}

@@ -17,7 +17,7 @@ import (
 	"github.com/knadh/koanf/providers/confmap"
 	"github.com/knadh/koanf/providers/env/v2"
 	"github.com/knadh/koanf/v2"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/ory/fosite"
 	"github.com/ory/fosite/compose"
 
