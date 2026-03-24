@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"github.com/traPtitech/portal-oidc/internal/domain"
@@ -12,7 +12,7 @@ import (
 	"github.com/traPtitech/portal-oidc/internal/usecase"
 )
 
-func (h *Handler) GetClients(ctx echo.Context) error {
+func (h *Handler) GetClients(ctx *echo.Context) error {
 	clients, err := h.clientUseCase.List(ctx.Request().Context())
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -26,7 +26,7 @@ func (h *Handler) GetClients(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, response)
 }
 
-func (h *Handler) CreateClient(ctx echo.Context) error {
+func (h *Handler) CreateClient(ctx *echo.Context) error {
 	var req gen.ClientCreate
 	if err := ctx.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
@@ -45,7 +45,7 @@ func (h *Handler) CreateClient(ctx echo.Context) error {
 	return ctx.JSON(http.StatusCreated, toClientWithSecretResponse(client))
 }
 
-func (h *Handler) GetClient(ctx echo.Context, clientId openapi_types.UUID) error {
+func (h *Handler) GetClient(ctx *echo.Context, clientId openapi_types.UUID) error {
 	client, err := h.clientUseCase.Get(ctx.Request().Context(), clientId)
 	if err != nil {
 		if errors.Is(err, usecase.ErrClientNotFound) {
@@ -57,7 +57,7 @@ func (h *Handler) GetClient(ctx echo.Context, clientId openapi_types.UUID) error
 	return ctx.JSON(http.StatusOK, toClientResponse(client))
 }
 
-func (h *Handler) UpdateClient(ctx echo.Context, clientId openapi_types.UUID) error {
+func (h *Handler) UpdateClient(ctx *echo.Context, clientId openapi_types.UUID) error {
 	var req gen.ClientUpdate
 	if err := ctx.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
@@ -80,7 +80,7 @@ func (h *Handler) UpdateClient(ctx echo.Context, clientId openapi_types.UUID) er
 	return ctx.JSON(http.StatusOK, toClientResponse(client))
 }
 
-func (h *Handler) DeleteClient(ctx echo.Context, clientId openapi_types.UUID) error {
+func (h *Handler) DeleteClient(ctx *echo.Context, clientId openapi_types.UUID) error {
 	err := h.clientUseCase.Delete(ctx.Request().Context(), clientId)
 	if err != nil {
 		if errors.Is(err, usecase.ErrClientNotFound) {
@@ -92,7 +92,7 @@ func (h *Handler) DeleteClient(ctx echo.Context, clientId openapi_types.UUID) er
 	return ctx.NoContent(http.StatusNoContent)
 }
 
-func (h *Handler) RegenerateClientSecret(ctx echo.Context, clientId openapi_types.UUID) error {
+func (h *Handler) RegenerateClientSecret(ctx *echo.Context, clientId openapi_types.UUID) error {
 	secret, err := h.clientUseCase.RegenerateSecret(ctx.Request().Context(), clientId)
 	if err != nil {
 		if errors.Is(err, usecase.ErrClientNotFound) {

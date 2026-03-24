@@ -8,14 +8,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 
 	"github.com/traPtitech/portal-oidc/internal/usecase"
 )
 
 const sessionName = "oidc_session"
 
-func (h *Handler) GetLogin(ctx echo.Context) error {
+func (h *Handler) GetLogin(ctx *echo.Context) error {
 	returnURL := sanitizeReturnURL(ctx.QueryParam("return_url"))
 
 	devNote := ""
@@ -50,7 +50,7 @@ func (h *Handler) GetLogin(ctx echo.Context) error {
 	return ctx.HTML(http.StatusOK, page)
 }
 
-func (h *Handler) PostLogin(ctx echo.Context) error {
+func (h *Handler) PostLogin(ctx *echo.Context) error {
 	username := ctx.FormValue("username")
 	password := ctx.FormValue("password")
 	returnURL := ctx.FormValue("return_url")
@@ -99,7 +99,7 @@ func (h *Handler) authenticateTestUser(username, password string) (string, error
 	return "", errors.New("invalid credentials")
 }
 
-func (h *Handler) authenticatePortalUser(ctx echo.Context, trapID, password string) (string, error) {
+func (h *Handler) authenticatePortalUser(ctx *echo.Context, trapID, password string) (string, error) {
 	user, err := h.userUseCase.Authenticate(ctx.Request().Context(), trapID, password)
 	if err != nil {
 		if errors.Is(err, usecase.ErrUserNotFound) ||
@@ -113,7 +113,7 @@ func (h *Handler) authenticatePortalUser(ctx echo.Context, trapID, password stri
 	return user.ID, nil
 }
 
-func (h *Handler) Logout(ctx echo.Context) error {
+func (h *Handler) Logout(ctx *echo.Context) error {
 	session, err := h.sessions.Get(ctx.Request(), sessionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get session")
@@ -146,7 +146,7 @@ type authInfo struct {
 	AuthTime time.Time
 }
 
-func (h *Handler) getAuthInfo(ctx echo.Context) (authInfo, bool) {
+func (h *Handler) getAuthInfo(ctx *echo.Context) (authInfo, bool) {
 	session, err := h.sessions.Get(ctx.Request(), sessionName)
 	if err != nil {
 		return authInfo{}, false

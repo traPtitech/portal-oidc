@@ -9,9 +9,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/oapi-codegen/runtime"
-	strictecho "github.com/oapi-codegen/runtime/strictmiddleware/echo"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
@@ -19,43 +18,43 @@ import (
 type ServerInterface interface {
 	// JSON Web Key Set
 	// (GET /.well-known/jwks.json)
-	GetJWKS(ctx echo.Context) error
+	GetJWKS(ctx *echo.Context) error
 	// OpenID Provider Configuration
 	// (GET /.well-known/openid-configuration)
-	GetOpenIDConfiguration(ctx echo.Context) error
+	GetOpenIDConfiguration(ctx *echo.Context) error
 	// クライアント一覧取得
 	// (GET /api/v1/admin/clients)
-	GetClients(ctx echo.Context) error
+	GetClients(ctx *echo.Context) error
 	// クライアント作成
 	// (POST /api/v1/admin/clients)
-	CreateClient(ctx echo.Context) error
+	CreateClient(ctx *echo.Context) error
 	// クライアント削除
 	// (DELETE /api/v1/admin/clients/{clientId})
-	DeleteClient(ctx echo.Context, clientId openapi_types.UUID) error
+	DeleteClient(ctx *echo.Context, clientId openapi_types.UUID) error
 	// クライアント取得
 	// (GET /api/v1/admin/clients/{clientId})
-	GetClient(ctx echo.Context, clientId openapi_types.UUID) error
+	GetClient(ctx *echo.Context, clientId openapi_types.UUID) error
 	// クライアント更新
 	// (PUT /api/v1/admin/clients/{clientId})
-	UpdateClient(ctx echo.Context, clientId openapi_types.UUID) error
+	UpdateClient(ctx *echo.Context, clientId openapi_types.UUID) error
 	// クライアントシークレット再生成
 	// (POST /api/v1/admin/clients/{clientId}/secret)
-	RegenerateClientSecret(ctx echo.Context, clientId openapi_types.UUID) error
+	RegenerateClientSecret(ctx *echo.Context, clientId openapi_types.UUID) error
 	// 認可エンドポイント (GET)
 	// (GET /oauth2/authorize)
-	GetAuthorize(ctx echo.Context, params GetAuthorizeParams) error
+	GetAuthorize(ctx *echo.Context, params GetAuthorizeParams) error
 	// 認可エンドポイント (POST)
 	// (POST /oauth2/authorize)
-	PostAuthorize(ctx echo.Context) error
+	PostAuthorize(ctx *echo.Context) error
 	// トークンエンドポイント
 	// (POST /oauth2/token)
-	Token(ctx echo.Context) error
+	Token(ctx *echo.Context) error
 	// UserInfo エンドポイント (GET)
 	// (GET /oauth2/userinfo)
-	GetUserInfo(ctx echo.Context) error
+	GetUserInfo(ctx *echo.Context) error
 	// UserInfo エンドポイント (POST)
 	// (POST /oauth2/userinfo)
-	PostUserInfo(ctx echo.Context) error
+	PostUserInfo(ctx *echo.Context) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
@@ -64,7 +63,7 @@ type ServerInterfaceWrapper struct {
 }
 
 // GetJWKS converts echo context to params.
-func (w *ServerInterfaceWrapper) GetJWKS(ctx echo.Context) error {
+func (w *ServerInterfaceWrapper) GetJWKS(ctx *echo.Context) error {
 	var err error
 
 	// Invoke the callback with all the unmarshaled arguments
@@ -73,7 +72,7 @@ func (w *ServerInterfaceWrapper) GetJWKS(ctx echo.Context) error {
 }
 
 // GetOpenIDConfiguration converts echo context to params.
-func (w *ServerInterfaceWrapper) GetOpenIDConfiguration(ctx echo.Context) error {
+func (w *ServerInterfaceWrapper) GetOpenIDConfiguration(ctx *echo.Context) error {
 	var err error
 
 	// Invoke the callback with all the unmarshaled arguments
@@ -82,7 +81,7 @@ func (w *ServerInterfaceWrapper) GetOpenIDConfiguration(ctx echo.Context) error 
 }
 
 // GetClients converts echo context to params.
-func (w *ServerInterfaceWrapper) GetClients(ctx echo.Context) error {
+func (w *ServerInterfaceWrapper) GetClients(ctx *echo.Context) error {
 	var err error
 
 	// Invoke the callback with all the unmarshaled arguments
@@ -91,7 +90,7 @@ func (w *ServerInterfaceWrapper) GetClients(ctx echo.Context) error {
 }
 
 // CreateClient converts echo context to params.
-func (w *ServerInterfaceWrapper) CreateClient(ctx echo.Context) error {
+func (w *ServerInterfaceWrapper) CreateClient(ctx *echo.Context) error {
 	var err error
 
 	// Invoke the callback with all the unmarshaled arguments
@@ -100,7 +99,7 @@ func (w *ServerInterfaceWrapper) CreateClient(ctx echo.Context) error {
 }
 
 // DeleteClient converts echo context to params.
-func (w *ServerInterfaceWrapper) DeleteClient(ctx echo.Context) error {
+func (w *ServerInterfaceWrapper) DeleteClient(ctx *echo.Context) error {
 	var err error
 	// ------------- Path parameter "clientId" -------------
 	var clientId openapi_types.UUID
@@ -116,7 +115,7 @@ func (w *ServerInterfaceWrapper) DeleteClient(ctx echo.Context) error {
 }
 
 // GetClient converts echo context to params.
-func (w *ServerInterfaceWrapper) GetClient(ctx echo.Context) error {
+func (w *ServerInterfaceWrapper) GetClient(ctx *echo.Context) error {
 	var err error
 	// ------------- Path parameter "clientId" -------------
 	var clientId openapi_types.UUID
@@ -132,7 +131,7 @@ func (w *ServerInterfaceWrapper) GetClient(ctx echo.Context) error {
 }
 
 // UpdateClient converts echo context to params.
-func (w *ServerInterfaceWrapper) UpdateClient(ctx echo.Context) error {
+func (w *ServerInterfaceWrapper) UpdateClient(ctx *echo.Context) error {
 	var err error
 	// ------------- Path parameter "clientId" -------------
 	var clientId openapi_types.UUID
@@ -148,7 +147,7 @@ func (w *ServerInterfaceWrapper) UpdateClient(ctx echo.Context) error {
 }
 
 // RegenerateClientSecret converts echo context to params.
-func (w *ServerInterfaceWrapper) RegenerateClientSecret(ctx echo.Context) error {
+func (w *ServerInterfaceWrapper) RegenerateClientSecret(ctx *echo.Context) error {
 	var err error
 	// ------------- Path parameter "clientId" -------------
 	var clientId openapi_types.UUID
@@ -164,7 +163,7 @@ func (w *ServerInterfaceWrapper) RegenerateClientSecret(ctx echo.Context) error 
 }
 
 // GetAuthorize converts echo context to params.
-func (w *ServerInterfaceWrapper) GetAuthorize(ctx echo.Context) error {
+func (w *ServerInterfaceWrapper) GetAuthorize(ctx *echo.Context) error {
 	var err error
 
 	// Parameter object where we will unmarshal all parameters from the context
@@ -245,7 +244,7 @@ func (w *ServerInterfaceWrapper) GetAuthorize(ctx echo.Context) error {
 }
 
 // PostAuthorize converts echo context to params.
-func (w *ServerInterfaceWrapper) PostAuthorize(ctx echo.Context) error {
+func (w *ServerInterfaceWrapper) PostAuthorize(ctx *echo.Context) error {
 	var err error
 
 	// Invoke the callback with all the unmarshaled arguments
@@ -254,7 +253,7 @@ func (w *ServerInterfaceWrapper) PostAuthorize(ctx echo.Context) error {
 }
 
 // Token converts echo context to params.
-func (w *ServerInterfaceWrapper) Token(ctx echo.Context) error {
+func (w *ServerInterfaceWrapper) Token(ctx *echo.Context) error {
 	var err error
 
 	// Invoke the callback with all the unmarshaled arguments
@@ -263,7 +262,7 @@ func (w *ServerInterfaceWrapper) Token(ctx echo.Context) error {
 }
 
 // GetUserInfo converts echo context to params.
-func (w *ServerInterfaceWrapper) GetUserInfo(ctx echo.Context) error {
+func (w *ServerInterfaceWrapper) GetUserInfo(ctx *echo.Context) error {
 	var err error
 
 	ctx.Set(BearerAuthScopes, []string{})
@@ -274,7 +273,7 @@ func (w *ServerInterfaceWrapper) GetUserInfo(ctx echo.Context) error {
 }
 
 // PostUserInfo converts echo context to params.
-func (w *ServerInterfaceWrapper) PostUserInfo(ctx echo.Context) error {
+func (w *ServerInterfaceWrapper) PostUserInfo(ctx *echo.Context) error {
 	var err error
 
 	ctx.Set(BearerAuthScopes, []string{})
@@ -288,15 +287,15 @@ func (w *ServerInterfaceWrapper) PostUserInfo(ctx echo.Context) error {
 // are present on both echo.Echo and echo.Group, since we want to allow using
 // either of them for path registration
 type EchoRouter interface {
-	CONNECT(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
-	DELETE(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
-	GET(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
-	HEAD(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
-	OPTIONS(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
-	PATCH(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
-	POST(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
-	PUT(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
-	TRACE(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
+	CONNECT(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) echo.RouteInfo
+	DELETE(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) echo.RouteInfo
+	GET(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) echo.RouteInfo
+	HEAD(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) echo.RouteInfo
+	OPTIONS(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) echo.RouteInfo
+	PATCH(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) echo.RouteInfo
+	POST(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) echo.RouteInfo
+	PUT(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) echo.RouteInfo
+	TRACE(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) echo.RouteInfo
 }
 
 // RegisterHandlers adds each server route to the EchoRouter.
@@ -733,8 +732,8 @@ type StrictServerInterface interface {
 	PostUserInfo(ctx context.Context, request PostUserInfoRequestObject) (PostUserInfoResponseObject, error)
 }
 
-type StrictHandlerFunc = strictecho.StrictEchoHandlerFunc
-type StrictMiddlewareFunc = strictecho.StrictEchoMiddlewareFunc
+type StrictHandlerFunc func(ctx *echo.Context, request interface{}) (response interface{}, err error)
+type StrictMiddlewareFunc func(f StrictHandlerFunc, operationID string) StrictHandlerFunc
 
 func NewStrictHandler(ssi StrictServerInterface, middlewares []StrictMiddlewareFunc) ServerInterface {
 	return &strictHandler{ssi: ssi, middlewares: middlewares}
@@ -746,10 +745,10 @@ type strictHandler struct {
 }
 
 // GetJWKS operation middleware
-func (sh *strictHandler) GetJWKS(ctx echo.Context) error {
+func (sh *strictHandler) GetJWKS(ctx *echo.Context) error {
 	var request GetJWKSRequestObject
 
-	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
 		return sh.ssi.GetJWKS(ctx.Request().Context(), request.(GetJWKSRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
@@ -769,10 +768,10 @@ func (sh *strictHandler) GetJWKS(ctx echo.Context) error {
 }
 
 // GetOpenIDConfiguration operation middleware
-func (sh *strictHandler) GetOpenIDConfiguration(ctx echo.Context) error {
+func (sh *strictHandler) GetOpenIDConfiguration(ctx *echo.Context) error {
 	var request GetOpenIDConfigurationRequestObject
 
-	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
 		return sh.ssi.GetOpenIDConfiguration(ctx.Request().Context(), request.(GetOpenIDConfigurationRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
@@ -792,10 +791,10 @@ func (sh *strictHandler) GetOpenIDConfiguration(ctx echo.Context) error {
 }
 
 // GetClients operation middleware
-func (sh *strictHandler) GetClients(ctx echo.Context) error {
+func (sh *strictHandler) GetClients(ctx *echo.Context) error {
 	var request GetClientsRequestObject
 
-	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
 		return sh.ssi.GetClients(ctx.Request().Context(), request.(GetClientsRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
@@ -815,7 +814,7 @@ func (sh *strictHandler) GetClients(ctx echo.Context) error {
 }
 
 // CreateClient operation middleware
-func (sh *strictHandler) CreateClient(ctx echo.Context) error {
+func (sh *strictHandler) CreateClient(ctx *echo.Context) error {
 	var request CreateClientRequestObject
 
 	var body CreateClientJSONRequestBody
@@ -824,7 +823,7 @@ func (sh *strictHandler) CreateClient(ctx echo.Context) error {
 	}
 	request.Body = &body
 
-	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
 		return sh.ssi.CreateClient(ctx.Request().Context(), request.(CreateClientRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
@@ -844,12 +843,12 @@ func (sh *strictHandler) CreateClient(ctx echo.Context) error {
 }
 
 // DeleteClient operation middleware
-func (sh *strictHandler) DeleteClient(ctx echo.Context, clientId openapi_types.UUID) error {
+func (sh *strictHandler) DeleteClient(ctx *echo.Context, clientId openapi_types.UUID) error {
 	var request DeleteClientRequestObject
 
 	request.ClientId = clientId
 
-	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
 		return sh.ssi.DeleteClient(ctx.Request().Context(), request.(DeleteClientRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
@@ -869,12 +868,12 @@ func (sh *strictHandler) DeleteClient(ctx echo.Context, clientId openapi_types.U
 }
 
 // GetClient operation middleware
-func (sh *strictHandler) GetClient(ctx echo.Context, clientId openapi_types.UUID) error {
+func (sh *strictHandler) GetClient(ctx *echo.Context, clientId openapi_types.UUID) error {
 	var request GetClientRequestObject
 
 	request.ClientId = clientId
 
-	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
 		return sh.ssi.GetClient(ctx.Request().Context(), request.(GetClientRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
@@ -894,7 +893,7 @@ func (sh *strictHandler) GetClient(ctx echo.Context, clientId openapi_types.UUID
 }
 
 // UpdateClient operation middleware
-func (sh *strictHandler) UpdateClient(ctx echo.Context, clientId openapi_types.UUID) error {
+func (sh *strictHandler) UpdateClient(ctx *echo.Context, clientId openapi_types.UUID) error {
 	var request UpdateClientRequestObject
 
 	request.ClientId = clientId
@@ -905,7 +904,7 @@ func (sh *strictHandler) UpdateClient(ctx echo.Context, clientId openapi_types.U
 	}
 	request.Body = &body
 
-	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
 		return sh.ssi.UpdateClient(ctx.Request().Context(), request.(UpdateClientRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
@@ -925,12 +924,12 @@ func (sh *strictHandler) UpdateClient(ctx echo.Context, clientId openapi_types.U
 }
 
 // RegenerateClientSecret operation middleware
-func (sh *strictHandler) RegenerateClientSecret(ctx echo.Context, clientId openapi_types.UUID) error {
+func (sh *strictHandler) RegenerateClientSecret(ctx *echo.Context, clientId openapi_types.UUID) error {
 	var request RegenerateClientSecretRequestObject
 
 	request.ClientId = clientId
 
-	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
 		return sh.ssi.RegenerateClientSecret(ctx.Request().Context(), request.(RegenerateClientSecretRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
@@ -950,12 +949,12 @@ func (sh *strictHandler) RegenerateClientSecret(ctx echo.Context, clientId opena
 }
 
 // GetAuthorize operation middleware
-func (sh *strictHandler) GetAuthorize(ctx echo.Context, params GetAuthorizeParams) error {
+func (sh *strictHandler) GetAuthorize(ctx *echo.Context, params GetAuthorizeParams) error {
 	var request GetAuthorizeRequestObject
 
 	request.Params = params
 
-	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
 		return sh.ssi.GetAuthorize(ctx.Request().Context(), request.(GetAuthorizeRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
@@ -975,10 +974,10 @@ func (sh *strictHandler) GetAuthorize(ctx echo.Context, params GetAuthorizeParam
 }
 
 // PostAuthorize operation middleware
-func (sh *strictHandler) PostAuthorize(ctx echo.Context) error {
+func (sh *strictHandler) PostAuthorize(ctx *echo.Context) error {
 	var request PostAuthorizeRequestObject
 
-	if form, err := ctx.FormParams(); err == nil {
+	if form, err := ctx.FormValues(); err == nil {
 		var body PostAuthorizeFormdataRequestBody
 		if err := runtime.BindForm(&body, form, nil, nil); err != nil {
 			return err
@@ -988,7 +987,7 @@ func (sh *strictHandler) PostAuthorize(ctx echo.Context) error {
 		return err
 	}
 
-	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
 		return sh.ssi.PostAuthorize(ctx.Request().Context(), request.(PostAuthorizeRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
@@ -1008,10 +1007,10 @@ func (sh *strictHandler) PostAuthorize(ctx echo.Context) error {
 }
 
 // Token operation middleware
-func (sh *strictHandler) Token(ctx echo.Context) error {
+func (sh *strictHandler) Token(ctx *echo.Context) error {
 	var request TokenRequestObject
 
-	if form, err := ctx.FormParams(); err == nil {
+	if form, err := ctx.FormValues(); err == nil {
 		var body TokenFormdataRequestBody
 		if err := runtime.BindForm(&body, form, nil, nil); err != nil {
 			return err
@@ -1021,7 +1020,7 @@ func (sh *strictHandler) Token(ctx echo.Context) error {
 		return err
 	}
 
-	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
 		return sh.ssi.Token(ctx.Request().Context(), request.(TokenRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
@@ -1041,10 +1040,10 @@ func (sh *strictHandler) Token(ctx echo.Context) error {
 }
 
 // GetUserInfo operation middleware
-func (sh *strictHandler) GetUserInfo(ctx echo.Context) error {
+func (sh *strictHandler) GetUserInfo(ctx *echo.Context) error {
 	var request GetUserInfoRequestObject
 
-	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
 		return sh.ssi.GetUserInfo(ctx.Request().Context(), request.(GetUserInfoRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
@@ -1064,10 +1063,10 @@ func (sh *strictHandler) GetUserInfo(ctx echo.Context) error {
 }
 
 // PostUserInfo operation middleware
-func (sh *strictHandler) PostUserInfo(ctx echo.Context) error {
+func (sh *strictHandler) PostUserInfo(ctx *echo.Context) error {
 	var request PostUserInfoRequestObject
 
-	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
 		return sh.ssi.PostUserInfo(ctx.Request().Context(), request.(PostUserInfoRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
