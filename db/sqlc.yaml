@@ -1,7 +1,6 @@
 version: "2"
-# NOTE: UUID override は未対応 (sqlc が MariaDB の char(36) や uuid 型に非対応, PostgreSQL は完全対応)
 sql:
-  - engine: "mysql"
+  - engine: "postgresql"
     queries: "query/oidc.sql"
     schema: "schema.sql"
     strict_function_checks: true
@@ -14,7 +13,10 @@ sql:
         emit_interface: true
         emit_exact_table_names: false
         emit_empty_slices: true
-  - engine: "mysql"
+        overrides:
+          - db_type: "jsonb"
+            go_type: "encoding/json.RawMessage"
+  - engine: "postgresql"
     queries: "query/portal.sql"
     schema: "portal-schema.sql"
     strict_function_checks: true

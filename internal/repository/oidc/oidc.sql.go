@@ -24,7 +24,7 @@ INSERT INTO authorization_codes (
     code_challenge_method,
     nonce,
     expires_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 `
 
 type CreateAuthorizationCodeParams struct {
@@ -63,7 +63,7 @@ INSERT INTO clients (
     name,
     client_type,
     redirect_uris
-) VALUES (?, ?, ?, ?, ?)
+) VALUES ($1, $2, $3, $4, $5)
 `
 
 type CreateClientParams struct {
@@ -96,7 +96,7 @@ INSERT INTO oidc_sessions (
     nonce,
     auth_time,
     requested_at
-) VALUES (?, ?, ?, ?, ?, ?, ?)
+) VALUES ($1, $2, $3, $4, $5, $6, $7)
 `
 
 type CreateOIDCSessionParams struct {
@@ -134,7 +134,7 @@ INSERT INTO tokens (
     refresh_token,
     scopes,
     expires_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 `
 
 type CreateTokenParams struct {
@@ -200,7 +200,7 @@ func (q *Queries) DeleteAllTokens(ctx context.Context) error {
 }
 
 const deleteAuthorizationCode = `-- name: DeleteAuthorizationCode :exec
-DELETE FROM authorization_codes WHERE code = ?
+DELETE FROM authorization_codes WHERE code = $1
 `
 
 func (q *Queries) DeleteAuthorizationCode(ctx context.Context, code string) error {
@@ -209,7 +209,7 @@ func (q *Queries) DeleteAuthorizationCode(ctx context.Context, code string) erro
 }
 
 const deleteClient = `-- name: DeleteClient :exec
-DELETE FROM clients WHERE client_id = ?
+DELETE FROM clients WHERE client_id = $1
 `
 
 func (q *Queries) DeleteClient(ctx context.Context, clientID string) error {
@@ -236,7 +236,7 @@ func (q *Queries) DeleteExpiredTokens(ctx context.Context) error {
 }
 
 const deleteOIDCSession = `-- name: DeleteOIDCSession :exec
-DELETE FROM oidc_sessions WHERE authorize_code = ?
+DELETE FROM oidc_sessions WHERE authorize_code = $1
 `
 
 func (q *Queries) DeleteOIDCSession(ctx context.Context, authorizeCode string) error {
@@ -245,7 +245,7 @@ func (q *Queries) DeleteOIDCSession(ctx context.Context, authorizeCode string) e
 }
 
 const deleteToken = `-- name: DeleteToken :exec
-DELETE FROM tokens WHERE id = ?
+DELETE FROM tokens WHERE id = $1
 `
 
 func (q *Queries) DeleteToken(ctx context.Context, id string) error {
@@ -254,7 +254,7 @@ func (q *Queries) DeleteToken(ctx context.Context, id string) error {
 }
 
 const deleteTokenByAccessToken = `-- name: DeleteTokenByAccessToken :exec
-DELETE FROM tokens WHERE access_token = ?
+DELETE FROM tokens WHERE access_token = $1
 `
 
 func (q *Queries) DeleteTokenByAccessToken(ctx context.Context, accessToken string) error {
@@ -263,7 +263,7 @@ func (q *Queries) DeleteTokenByAccessToken(ctx context.Context, accessToken stri
 }
 
 const deleteTokenByRefreshToken = `-- name: DeleteTokenByRefreshToken :exec
-DELETE FROM tokens WHERE refresh_token = ?
+DELETE FROM tokens WHERE refresh_token = $1
 `
 
 func (q *Queries) DeleteTokenByRefreshToken(ctx context.Context, refreshToken sql.NullString) error {
@@ -272,7 +272,7 @@ func (q *Queries) DeleteTokenByRefreshToken(ctx context.Context, refreshToken sq
 }
 
 const deleteTokensByRequestID = `-- name: DeleteTokensByRequestID :exec
-DELETE FROM tokens WHERE request_id = ?
+DELETE FROM tokens WHERE request_id = $1
 `
 
 func (q *Queries) DeleteTokensByRequestID(ctx context.Context, requestID string) error {
@@ -281,7 +281,7 @@ func (q *Queries) DeleteTokensByRequestID(ctx context.Context, requestID string)
 }
 
 const deleteTokensByUserAndClient = `-- name: DeleteTokensByUserAndClient :exec
-DELETE FROM tokens WHERE user_id = ? AND client_id = ?
+DELETE FROM tokens WHERE user_id = $1 AND client_id = $2
 `
 
 type DeleteTokensByUserAndClientParams struct {
@@ -295,7 +295,7 @@ func (q *Queries) DeleteTokensByUserAndClient(ctx context.Context, arg DeleteTok
 }
 
 const getAuthorizationCode = `-- name: GetAuthorizationCode :one
-SELECT code, client_id, user_id, redirect_uri, scopes, code_challenge, code_challenge_method, nonce, used, expires_at, created_at FROM authorization_codes WHERE code = ?
+SELECT code, client_id, user_id, redirect_uri, scopes, code_challenge, code_challenge_method, nonce, used, expires_at, created_at FROM authorization_codes WHERE code = $1
 `
 
 func (q *Queries) GetAuthorizationCode(ctx context.Context, code string) (AuthorizationCode, error) {
@@ -318,7 +318,7 @@ func (q *Queries) GetAuthorizationCode(ctx context.Context, code string) (Author
 }
 
 const getClient = `-- name: GetClient :one
-SELECT client_id, client_secret_hash, name, client_type, redirect_uris, created_at, updated_at FROM clients WHERE client_id = ?
+SELECT client_id, client_secret_hash, name, client_type, redirect_uris, created_at, updated_at FROM clients WHERE client_id = $1
 `
 
 func (q *Queries) GetClient(ctx context.Context, clientID string) (Client, error) {
@@ -337,7 +337,7 @@ func (q *Queries) GetClient(ctx context.Context, clientID string) (Client, error
 }
 
 const getOIDCSession = `-- name: GetOIDCSession :one
-SELECT authorize_code, client_id, user_id, scopes, nonce, auth_time, requested_at, created_at FROM oidc_sessions WHERE authorize_code = ?
+SELECT authorize_code, client_id, user_id, scopes, nonce, auth_time, requested_at, created_at FROM oidc_sessions WHERE authorize_code = $1
 `
 
 func (q *Queries) GetOIDCSession(ctx context.Context, authorizeCode string) (OidcSession, error) {
@@ -357,7 +357,7 @@ func (q *Queries) GetOIDCSession(ctx context.Context, authorizeCode string) (Oid
 }
 
 const getTokenByAccessToken = `-- name: GetTokenByAccessToken :one
-SELECT id, request_id, client_id, user_id, access_token, refresh_token, scopes, expires_at, created_at FROM tokens WHERE access_token = ?
+SELECT id, request_id, client_id, user_id, access_token, refresh_token, scopes, expires_at, created_at FROM tokens WHERE access_token = $1
 `
 
 func (q *Queries) GetTokenByAccessToken(ctx context.Context, accessToken string) (Token, error) {
@@ -378,7 +378,7 @@ func (q *Queries) GetTokenByAccessToken(ctx context.Context, accessToken string)
 }
 
 const getTokenByID = `-- name: GetTokenByID :one
-SELECT id, request_id, client_id, user_id, access_token, refresh_token, scopes, expires_at, created_at FROM tokens WHERE id = ?
+SELECT id, request_id, client_id, user_id, access_token, refresh_token, scopes, expires_at, created_at FROM tokens WHERE id = $1
 `
 
 func (q *Queries) GetTokenByID(ctx context.Context, id string) (Token, error) {
@@ -399,7 +399,7 @@ func (q *Queries) GetTokenByID(ctx context.Context, id string) (Token, error) {
 }
 
 const getTokenByRefreshToken = `-- name: GetTokenByRefreshToken :one
-SELECT id, request_id, client_id, user_id, access_token, refresh_token, scopes, expires_at, created_at FROM tokens WHERE refresh_token = ?
+SELECT id, request_id, client_id, user_id, access_token, refresh_token, scopes, expires_at, created_at FROM tokens WHERE refresh_token = $1
 `
 
 func (q *Queries) GetTokenByRefreshToken(ctx context.Context, refreshToken sql.NullString) (Token, error) {
@@ -455,7 +455,7 @@ func (q *Queries) ListClients(ctx context.Context) ([]Client, error) {
 }
 
 const markAuthorizationCodeUsed = `-- name: MarkAuthorizationCodeUsed :exec
-UPDATE authorization_codes SET used = TRUE WHERE code = ?
+UPDATE authorization_codes SET used = TRUE WHERE code = $1
 `
 
 func (q *Queries) MarkAuthorizationCodeUsed(ctx context.Context, code string) error {
@@ -465,9 +465,9 @@ func (q *Queries) MarkAuthorizationCodeUsed(ctx context.Context, code string) er
 
 const updateAuthorizationCodePKCE = `-- name: UpdateAuthorizationCodePKCE :exec
 UPDATE authorization_codes SET
-    code_challenge = ?,
-    code_challenge_method = ?
-WHERE code = ?
+    code_challenge = $1,
+    code_challenge_method = $2
+WHERE code = $3
 `
 
 type UpdateAuthorizationCodePKCEParams struct {
@@ -483,10 +483,11 @@ func (q *Queries) UpdateAuthorizationCodePKCE(ctx context.Context, arg UpdateAut
 
 const updateClient = `-- name: UpdateClient :exec
 UPDATE clients SET
-    name = ?,
-    client_type = ?,
-    redirect_uris = ?
-WHERE client_id = ?
+    name = $1,
+    client_type = $2,
+    redirect_uris = $3,
+    updated_at = NOW()
+WHERE client_id = $4
 `
 
 type UpdateClientParams struct {
@@ -508,8 +509,9 @@ func (q *Queries) UpdateClient(ctx context.Context, arg UpdateClientParams) erro
 
 const updateClientSecret = `-- name: UpdateClientSecret :exec
 UPDATE clients SET
-    client_secret_hash = ?
-WHERE client_id = ?
+    client_secret_hash = $1,
+    updated_at = NOW()
+WHERE client_id = $2
 `
 
 type UpdateClientSecretParams struct {

@@ -1,11 +1,11 @@
 env "oidc" {
   src = "file://schema.sql"
-  url = "mariadb://root:password@localhost:3307/oidc"
-  dev = "docker://mariadb/latest/dev"
+  url = "postgres://root:password@localhost:3307/oidc?sslmode=disable"
+  dev = "docker://postgres/17/dev"
 }
 
 env "portal" {
   src = "file://portal-schema.sql"
-  url = "mariadb://root:password@localhost:3306/portal"
-  dev = "docker://mariadb/latest/dev"
+  url = "postgres://root:password@localhost:3306/portal?sslmode=disable"
+  dev = "docker://postgres/17/dev"
 }

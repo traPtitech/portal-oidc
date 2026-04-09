@@ -18,14 +18,15 @@ jobs:
     runs-on: ubuntu-latest
     services:
       oidc-db:
-        image: mariadb:10.11
+        image: postgres:17
         env:
-          MARIADB_ROOT_PASSWORD: password
-          MARIADB_DATABASE: oidc
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: oidc
+          POSTGRES_USER: root
         ports:
-          - 3307:3306
+          - 3307:5432
         options: >-
-          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-cmd="pg_isready -U root -d oidc"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
@@ -36,6 +37,9 @@ jobs:
 
       - name: Run tests
         run: go test -race ./...
+        env:
+          POSTGRES_HOSTNAME: 127.0.0.1
+          POSTGRES_PORT: "3307"
 
   release:
     name: Create Release

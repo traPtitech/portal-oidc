@@ -1,4 +1,4 @@
-dsn: mariadb://root:password@localhost:3306/portal
+dsn: postgres://root:password@localhost:3306/portal?sslmode=disable
 docPath: ../docs/db/portal
 
 desc: |

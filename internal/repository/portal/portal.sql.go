@@ -13,7 +13,7 @@ import (
 
 const getUserByID = `-- name: GetUserByID :one
 SELECT id, trap_id, password_hash, student_number, created_at, updated_at
-FROM users WHERE id = ?
+FROM users WHERE id = $1
 `
 
 type GetUserByIDRow struct {
@@ -41,7 +41,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id string) (GetUserByIDRow, e
 
 const getUserByStudentNumber = `-- name: GetUserByStudentNumber :one
 SELECT id, trap_id, password_hash, student_number, created_at, updated_at
-FROM users WHERE student_number = ?
+FROM users WHERE student_number = $1
 `
 
 type GetUserByStudentNumberRow struct {
@@ -69,7 +69,7 @@ func (q *Queries) GetUserByStudentNumber(ctx context.Context, studentNumber sql.
 
 const getUserByTrapID = `-- name: GetUserByTrapID :one
 SELECT id, trap_id, password_hash, student_number, created_at, updated_at
-FROM users WHERE trap_id = ?
+FROM users WHERE trap_id = $1
 `
 
 type GetUserByTrapIDRow struct {
@@ -97,7 +97,7 @@ func (q *Queries) GetUserByTrapID(ctx context.Context, trapID string) (GetUserBy
 
 const listUserStatuses = `-- name: ListUserStatuses :many
 SELECT user_id, status, detail, created_at
-FROM user_statuses WHERE user_id = ?
+FROM user_statuses WHERE user_id = $1
 `
 
 func (q *Queries) ListUserStatuses(ctx context.Context, userID string) ([]UserStatus, error) {

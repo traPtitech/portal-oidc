@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
-	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
 
@@ -90,10 +90,10 @@ func newServer(cfg Config) (http.Handler, error) {
 }
 
 func setupOIDCDatabase(cfg DatabaseConfig) (*sql.DB, *oidc.Queries, error) {
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable",
 		cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.Name)
 
-	db, err := sql.Open("mysql", dsn)
+	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to open oidc database: %w", err)
 	}
@@ -111,10 +111,10 @@ func setupOIDCDatabase(cfg DatabaseConfig) (*sql.DB, *oidc.Queries, error) {
 }
 
 func setupPortalDatabase(cfg DatabaseConfig) (*portal.Queries, error) {
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable",
 		cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.Name)
 
-	db, err := sql.Open("mysql", dsn)
+	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open portal database: %w", err)
 	}

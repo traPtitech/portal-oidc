@@ -7,28 +7,30 @@ INSERT INTO clients (
     name,
     client_type,
     redirect_uris
-) VALUES (?, ?, ?, ?, ?);
+) VALUES ($1, $2, $3, $4, $5);
 
 -- name: GetClient :one
-SELECT * FROM clients WHERE client_id = ?;
+SELECT * FROM clients WHERE client_id = $1;
 
 -- name: ListClients :many
 SELECT * FROM clients;
 
 -- name: UpdateClient :exec
 UPDATE clients SET
-    name = ?,
-    client_type = ?,
-    redirect_uris = ?
-WHERE client_id = ?;
+    name = $1,
+    client_type = $2,
+    redirect_uris = $3,
+    updated_at = NOW()
+WHERE client_id = $4;
 
 -- name: UpdateClientSecret :exec
 UPDATE clients SET
-    client_secret_hash = ?
-WHERE client_id = ?;
+    client_secret_hash = $1,
+    updated_at = NOW()
+WHERE client_id = $2;
 
 -- name: DeleteClient :exec
-DELETE FROM clients WHERE client_id = ?;
+DELETE FROM clients WHERE client_id = $1;
 
 -- name: DeleteAllClients :exec
 DELETE FROM clients;
@@ -46,22 +48,22 @@ INSERT INTO authorization_codes (
     code_challenge_method,
     nonce,
     expires_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: GetAuthorizationCode :one
-SELECT * FROM authorization_codes WHERE code = ?;
+SELECT * FROM authorization_codes WHERE code = $1;
 
 -- name: DeleteAuthorizationCode :exec
-DELETE FROM authorization_codes WHERE code = ?;
+DELETE FROM authorization_codes WHERE code = $1;
 
 -- name: MarkAuthorizationCodeUsed :exec
-UPDATE authorization_codes SET used = TRUE WHERE code = ?;
+UPDATE authorization_codes SET used = TRUE WHERE code = $1;
 
 -- name: UpdateAuthorizationCodePKCE :exec
 UPDATE authorization_codes SET
-    code_challenge = ?,
-    code_challenge_method = ?
-WHERE code = ?;
+    code_challenge = $1,
+    code_challenge_method = $2
+WHERE code = $3;
 
 -- name: DeleteExpiredAuthorizationCodes :exec
 DELETE FROM authorization_codes WHERE expires_at < NOW();
@@ -81,34 +83,34 @@ INSERT INTO tokens (
     refresh_token,
     scopes,
     expires_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
 
 -- name: GetTokenByAccessToken :one
-SELECT * FROM tokens WHERE access_token = ?;
+SELECT * FROM tokens WHERE access_token = $1;
 
 -- name: GetTokenByRefreshToken :one
-SELECT * FROM tokens WHERE refresh_token = ?;
+SELECT * FROM tokens WHERE refresh_token = $1;
 
 -- name: GetTokenByID :one
-SELECT * FROM tokens WHERE id = ?;
+SELECT * FROM tokens WHERE id = $1;
 
 -- name: DeleteToken :exec
-DELETE FROM tokens WHERE id = ?;
+DELETE FROM tokens WHERE id = $1;
 
 -- name: DeleteTokenByAccessToken :exec
-DELETE FROM tokens WHERE access_token = ?;
+DELETE FROM tokens WHERE access_token = $1;
 
 -- name: DeleteTokenByRefreshToken :exec
-DELETE FROM tokens WHERE refresh_token = ?;
+DELETE FROM tokens WHERE refresh_token = $1;
 
 -- name: DeleteExpiredTokens :exec
 DELETE FROM tokens WHERE expires_at < NOW();
 
 -- name: DeleteTokensByUserAndClient :exec
-DELETE FROM tokens WHERE user_id = ? AND client_id = ?;
+DELETE FROM tokens WHERE user_id = $1 AND client_id = $2;
 
 -- name: DeleteTokensByRequestID :exec
-DELETE FROM tokens WHERE request_id = ?;
+DELETE FROM tokens WHERE request_id = $1;
 
 -- name: DeleteAllTokens :exec
 DELETE FROM tokens;
@@ -124,13 +126,13 @@ INSERT INTO oidc_sessions (
     nonce,
     auth_time,
     requested_at
-) VALUES (?, ?, ?, ?, ?, ?, ?);
+) VALUES ($1, $2, $3, $4, $5, $6, $7);
 
 -- name: GetOIDCSession :one
-SELECT * FROM oidc_sessions WHERE authorize_code = ?;
+SELECT * FROM oidc_sessions WHERE authorize_code = $1;
 
 -- name: DeleteOIDCSession :exec
-DELETE FROM oidc_sessions WHERE authorize_code = ?;
+DELETE FROM oidc_sessions WHERE authorize_code = $1;
 
 -- name: DeleteAllOIDCSessions :exec
 DELETE FROM oidc_sessions;
