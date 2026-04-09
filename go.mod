@@ -1,6 +1,6 @@
 module github.com/traPtitech/portal-oidc
 
-go 1.25.7
+go 1.26.2
 
 require (
 	github.com/alecthomas/kong v1.14.0
