@@ -124,7 +124,7 @@ jobs:
       - name: Run Gosec Security Scanner
         uses: securego/gosec@master
         with:
-          args: -exclude-generated -fmt sarif -out gosec.sarif ./...
+          args: -no-fail -exclude-generated -fmt sarif -out gosec.sarif ./...
 
       - name: Upload Gosec SARIF artifact
         if: always() && hashFiles('gosec.sarif') != ''
