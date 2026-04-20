@@ -45,6 +45,8 @@ curl -sS -X POST http://localhost:8080/api/v1/admin/clients \
 
 ```bash
 git clone git@github.com:openid-certification/conformance-suite.git
+cd conformance-suite
+mvn  package
 docker compose up
 ```
 
