@@ -43,6 +43,10 @@ curl -sS -X POST http://localhost:8080/api/v1/admin/clients \
 
 ## 4. Conformance Suite の起動
 
+必要なもの:
+- Java 17（`java` / `javac` がともに 17 であること）
+- Maven
+
 ```bash
 git clone git@github.com:openid-certification/conformance-suite.git
 cd conformance-suite
