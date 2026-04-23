@@ -50,12 +50,12 @@ curl -sS -X POST http://localhost:8080/api/v1/admin/clients \
 ```bash
 git clone git@github.com:openid-certification/conformance-suite.git
 cd conformance-suite
-mvn  package
+docker compose -f builder-compose.yml run --rm builder
 docker compose up
 ```
 
 ## 5. Suite 側の設定
-
+`localhost.emobix.co.uk:8443`　にアクセス
 Suite の新規テスト作成画面で、以下を設定する。
 
 - Alias: 好きな名称
