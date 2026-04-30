@@ -1,6 +1,6 @@
 services:
   mongodb:
-    image: mongo:8.2.6
+    image: mongo:8.2.7
   httpd:
     image: ${CONFORMANCE_HTTPD_IMAGE}
     ports:
@@ -9,6 +9,8 @@ services:
       - server
   server:
     image: ${CONFORMANCE_SERVER_IMAGE}
+    environment:
+      - openid.mongodb.targetFeatureCompatibilityVersion=8.2
     command: >
       java
       -Djdk.tls.maxHandshakeMessageSize=65536
