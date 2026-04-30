@@ -24,7 +24,7 @@ jobs:
           POSTGRES_DB: oidc
           POSTGRES_USER: root
         ports:
-          - 3307:5432
+          - 5433:5432
         options: >-
           --health-cmd="pg_isready -U root -d oidc"
           --health-interval=10s
@@ -39,7 +39,7 @@ jobs:
         run: go test -race ./...
         env:
           POSTGRES_HOSTNAME: 127.0.0.1
-          POSTGRES_PORT: "3307"
+          POSTGRES_PORT: "5433"
 
   release:
     name: Create Release

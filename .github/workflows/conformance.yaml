@@ -34,7 +34,7 @@ jobs:
           POSTGRES_DB: oidc
           POSTGRES_USER: root
         ports:
-          - 3307:5432
+          - 5433:5432
         options: >-
           --health-cmd="pg_isready -U root -d oidc"
           --health-interval=10s
@@ -55,7 +55,7 @@ jobs:
         run: pip install httpx
 
       - name: Apply DB schema
-        run: psql -h 127.0.0.1 -p 3307 -U root -d oidc -f db/schema.sql
+        run: psql -h 127.0.0.1 -p 5433 -U root -d oidc -f db/schema.sql
         env:
           PGPASSWORD: password
 
@@ -74,7 +74,7 @@ jobs:
         env:
           OIDC_HOST: http://host.docker.internal:8080
           OIDC_DATABASE__HOST: 127.0.0.1
-          OIDC_DATABASE__PORT: "3307"
+          OIDC_DATABASE__PORT: "5433"
           OIDC_DATABASE__USER: root
           OIDC_DATABASE__PASSWORD: password
           OIDC_DATABASE__NAME: oidc

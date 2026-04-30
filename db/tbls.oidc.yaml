@@ -1,4 +1,4 @@
-dsn: postgres://root:password@localhost:3307/oidc?sslmode=disable
+dsn: postgres://root:password@localhost:5433/oidc?sslmode=disable
 docPath: ../docs/db/oidc
 
 desc: |

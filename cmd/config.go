@@ -29,6 +29,7 @@ type DatabaseConfig struct {
 	User     string `koanf:"user"`
 	Password string `koanf:"password"` // #nosec G117 -- config struct, not serialized
 	Name     string `koanf:"name"`
+	SSLMode  string `koanf:"sslmode"`
 }
 
 type OAuthConfig struct {
@@ -45,11 +46,13 @@ var defaults = map[string]any{
 	"database.user":            "root",
 	"database.password":        "password",
 	"database.name":            "oidc",
+	"database.sslmode":         "disable",
 	"portal.database.host":     "localhost",
 	"portal.database.port":     5432,
 	"portal.database.user":     "root",
 	"portal.database.password": "password",
 	"portal.database.name":     "portal",
+	"portal.database.sslmode":  "disable",
 	"oauth.secret":             "my-super-secret-signing-key-32!!",
 	"oauth.key_file":           "data/private.pem",
 	"oauth.test_user_id":       "testuser",

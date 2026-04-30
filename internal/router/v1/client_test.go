@@ -5,8 +5,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -35,6 +37,17 @@ const (
 
 var testDB *sql.DB
 
+func buildTestDSN(user, pass, host, port, dbName string) string {
+	u := url.URL{
+		Scheme:   "postgres",
+		User:     url.UserPassword(user, pass),
+		Host:     net.JoinHostPort(host, port),
+		Path:     "/" + dbName,
+		RawQuery: "sslmode=disable",
+	}
+	return u.String()
+}
+
 func TestMain(m *testing.M) {
 	k := koanf.New(".")
 	ctx := context.Background()
@@ -43,13 +56,13 @@ func TestMain(m *testing.M) {
 		"postgres.username": "root",
 		"postgres.password": "password",
 		"postgres.hostname": "127.0.0.1",
-		"postgres.port":     "3307",
+		"postgres.port":     "5433",
 	}, "."), nil)
 
 	_ = k.Load(env.Provider(".", env.Opt{
 		Prefix: "POSTGRES_",
 		TransformFunc: func(k, v string) (string, any) {
-			return strings.ToLower(strings.TrimPrefix(k, "POSTGRES_")), v
+			return "postgres." + strings.ToLower(strings.TrimPrefix(k, "POSTGRES_")), v
 		},
 	}), nil)
 
@@ -58,7 +71,7 @@ func TestMain(m *testing.M) {
 	host := k.String("postgres.hostname")
 	port := k.String("postgres.port")
 
-	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/postgres?sslmode=disable", user, pass, host, port)
+	dsn := buildTestDSN(user, pass, host, port, "postgres")
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		fmt.Printf("failed to connect to database: %v\n", err)
@@ -70,7 +83,10 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	_, _ = db.ExecContext(ctx, fmt.Sprintf(`DROP DATABASE IF EXISTS "%s"`, testDBName))
+	if _, err := db.ExecContext(ctx, fmt.Sprintf(`DROP DATABASE IF EXISTS "%s" WITH (FORCE)`, testDBName)); err != nil {
+		fmt.Printf("failed to drop existing test database: %v\n", err)
+		os.Exit(1)
+	}
 	_, err = db.ExecContext(ctx, fmt.Sprintf(`CREATE DATABASE "%s"`, testDBName))
 	if err != nil {
 		fmt.Printf("failed to create test database: %v\n", err)
@@ -78,7 +94,7 @@ func TestMain(m *testing.M) {
 	}
 	_ = db.Close()
 
-	dsn = fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", user, pass, host, port, testDBName)
+	dsn = buildTestDSN(user, pass, host, port, testDBName)
 	testDB, err = sql.Open("pgx", dsn)
 	if err != nil {
 		fmt.Printf("failed to connect to test database: %v\n", err)

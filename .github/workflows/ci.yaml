@@ -60,7 +60,7 @@ jobs:
           POSTGRES_DB: oidc
           POSTGRES_USER: root
         ports:
-          - 3307:5432
+          - 5433:5432
         options: >-
           --health-cmd="pg_isready -U root -d oidc"
           --health-interval=10s
@@ -73,7 +73,7 @@ jobs:
           POSTGRES_DB: portal
           POSTGRES_USER: root
         ports:
-          - 3306:5432
+          - 5432:5432
         options: >-
           --health-cmd="pg_isready -U root -d portal"
           --health-interval=10s
@@ -88,7 +88,7 @@ jobs:
         run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
         env:
           POSTGRES_HOSTNAME: 127.0.0.1
-          POSTGRES_PORT: "3307"
+          POSTGRES_PORT: "5433"
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
@@ -124,7 +124,7 @@ jobs:
       - uses: jdx/mise-action@v4
 
       - name: Install Gosec
-        run: go install github.com/securego/gosec/v2/cmd/gosec@master
+        run: go install github.com/securego/gosec/v2/cmd/gosec@v2.26.1
 
       - name: Run Gosec Security Scanner
         run: gosec -exclude-generated -fmt sarif -out gosec.sarif ./...

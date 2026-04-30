@@ -28,8 +28,8 @@ Access:
 |---------|-----|-------------|
 | OIDC Server | http://localhost:8080 | - |
 | Adminer (portal) | http://localhost:3001 | root / password |
-| Portal DB | localhost:3306 | root / password |
-| OIDC DB | localhost:3307 | root / password |
+| Portal DB | localhost:5432 | root / password |
+| OIDC DB | localhost:5433 | root / password |
 
 ## Documentation
 
