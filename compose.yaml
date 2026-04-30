@@ -35,7 +35,7 @@ services:
       TZ: Asia/Tokyo
     volumes:
       - ./db/portal-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
-      - portal-data:/var/lib/postgresql/data
+      - portal-pg-data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
@@ -55,7 +55,7 @@ services:
       TZ: Asia/Tokyo
     volumes:
       - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
-      - oidc-data:/var/lib/postgresql/data
+      - oidc-pg-data:/var/lib/postgresql/data
     ports:
       - "5433:5432"
     healthcheck:
@@ -83,5 +83,5 @@ services:
 volumes:
   go-mod-cache:
   go-build-cache:
-  portal-data:
-  oidc-data:
+  portal-pg-data:
+  oidc-pg-data:

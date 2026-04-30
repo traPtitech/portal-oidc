@@ -128,7 +128,6 @@ jobs:
 
       - name: Run Gosec Security Scanner
         run: gosec -exclude-generated -fmt sarif -out gosec.sarif ./...
-        continue-on-error: true
 
       - name: Upload Gosec SARIF artifact
         if: always() && hashFiles('gosec.sarif') != ''
