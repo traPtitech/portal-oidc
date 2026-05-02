@@ -42,7 +42,7 @@ var defaults = map[string]any{
 	"host":                     "http://localhost:8080",
 	"environment":              "development",
 	"database.host":            "localhost",
-	"database.port":            5432,
+	"database.port":            5433,
 	"database.user":            "root",
 	"database.password":        "password",
 	"database.name":            "oidc",
