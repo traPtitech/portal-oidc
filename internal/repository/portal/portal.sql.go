@@ -9,6 +9,8 @@ import (
 	"context"
 	"database/sql"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const getUserByID = `-- name: GetUserByID :one
@@ -17,7 +19,7 @@ FROM users WHERE id = $1
 `
 
 type GetUserByIDRow struct {
-	ID            string         `json:"id"`
+	ID            uuid.UUID      `json:"id"`
 	TrapID        string         `json:"trap_id"`
 	PasswordHash  string         `json:"password_hash"`
 	StudentNumber sql.NullString `json:"student_number"`
@@ -25,7 +27,7 @@ type GetUserByIDRow struct {
 	UpdatedAt     time.Time      `json:"updated_at"`
 }
 
-func (q *Queries) GetUserByID(ctx context.Context, id string) (GetUserByIDRow, error) {
+func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow, error) {
 	row := q.queryRow(ctx, q.getUserByIDStmt, getUserByID, id)
 	var i GetUserByIDRow
 	err := row.Scan(
@@ -45,7 +47,7 @@ FROM users WHERE student_number = $1
 `
 
 type GetUserByStudentNumberRow struct {
-	ID            string         `json:"id"`
+	ID            uuid.UUID      `json:"id"`
 	TrapID        string         `json:"trap_id"`
 	PasswordHash  string         `json:"password_hash"`
 	StudentNumber sql.NullString `json:"student_number"`
@@ -73,7 +75,7 @@ FROM users WHERE trap_id = $1
 `
 
 type GetUserByTrapIDRow struct {
-	ID            string         `json:"id"`
+	ID            uuid.UUID      `json:"id"`
 	TrapID        string         `json:"trap_id"`
 	PasswordHash  string         `json:"password_hash"`
 	StudentNumber sql.NullString `json:"student_number"`
@@ -100,7 +102,7 @@ SELECT user_id, status, detail, created_at
 FROM user_statuses WHERE user_id = $1
 `
 
-func (q *Queries) ListUserStatuses(ctx context.Context, userID string) ([]UserStatus, error) {
+func (q *Queries) ListUserStatuses(ctx context.Context, userID uuid.UUID) ([]UserStatus, error) {
 	rows, err := q.query(ctx, q.listUserStatusesStmt, listUserStatuses, userID)
 	if err != nil {
 		return nil, err

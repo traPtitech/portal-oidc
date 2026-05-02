@@ -7,13 +7,15 @@ package portal
 import (
 	"context"
 	"database/sql"
+
+	"github.com/google/uuid"
 )
 
 type Querier interface {
-	GetUserByID(ctx context.Context, id string) (GetUserByIDRow, error)
+	GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow, error)
 	GetUserByStudentNumber(ctx context.Context, studentNumber sql.NullString) (GetUserByStudentNumberRow, error)
 	GetUserByTrapID(ctx context.Context, trapID string) (GetUserByTrapIDRow, error)
-	ListUserStatuses(ctx context.Context, userID string) ([]UserStatus, error)
+	ListUserStatuses(ctx context.Context, userID uuid.UUID) ([]UserStatus, error)
 }
 
 var _ Querier = (*Queries)(nil)

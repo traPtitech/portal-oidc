@@ -11,7 +11,7 @@ $$ LANGUAGE plpgsql;
 
 -- Users
 CREATE TABLE users (
-  id VARCHAR(36) NOT NULL,
+  id UUID NOT NULL,
   trap_id VARCHAR(32) NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
   email BYTEA NULL,
@@ -29,7 +29,7 @@ BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- User statuses
 CREATE TABLE user_statuses (
-  user_id VARCHAR(36) NOT NULL,
+  user_id UUID NOT NULL,
   status VARCHAR(64) NOT NULL,
   detail VARCHAR(255) NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -39,7 +39,7 @@ CREATE TABLE user_statuses (
 
 -- User links (SNS connections)
 CREATE TABLE user_links (
-  user_id VARCHAR(36) NOT NULL,
+  user_id UUID NOT NULL,
   service VARCHAR(64) NOT NULL,
   external_id VARCHAR(255) NULL,
   account_name VARCHAR(255) NULL,
@@ -55,10 +55,10 @@ BEFORE UPDATE ON user_links FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- Invitations
 CREATE TABLE invitations (
-  id VARCHAR(36) NOT NULL,
+  id UUID NOT NULL,
   code VARCHAR(20) NOT NULL,
-  created_by VARCHAR(36) NULL,
-  used_by VARCHAR(36) NULL,
+  created_by UUID NULL,
+  used_by UUID NULL,
   expires_at TIMESTAMPTZ NULL,
   used_at TIMESTAMPTZ NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -73,10 +73,10 @@ CREATE INDEX IF NOT EXISTS idx_invitations_used_by ON invitations (used_by);
 
 -- Groups
 CREATE TABLE groups (
-  id VARCHAR(36) NOT NULL,
+  id UUID NOT NULL,
   name VARCHAR(255) NOT NULL,
   description TEXT NULL,
-  parent_id VARCHAR(36) NULL,
+  parent_id UUID NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -90,8 +90,8 @@ BEFORE UPDATE ON groups FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- Group members
 CREATE TABLE group_members (
-  group_id VARCHAR(36) NOT NULL,
-  user_id VARCHAR(36) NOT NULL,
+  group_id UUID NOT NULL,
+  user_id UUID NOT NULL,
   roles JSONB NOT NULL DEFAULT '[]'::JSONB,
   joined_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (group_id, user_id),
@@ -103,11 +103,11 @@ CREATE INDEX IF NOT EXISTS idx_group_members_user ON group_members (user_id);
 
 -- Group member logs (audit trail)
 CREATE TABLE group_member_logs (
-  id VARCHAR(36) NOT NULL,
-  group_id VARCHAR(36) NOT NULL,
-  user_id VARCHAR(36) NOT NULL,
+  id UUID NOT NULL,
+  group_id UUID NOT NULL,
+  user_id UUID NOT NULL,
   action VARCHAR(32) NOT NULL,
-  actor_id VARCHAR(36) NULL,
+  actor_id UUID NULL,
   old_roles JSONB NULL,
   new_roles JSONB NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -119,7 +119,7 @@ CREATE INDEX IF NOT EXISTS idx_group_member_logs_user ON group_member_logs (user
 
 -- Group permissions
 CREATE TABLE group_permissions (
-  group_id VARCHAR(36) NOT NULL,
+  group_id UUID NOT NULL,
   permission VARCHAR(64) NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (group_id, permission),
@@ -128,8 +128,8 @@ CREATE TABLE group_permissions (
 
 -- User keys (E2E encryption)
 CREATE TABLE user_keys (
-  user_id VARCHAR(36) NOT NULL,
-  key_id VARCHAR(36) NOT NULL,
+  user_id UUID NOT NULL,
+  key_id UUID NOT NULL,
   public_key BYTEA NOT NULL,
   encrypted_private_key BYTEA NOT NULL,
   algorithm VARCHAR(32) NOT NULL DEFAULT 'RSA-OAEP-SHA256',
@@ -141,9 +141,9 @@ CREATE TABLE user_keys (
 
 -- Group keys (E2E encryption for group secrets)
 CREATE TABLE group_keys (
-  group_id VARCHAR(36) NOT NULL,
-  user_id VARCHAR(36) NOT NULL,
-  key_id VARCHAR(36) NOT NULL,
+  group_id UUID NOT NULL,
+  user_id UUID NOT NULL,
+  key_id UUID NOT NULL,
   encrypted_key BYTEA NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (group_id, user_id, key_id),
@@ -155,11 +155,11 @@ CREATE INDEX IF NOT EXISTS idx_group_keys_user_key ON group_keys (user_id, key_i
 
 -- Secrets (E2E encrypted secrets)
 CREATE TABLE secrets (
-  id VARCHAR(36) NOT NULL,
-  group_id VARCHAR(36) NOT NULL,
+  id UUID NOT NULL,
+  group_id UUID NOT NULL,
   name VARCHAR(255) NOT NULL,
   encrypted_value BYTEA NOT NULL,
-  created_by VARCHAR(36) NULL,
+  created_by UUID NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -175,10 +175,10 @@ BEFORE UPDATE ON secrets FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- Secret logs (audit trail)
 CREATE TABLE secret_logs (
-  id VARCHAR(36) NOT NULL,
-  secret_id VARCHAR(36) NOT NULL,
+  id UUID NOT NULL,
+  secret_id UUID NOT NULL,
   action VARCHAR(32) NOT NULL,
-  actor_id VARCHAR(36) NULL,
+  actor_id UUID NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id)
 );
@@ -206,7 +206,7 @@ BEFORE UPDATE ON webhooks FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- Webhook subscribe events
 CREATE TABLE webhook_subscribe_events (
-  webhook_id VARCHAR(36) NOT NULL,
+  webhook_id UUID NOT NULL,
   event_type VARCHAR(64) NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (webhook_id, event_type),

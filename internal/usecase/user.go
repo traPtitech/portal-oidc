@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/pbkdf2"
 
 	"github.com/traPtitech/portal-oidc/internal/domain"
@@ -25,7 +26,7 @@ var (
 
 type UserUseCase interface {
 	Authenticate(ctx context.Context, trapID, password string) (*domain.User, error)
-	GetByID(ctx context.Context, id string) (*domain.User, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error)
 }
 
 type userUseCase struct {
@@ -36,7 +37,7 @@ func NewUserUseCase(repo repository.UserRepository) UserUseCase {
 	return &userUseCase{repo: repo}
 }
 
-func (u *userUseCase) GetByID(ctx context.Context, id string) (*domain.User, error) {
+func (u *userUseCase) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
 	user, err := u.repo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, repository.ErrUserNotFound) {

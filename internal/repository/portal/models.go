@@ -9,72 +9,73 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/sqlc-dev/pqtype"
 )
 
 type Group struct {
-	ID          string         `json:"id"`
+	ID          uuid.UUID      `json:"id"`
 	Name        string         `json:"name"`
 	Description sql.NullString `json:"description"`
-	ParentID    sql.NullString `json:"parent_id"`
+	ParentID    uuid.NullUUID  `json:"parent_id"`
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
 }
 
 type GroupKey struct {
-	GroupID      string    `json:"group_id"`
-	UserID       string    `json:"user_id"`
-	KeyID        string    `json:"key_id"`
+	GroupID      uuid.UUID `json:"group_id"`
+	UserID       uuid.UUID `json:"user_id"`
+	KeyID        uuid.UUID `json:"key_id"`
 	EncryptedKey []byte    `json:"encrypted_key"`
 	CreatedAt    time.Time `json:"created_at"`
 }
 
 type GroupMember struct {
-	GroupID  string          `json:"group_id"`
-	UserID   string          `json:"user_id"`
+	GroupID  uuid.UUID       `json:"group_id"`
+	UserID   uuid.UUID       `json:"user_id"`
 	Roles    json.RawMessage `json:"roles"`
 	JoinedAt time.Time       `json:"joined_at"`
 }
 
 type GroupMemberLog struct {
-	ID        string                `json:"id"`
-	GroupID   string                `json:"group_id"`
-	UserID    string                `json:"user_id"`
+	ID        uuid.UUID             `json:"id"`
+	GroupID   uuid.UUID             `json:"group_id"`
+	UserID    uuid.UUID             `json:"user_id"`
 	Action    string                `json:"action"`
-	ActorID   sql.NullString        `json:"actor_id"`
+	ActorID   uuid.NullUUID         `json:"actor_id"`
 	OldRoles  pqtype.NullRawMessage `json:"old_roles"`
 	NewRoles  pqtype.NullRawMessage `json:"new_roles"`
 	CreatedAt time.Time             `json:"created_at"`
 }
 
 type GroupPermission struct {
-	GroupID    string    `json:"group_id"`
+	GroupID    uuid.UUID `json:"group_id"`
 	Permission string    `json:"permission"`
 	CreatedAt  time.Time `json:"created_at"`
 }
 
 type Invitation struct {
-	ID        string         `json:"id"`
-	Code      string         `json:"code"`
-	CreatedBy sql.NullString `json:"created_by"`
-	UsedBy    sql.NullString `json:"used_by"`
-	ExpiresAt sql.NullTime   `json:"expires_at"`
-	UsedAt    sql.NullTime   `json:"used_at"`
-	CreatedAt time.Time      `json:"created_at"`
+	ID        uuid.UUID     `json:"id"`
+	Code      string        `json:"code"`
+	CreatedBy uuid.NullUUID `json:"created_by"`
+	UsedBy    uuid.NullUUID `json:"used_by"`
+	ExpiresAt sql.NullTime  `json:"expires_at"`
+	UsedAt    sql.NullTime  `json:"used_at"`
+	CreatedAt time.Time     `json:"created_at"`
 }
 
 type Mail struct {
-	ID         string         `json:"id"`
+	ID         uuid.UUID      `json:"id"`
 	To         sql.NullString `json:"to"`
 	Subject    sql.NullString `json:"subject"`
 	Body       sql.NullString `json:"body"`
-	OperatorID sql.NullString `json:"operator_id"`
+	OperatorID uuid.NullUUID  `json:"operator_id"`
 	CreatedAt  time.Time      `json:"created_at"`
 }
 
 type MailLog struct {
-	ID        string         `json:"id"`
-	MailID    string         `json:"mail_id"`
+	ID        uuid.UUID      `json:"id"`
+	MailID    uuid.UUID      `json:"mail_id"`
 	Status    string         `json:"status"`
 	Error     sql.NullString `json:"error"`
 	CreatedAt time.Time      `json:"created_at"`
@@ -86,25 +87,25 @@ type Namecard struct {
 }
 
 type Secret struct {
-	ID             string         `json:"id"`
-	GroupID        string         `json:"group_id"`
-	Name           string         `json:"name"`
-	EncryptedValue []byte         `json:"encrypted_value"`
-	CreatedBy      sql.NullString `json:"created_by"`
-	CreatedAt      time.Time      `json:"created_at"`
-	UpdatedAt      time.Time      `json:"updated_at"`
+	ID             uuid.UUID     `json:"id"`
+	GroupID        uuid.UUID     `json:"group_id"`
+	Name           string        `json:"name"`
+	EncryptedValue []byte        `json:"encrypted_value"`
+	CreatedBy      uuid.NullUUID `json:"created_by"`
+	CreatedAt      time.Time     `json:"created_at"`
+	UpdatedAt      time.Time     `json:"updated_at"`
 }
 
 type SecretLog struct {
-	ID        string         `json:"id"`
-	SecretID  string         `json:"secret_id"`
-	Action    string         `json:"action"`
-	ActorID   sql.NullString `json:"actor_id"`
-	CreatedAt time.Time      `json:"created_at"`
+	ID        uuid.UUID     `json:"id"`
+	SecretID  uuid.UUID     `json:"secret_id"`
+	Action    string        `json:"action"`
+	ActorID   uuid.NullUUID `json:"actor_id"`
+	CreatedAt time.Time     `json:"created_at"`
 }
 
 type User struct {
-	ID            string         `json:"id"`
+	ID            uuid.UUID      `json:"id"`
 	TrapID        string         `json:"trap_id"`
 	PasswordHash  string         `json:"password_hash"`
 	Email         []byte         `json:"email"`
@@ -115,8 +116,8 @@ type User struct {
 }
 
 type UserKey struct {
-	UserID              string    `json:"user_id"`
-	KeyID               string    `json:"key_id"`
+	UserID              uuid.UUID `json:"user_id"`
+	KeyID               uuid.UUID `json:"key_id"`
 	PublicKey           []byte    `json:"public_key"`
 	EncryptedPrivateKey []byte    `json:"encrypted_private_key"`
 	Algorithm           string    `json:"algorithm"`
@@ -125,7 +126,7 @@ type UserKey struct {
 }
 
 type UserLink struct {
-	UserID      string         `json:"user_id"`
+	UserID      uuid.UUID      `json:"user_id"`
 	Service     string         `json:"service"`
 	ExternalID  sql.NullString `json:"external_id"`
 	AccountName sql.NullString `json:"account_name"`
@@ -135,25 +136,25 @@ type UserLink struct {
 }
 
 type UserStatus struct {
-	UserID    string         `json:"user_id"`
+	UserID    uuid.UUID      `json:"user_id"`
 	Status    string         `json:"status"`
 	Detail    sql.NullString `json:"detail"`
 	CreatedAt time.Time      `json:"created_at"`
 }
 
 type Webhook struct {
-	ID        string         `json:"id"`
-	Name      string         `json:"name"`
-	Url       string         `json:"url"`
-	Secret    []byte         `json:"secret"`
-	OwnerID   sql.NullString `json:"owner_id"`
-	IsActive  bool           `json:"is_active"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
+	ID        uuid.UUID     `json:"id"`
+	Name      string        `json:"name"`
+	Url       string        `json:"url"`
+	Secret    []byte        `json:"secret"`
+	OwnerID   uuid.NullUUID `json:"owner_id"`
+	IsActive  bool          `json:"is_active"`
+	CreatedAt time.Time     `json:"created_at"`
+	UpdatedAt time.Time     `json:"updated_at"`
 }
 
 type WebhookSubscribeEvent struct {
-	WebhookID string    `json:"webhook_id"`
+	WebhookID uuid.UUID `json:"webhook_id"`
 	EventType string    `json:"event_type"`
 	CreatedAt time.Time `json:"created_at"`
 }

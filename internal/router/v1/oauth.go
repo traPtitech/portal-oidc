@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-jose/go-jose/v4"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 	"github.com/ory/fosite"
 
@@ -225,10 +226,12 @@ func (h *Handler) handleUserInfo(ctx *echo.Context, token string) error {
 	info := gen.UserInfo{Sub: sub}
 
 	if h.userUseCase != nil && ar.GetGrantedScopes().Has("profile") {
-		user, userErr := h.userUseCase.GetByID(c, sub)
-		if userErr == nil {
-			info.Name = &user.TrapID
-			info.PreferredUsername = &user.TrapID
+		if subID, err := uuid.Parse(sub); err == nil {
+			user, userErr := h.userUseCase.GetByID(c, subID)
+			if userErr == nil {
+				info.Name = &user.TrapID
+				info.PreferredUsername = &user.TrapID
+			}
 		}
 	}
 
