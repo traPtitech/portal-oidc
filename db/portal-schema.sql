@@ -187,11 +187,11 @@ CREATE INDEX IF NOT EXISTS idx_secret_logs_secret ON secret_logs (secret_id);
 
 -- Webhooks
 CREATE TABLE webhooks (
-  id VARCHAR(36) NOT NULL,
+  id UUID NOT NULL,
   name VARCHAR(255) NOT NULL,
-  url VARCHAR(2048) NOT NULL,
+  url VARCHAR NOT NULL,
   secret BYTEA NULL,
-  owner_id VARCHAR(36) NULL,
+  owner_id UUID NULL,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
