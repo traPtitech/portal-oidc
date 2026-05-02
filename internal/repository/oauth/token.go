@@ -18,11 +18,20 @@ func (s *Storage) CreateAccessTokenSession(ctx context.Context, signature string
 		return errors.New("invalid session type")
 	}
 
+	clientID, err := uuid.Parse(request.GetClient().GetID())
+	if err != nil {
+		return err
+	}
+	userID, err := uuid.Parse(sess.GetSubject())
+	if err != nil {
+		return err
+	}
+
 	return s.getTokens(ctx).Create(ctx, domain.Token{
-		ID:          uuid.New().String(),
+		ID:          uuid.New(),
 		RequestID:   request.GetID(),
-		ClientID:    request.GetClient().GetID(),
-		UserID:      sess.GetSubject(),
+		ClientID:    clientID,
+		UserID:      userID,
 		AccessToken: signature,
 		Scopes:      request.GetGrantedScopes(),
 		ExpiresAt:   sess.GetExpiresAt(fosite.AccessToken),
@@ -42,12 +51,12 @@ func (s *Storage) GetAccessTokenSession(ctx context.Context, signature string, s
 		return nil, fosite.ErrTokenExpired
 	}
 
-	client, err := s.GetClient(ctx, token.ClientID)
+	client, err := s.GetClient(ctx, token.ClientID.String())
 	if err != nil {
 		return nil, err
 	}
 
-	sess := NewSession(token.UserID, time.Time{})
+	sess := NewSession(token.UserID.String(), time.Time{})
 	sess.SetExpiresAt(fosite.AccessToken, token.ExpiresAt)
 
 	return newFositeRequest(token.RequestID, token.CreatedAt, client, sess, token.Scopes, nil), nil
@@ -63,11 +72,20 @@ func (s *Storage) CreateRefreshTokenSession(ctx context.Context, signature strin
 		return errors.New("invalid session type")
 	}
 
+	clientID, err := uuid.Parse(request.GetClient().GetID())
+	if err != nil {
+		return err
+	}
+	userID, err := uuid.Parse(sess.GetSubject())
+	if err != nil {
+		return err
+	}
+
 	return s.getTokens(ctx).Create(ctx, domain.Token{
-		ID:           uuid.New().String(),
+		ID:           uuid.New(),
 		RequestID:    request.GetID(),
-		ClientID:     request.GetClient().GetID(),
-		UserID:       sess.GetSubject(),
+		ClientID:     clientID,
+		UserID:       userID,
 		RefreshToken: signature,
 		Scopes:       request.GetGrantedScopes(),
 		ExpiresAt:    sess.GetExpiresAt(fosite.RefreshToken),
@@ -87,12 +105,12 @@ func (s *Storage) GetRefreshTokenSession(ctx context.Context, signature string, 
 		return nil, err
 	}
 
-	client, err := s.GetClient(ctx, token.ClientID)
+	client, err := s.GetClient(ctx, token.ClientID.String())
 	if err != nil {
 		return nil, err
 	}
 
-	sess := NewSession(token.UserID, time.Time{})
+	sess := NewSession(token.UserID.String(), time.Time{})
 	sess.SetExpiresAt(fosite.RefreshToken, token.ExpiresAt)
 
 	return newFositeRequest(token.RequestID, token.CreatedAt, client, sess, token.Scopes, nil), nil

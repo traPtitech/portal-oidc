@@ -1,7 +1,7 @@
 -- OIDC Schema
 
 CREATE TABLE IF NOT EXISTS clients (
-  client_id VARCHAR(36) NOT NULL,
+  client_id UUID NOT NULL,
   client_secret_hash VARCHAR(255) NULL,
   name VARCHAR(255) NOT NULL,
   client_type VARCHAR(20) NOT NULL,
@@ -13,8 +13,8 @@ CREATE TABLE IF NOT EXISTS clients (
 
 CREATE TABLE IF NOT EXISTS authorization_codes (
   code VARCHAR(64) NOT NULL,
-  client_id VARCHAR(36) NOT NULL,
-  user_id VARCHAR(36) NOT NULL,
+  client_id UUID NOT NULL,
+  user_id UUID NOT NULL,
   redirect_uri TEXT NOT NULL,
   scopes TEXT NOT NULL,
   code_challenge VARCHAR(128) NULL,
@@ -31,10 +31,10 @@ CREATE INDEX IF NOT EXISTS idx_authorization_codes_client_id ON authorization_co
 CREATE INDEX IF NOT EXISTS idx_authorization_codes_expires_at ON authorization_codes (expires_at);
 
 CREATE TABLE IF NOT EXISTS tokens (
-  id VARCHAR(36) NOT NULL,
+  id UUID NOT NULL,
   request_id VARCHAR(64) NOT NULL,
-  client_id VARCHAR(36) NOT NULL,
-  user_id VARCHAR(36) NOT NULL,
+  client_id UUID NOT NULL,
+  user_id UUID NOT NULL,
   access_token VARCHAR(64) NOT NULL,
   refresh_token VARCHAR(64) NULL,
   scopes TEXT NOT NULL,
@@ -53,8 +53,8 @@ CREATE INDEX IF NOT EXISTS idx_tokens_expires_at ON tokens (expires_at);
 
 CREATE TABLE IF NOT EXISTS oidc_sessions (
   authorize_code VARCHAR(255) NOT NULL,
-  client_id VARCHAR(36) NOT NULL,
-  user_id VARCHAR(36) NOT NULL,
+  client_id UUID NOT NULL,
+  user_id UUID NOT NULL,
   scopes TEXT NOT NULL,
   nonce VARCHAR(255) NULL,
   auth_time TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,

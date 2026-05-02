@@ -6,6 +6,8 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/google/uuid"
+
 	"github.com/traPtitech/portal-oidc/internal/domain"
 	"github.com/traPtitech/portal-oidc/internal/repository/oidc"
 )
@@ -16,10 +18,10 @@ type TokenRepository interface {
 	Create(ctx context.Context, token domain.Token) error
 	GetByAccessToken(ctx context.Context, accessToken string) (domain.Token, error)
 	GetByRefreshToken(ctx context.Context, refreshToken string) (domain.Token, error)
-	GetByID(ctx context.Context, id string) (domain.Token, error)
+	GetByID(ctx context.Context, id uuid.UUID) (domain.Token, error)
 	DeleteByAccessToken(ctx context.Context, accessToken string) error
 	DeleteByRefreshToken(ctx context.Context, refreshToken string) error
-	DeleteByID(ctx context.Context, id string) error
+	DeleteByID(ctx context.Context, id uuid.UUID) error
 	DeleteByRequestID(ctx context.Context, requestID string) error
 }
 
@@ -74,7 +76,7 @@ func (r *tokenRepository) GetByRefreshToken(ctx context.Context, refreshToken st
 	return toDomainToken(dbToken), nil
 }
 
-func (r *tokenRepository) GetByID(ctx context.Context, id string) (domain.Token, error) {
+func (r *tokenRepository) GetByID(ctx context.Context, id uuid.UUID) (domain.Token, error) {
 	dbToken, err := r.queries.GetTokenByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -97,7 +99,7 @@ func (r *tokenRepository) DeleteByRefreshToken(ctx context.Context, refreshToken
 	})
 }
 
-func (r *tokenRepository) DeleteByID(ctx context.Context, id string) error {
+func (r *tokenRepository) DeleteByID(ctx context.Context, id uuid.UUID) error {
 	return r.queries.DeleteToken(ctx, id)
 }
 

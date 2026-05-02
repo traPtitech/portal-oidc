@@ -16,6 +16,15 @@ sql:
         overrides:
           - db_type: "jsonb"
             go_type: "encoding/json.RawMessage"
+          - db_type: "uuid"
+            go_type:
+              import: "github.com/google/uuid"
+              type: "UUID"
+          - db_type: "uuid"
+            nullable: true
+            go_type:
+              import: "github.com/google/uuid"
+              type: "NullUUID"
   - engine: "postgresql"
     queries: "query/portal.sql"
     schema: "portal-schema.sql"
