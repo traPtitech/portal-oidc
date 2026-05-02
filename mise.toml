@@ -5,8 +5,8 @@ atlas = "1.2.0"
 tbls = "1.94.5"
 pre-commit = "4.6.0"
 "go:github.com/sqlc-dev/sqlc/cmd/sqlc" = "1.31.1"
-"go:github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen" = "2.6.0"
 "go:github.com/securego/gosec/v2/cmd/gosec" = "2.26.1"
+"go:github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen" = "2.7.0"
 
 # =============================================================================
 # Development
