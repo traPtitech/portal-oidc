@@ -1,4 +1,4 @@
-dsn: mariadb://root:password@localhost:3307/oidc
+dsn: postgres://root:password@localhost:5433/oidc?sslmode=disable
 docPath: ../docs/db/oidc
 
 desc: |

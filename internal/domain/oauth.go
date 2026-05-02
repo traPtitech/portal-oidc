@@ -1,11 +1,15 @@
 package domain
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type AuthCode struct {
 	Code                string
-	ClientID            string
-	UserID              string
+	ClientID            uuid.UUID
+	UserID              uuid.UUID
 	RedirectURI         string
 	Scopes              []string
 	CodeChallenge       string
@@ -17,10 +21,10 @@ type AuthCode struct {
 }
 
 type Token struct {
-	ID           string
+	ID           uuid.UUID
 	RequestID    string
-	ClientID     string
-	UserID       string
+	ClientID     uuid.UUID
+	UserID       uuid.UUID
 	AccessToken  string // #nosec G117 -- domain field name, not a credential
 	RefreshToken string // #nosec G117 -- domain field name, not a credential
 	Scopes       []string
@@ -30,8 +34,8 @@ type Token struct {
 
 type OIDCSession struct {
 	AuthorizeCode string
-	ClientID      string
-	UserID        string
+	ClientID      uuid.UUID
+	UserID        uuid.UUID
 	Nonce         string
 	AuthTime      time.Time
 	Scopes        []string

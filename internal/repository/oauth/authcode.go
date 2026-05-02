@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/ory/fosite"
 
 	"github.com/traPtitech/portal-oidc/internal/domain"
@@ -18,10 +19,19 @@ func (s *Storage) CreateAuthorizeCodeSession(ctx context.Context, code string, r
 		return errors.New("invalid session type")
 	}
 
+	clientID, err := uuid.Parse(request.GetClient().GetID())
+	if err != nil {
+		return err
+	}
+	userID, err := uuid.Parse(sess.GetSubject())
+	if err != nil {
+		return err
+	}
+
 	return s.getAuthCodes(ctx).Create(ctx, domain.AuthCode{
 		Code:        code,
-		ClientID:    request.GetClient().GetID(),
-		UserID:      sess.GetSubject(),
+		ClientID:    clientID,
+		UserID:      userID,
 		RedirectURI: request.GetRequestForm().Get("redirect_uri"),
 		Scopes:      request.GetRequestedScopes(),
 		Nonce:       request.GetRequestForm().Get("nonce"),
@@ -42,12 +52,12 @@ func (s *Storage) GetAuthorizeCodeSession(ctx context.Context, code string, sess
 		return nil, fosite.ErrTokenExpired
 	}
 
-	client, err := s.GetClient(ctx, authCode.ClientID)
+	client, err := s.GetClient(ctx, authCode.ClientID.String())
 	if err != nil {
 		return nil, err
 	}
 
-	sess := NewSession(authCode.UserID, time.Time{})
+	sess := NewSession(authCode.UserID.String(), time.Time{})
 	sess.SetExpiresAt(fosite.AuthorizeCode, authCode.ExpiresAt)
 
 	form := url.Values{}

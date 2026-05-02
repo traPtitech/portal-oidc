@@ -28,14 +28,15 @@ jobs:
       packages: read
     services:
       oidc-db:
-        image: mariadb:10.11.16
+        image: postgres:17
         env:
-          MARIADB_ROOT_PASSWORD: password
-          MARIADB_DATABASE: oidc
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: oidc
+          POSTGRES_USER: root
         ports:
-          - 3307:3306
+          - 5433:5432
         options: >-
-          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-cmd="pg_isready -U root -d oidc"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
@@ -54,9 +55,9 @@ jobs:
         run: pip install httpx
 
       - name: Apply DB schema
-        run: mysql -h 127.0.0.1 -P 3307 -u root oidc < db/schema.sql
+        run: psql -h 127.0.0.1 -p 5433 -U root -d oidc -f db/schema.sql
         env:
-          MYSQL_PWD: password
+          PGPASSWORD: password
 
       - name: Build portal-oidc
         run: go build -o portal-oidc ./cmd/
@@ -73,7 +74,7 @@ jobs:
         env:
           OIDC_HOST: http://host.docker.internal:8080
           OIDC_DATABASE__HOST: 127.0.0.1
-          OIDC_DATABASE__PORT: "3307"
+          OIDC_DATABASE__PORT: "5433"
           OIDC_DATABASE__USER: root
           OIDC_DATABASE__PASSWORD: password
           OIDC_DATABASE__NAME: oidc

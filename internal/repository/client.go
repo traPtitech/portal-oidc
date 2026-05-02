@@ -39,7 +39,7 @@ func (r *clientRepository) Create(ctx context.Context, client *domain.Client, se
 	}
 
 	return r.queries.CreateClient(ctx, oidc.CreateClientParams{
-		ClientID: client.ClientID.String(),
+		ClientID: client.ClientID,
 		ClientSecretHash: sql.NullString{
 			String: secretHash,
 			Valid:  secretHash != "",
@@ -51,7 +51,7 @@ func (r *clientRepository) Create(ctx context.Context, client *domain.Client, se
 }
 
 func (r *clientRepository) Get(ctx context.Context, clientID uuid.UUID) (*domain.Client, error) {
-	dbClient, err := r.queries.GetClient(ctx, clientID.String())
+	dbClient, err := r.queries.GetClient(ctx, clientID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrClientNotFound
@@ -63,7 +63,7 @@ func (r *clientRepository) Get(ctx context.Context, clientID uuid.UUID) (*domain
 }
 
 func (r *clientRepository) GetWithSecretHash(ctx context.Context, clientID uuid.UUID) (*domain.Client, string, error) {
-	dbClient, err := r.queries.GetClient(ctx, clientID.String())
+	dbClient, err := r.queries.GetClient(ctx, clientID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, "", ErrClientNotFound
@@ -104,7 +104,7 @@ func (r *clientRepository) Update(ctx context.Context, client *domain.Client) er
 	}
 
 	return r.queries.UpdateClient(ctx, oidc.UpdateClientParams{
-		ClientID:     client.ClientID.String(),
+		ClientID:     client.ClientID,
 		Name:         client.Name,
 		ClientType:   string(client.ClientType),
 		RedirectUris: redirectURIsJSON,
@@ -113,7 +113,7 @@ func (r *clientRepository) Update(ctx context.Context, client *domain.Client) er
 
 func (r *clientRepository) UpdateSecret(ctx context.Context, clientID uuid.UUID, secretHash string) error {
 	return r.queries.UpdateClientSecret(ctx, oidc.UpdateClientSecretParams{
-		ClientID: clientID.String(),
+		ClientID: clientID,
 		ClientSecretHash: sql.NullString{
 			String: secretHash,
 			Valid:  secretHash != "",
@@ -122,22 +122,17 @@ func (r *clientRepository) UpdateSecret(ctx context.Context, clientID uuid.UUID,
 }
 
 func (r *clientRepository) Delete(ctx context.Context, clientID uuid.UUID) error {
-	return r.queries.DeleteClient(ctx, clientID.String())
+	return r.queries.DeleteClient(ctx, clientID)
 }
 
 func (r *clientRepository) toDomain(dbClient oidc.Client) (*domain.Client, error) {
-	clientID, err := uuid.Parse(dbClient.ClientID)
-	if err != nil {
-		return nil, err
-	}
-
 	var redirectURIs []string
 	if err := json.Unmarshal(dbClient.RedirectUris, &redirectURIs); err != nil {
 		return nil, err
 	}
 
 	return &domain.Client{
-		ClientID:     clientID,
+		ClientID:     dbClient.ClientID,
 		Name:         dbClient.Name,
 		ClientType:   domain.ClientType(dbClient.ClientType),
 		RedirectURIs: redirectURIs,

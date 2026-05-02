@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/google/uuid"
+
 	"github.com/traPtitech/portal-oidc/internal/domain"
 	"github.com/traPtitech/portal-oidc/internal/repository/portal"
 )
@@ -12,9 +14,9 @@ import (
 var ErrUserNotFound = errors.New("user not found")
 
 type UserRepository interface {
-	GetByID(ctx context.Context, id string) (*domain.User, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error)
 	GetByTrapID(ctx context.Context, trapID string) (*domain.UserWithPassword, error)
-	ListStatuses(ctx context.Context, userID string) ([]string, error)
+	ListStatuses(ctx context.Context, userID uuid.UUID) ([]string, error)
 }
 
 type userRepository struct {
@@ -25,7 +27,7 @@ func NewUserRepository(queries *portal.Queries) UserRepository {
 	return &userRepository{queries: queries}
 }
 
-func (r *userRepository) GetByID(ctx context.Context, id string) (*domain.User, error) {
+func (r *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
 	user, err := r.queries.GetUserByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -58,7 +60,7 @@ func (r *userRepository) GetByTrapID(ctx context.Context, trapID string) (*domai
 	}, nil
 }
 
-func (r *userRepository) ListStatuses(ctx context.Context, userID string) ([]string, error) {
+func (r *userRepository) ListStatuses(ctx context.Context, userID uuid.UUID) ([]string, error) {
 	statuses, err := r.queries.ListUserStatuses(ctx, userID)
 	if err != nil {
 		return nil, err

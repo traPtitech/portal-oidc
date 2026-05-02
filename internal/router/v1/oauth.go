@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-jose/go-jose/v4"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 	"github.com/ory/fosite"
 
@@ -225,11 +226,17 @@ func (h *Handler) handleUserInfo(ctx *echo.Context, token string) error {
 	info := gen.UserInfo{Sub: sub}
 
 	if h.userUseCase != nil && ar.GetGrantedScopes().Has("profile") {
-		user, userErr := h.userUseCase.GetByID(c, sub)
-		if userErr == nil {
-			info.Name = &user.TrapID
-			info.PreferredUsername = &user.TrapID
+		subID, err := uuid.Parse(sub)
+		if err != nil {
+
+			return ctx.JSON(http.StatusUnauthorized, gen.OAuthError{Error: gen.InvalidGrant})
 		}
+		user, userErr := h.userUseCase.GetByID(c, subID)
+		if userErr != nil {
+			return ctx.JSON(http.StatusInternalServerError, gen.OAuthError{Error: gen.ServerError})
+		}
+		info.Name = &user.TrapID
+		info.PreferredUsername = &user.TrapID
 	}
 
 	return ctx.JSON(http.StatusOK, info)

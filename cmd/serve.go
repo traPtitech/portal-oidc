@@ -4,9 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
+	"strconv"
 
-	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
 
@@ -89,11 +92,25 @@ func newServer(cfg Config) (http.Handler, error) {
 	return e, nil
 }
 
-func setupOIDCDatabase(cfg DatabaseConfig) (*sql.DB, *oidc.Queries, error) {
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
-		cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.Name)
+func postgresDSN(cfg DatabaseConfig) string {
+	sslMode := cfg.SSLMode
+	if sslMode == "" {
+		sslMode = "disable"
+	}
+	u := url.URL{
+		Scheme: "postgres",
+		User:   url.UserPassword(cfg.User, cfg.Password),
+		Host:   net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.Port)),
+		Path:   "/" + cfg.Name,
+	}
+	q := u.Query()
+	q.Set("sslmode", sslMode)
+	u.RawQuery = q.Encode()
+	return u.String()
+}
 
-	db, err := sql.Open("mysql", dsn)
+func setupOIDCDatabase(cfg DatabaseConfig) (*sql.DB, *oidc.Queries, error) {
+	db, err := sql.Open("pgx", postgresDSN(cfg))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to open oidc database: %w", err)
 	}
@@ -111,10 +128,7 @@ func setupOIDCDatabase(cfg DatabaseConfig) (*sql.DB, *oidc.Queries, error) {
 }
 
 func setupPortalDatabase(cfg DatabaseConfig) (*portal.Queries, error) {
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
-		cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.Name)
-
-	db, err := sql.Open("mysql", dsn)
+	db, err := sql.Open("pgx", postgresDSN(cfg))
 	if err != nil {
 		return nil, fmt.Errorf("failed to open portal database: %w", err)
 	}

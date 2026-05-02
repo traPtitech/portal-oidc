@@ -110,7 +110,7 @@ func (h *Handler) authenticatePortalUser(ctx *echo.Context, trapID, password str
 		return "", err
 	}
 
-	return user.ID, nil
+	return user.ID.String(), nil
 }
 
 func (h *Handler) Logout(ctx *echo.Context) error {

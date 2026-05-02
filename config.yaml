@@ -3,7 +3,7 @@ environment: development
 
 database:
   host: localhost
-  port: 3307
+  port: 5433
   user: root
   password: password
   name: oidc
@@ -11,10 +11,10 @@ database:
 portal:
   database:
     host: localhost
-    port: 3306
+    port: 5432
     user: root
     password: password
     name: portal
 
 oauth:
-  test_user_id: testuser
+  test_user_id: 00000000-0000-0000-0000-000000000000

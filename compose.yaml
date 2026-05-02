@@ -14,8 +14,9 @@ services:
       - CONFIG_FILE=/app/config.yaml
       - TZ=Asia/Tokyo
       - OIDC_DATABASE__HOST=oidc
-      - OIDC_DATABASE__PORT=3306
+      - OIDC_DATABASE__PORT=5433
       - OIDC_PORTAL__DATABASE__HOST=portal
+      - OIDC_PORTAL__DATABASE__PORT=5432
     depends_on:
       portal:
         condition: service_healthy
@@ -26,18 +27,19 @@ services:
     stdin_open: true
 
   portal:
-    image: mariadb:10.11.16
+    image: postgres:17
     environment:
-      MARIADB_ROOT_PASSWORD: password
-      MARIADB_DATABASE: portal
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: portal
+      POSTGRES_USER: root
       TZ: Asia/Tokyo
     volumes:
       - ./db/portal-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
-      - portal-data:/var/lib/mysql
+      - portal-pg-data:/var/lib/postgresql/data
     ports:
-      - "3306:3306"
+      - "5432:5432"
     healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      test: ["CMD-SHELL", "pg_isready -U root -d portal"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -45,18 +47,19 @@ services:
     restart: unless-stopped
 
   oidc:
-    image: mariadb:10.11.16
+    image: postgres:17
     environment:
-      MARIADB_ROOT_PASSWORD: password
-      MARIADB_DATABASE: oidc
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: oidc
+      POSTGRES_USER: root
       TZ: Asia/Tokyo
     volumes:
       - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
-      - oidc-data:/var/lib/mysql
+      - oidc-pg-data:/var/lib/postgresql/data
     ports:
-      - "3307:3306"
+      - "5433:5432"
     healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      test: ["CMD-SHELL", "pg_isready -U root -d oidc"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -80,5 +83,5 @@ services:
 volumes:
   go-mod-cache:
   go-build-cache:
-  portal-data:
-  oidc-data:
+  portal-pg-data:
+  oidc-pg-data:

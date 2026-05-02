@@ -29,6 +29,7 @@ type DatabaseConfig struct {
 	User     string `koanf:"user"`
 	Password string `koanf:"password"` // #nosec G117 -- config struct, not serialized
 	Name     string `koanf:"name"`
+	SSLMode  string `koanf:"sslmode"`
 }
 
 type OAuthConfig struct {
@@ -41,18 +42,20 @@ var defaults = map[string]any{
 	"host":                     "http://localhost:8080",
 	"environment":              "development",
 	"database.host":            "localhost",
-	"database.port":            3307,
+	"database.port":            5433,
 	"database.user":            "root",
 	"database.password":        "password",
 	"database.name":            "oidc",
+	"database.sslmode":         "disable",
 	"portal.database.host":     "localhost",
-	"portal.database.port":     3306,
+	"portal.database.port":     5432,
 	"portal.database.user":     "root",
 	"portal.database.password": "password",
 	"portal.database.name":     "portal",
+	"portal.database.sslmode":  "disable",
 	"oauth.secret":             "my-super-secret-signing-key-32!!",
 	"oauth.key_file":           "data/private.pem",
-	"oauth.test_user_id":       "testuser",
+	"oauth.test_user_id":       "00000000-0000-0000-0000-000000000000",
 }
 
 func loadConfig(configPath string) (*Config, error) {

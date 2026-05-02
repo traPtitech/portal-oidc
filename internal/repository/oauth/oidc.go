@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/url"
 
+	"github.com/google/uuid"
 	"github.com/ory/fosite"
 
 	"github.com/traPtitech/portal-oidc/internal/domain"
@@ -17,10 +18,19 @@ func (s *Storage) CreateOpenIDConnectSession(ctx context.Context, authorizeCode 
 		return errors.New("invalid session type")
 	}
 
+	clientID, err := uuid.Parse(requester.GetClient().GetID())
+	if err != nil {
+		return err
+	}
+	userID, err := uuid.Parse(sess.GetSubject())
+	if err != nil {
+		return err
+	}
+
 	return s.getOIDCSessions(ctx).Create(ctx, domain.OIDCSession{
 		AuthorizeCode: authorizeCode,
-		ClientID:      requester.GetClient().GetID(),
-		UserID:        sess.GetSubject(),
+		ClientID:      clientID,
+		UserID:        userID,
 		Nonce:         requester.GetRequestForm().Get("nonce"),
 		AuthTime:      sess.IDTokenClaims().AuthTime,
 		Scopes:        requester.GetGrantedScopes(),
@@ -37,12 +47,12 @@ func (s *Storage) GetOpenIDConnectSession(ctx context.Context, authorizeCode str
 		return nil, err
 	}
 
-	client, err := s.GetClient(ctx, oidcSession.ClientID)
+	client, err := s.GetClient(ctx, oidcSession.ClientID.String())
 	if err != nil {
 		return nil, err
 	}
 
-	sess := NewSession(oidcSession.UserID, oidcSession.AuthTime)
+	sess := NewSession(oidcSession.UserID.String(), oidcSession.AuthTime)
 
 	form := url.Values{}
 	if oidcSession.Nonce != "" {

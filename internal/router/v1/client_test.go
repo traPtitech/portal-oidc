@@ -5,15 +5,17 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/knadh/koanf/providers/confmap"
 	"github.com/knadh/koanf/providers/env/v2"
 	"github.com/knadh/koanf/v2"
@@ -35,31 +37,42 @@ const (
 
 var testDB *sql.DB
 
+func buildTestDSN(user, pass, host, port, dbName string) string {
+	u := url.URL{
+		Scheme:   "postgres",
+		User:     url.UserPassword(user, pass),
+		Host:     net.JoinHostPort(host, port),
+		Path:     "/" + dbName,
+		RawQuery: "sslmode=disable",
+	}
+	return u.String()
+}
+
 func TestMain(m *testing.M) {
 	k := koanf.New(".")
 	ctx := context.Background()
 
 	_ = k.Load(confmap.Provider(map[string]any{
-		"mariadb.username": "root",
-		"mariadb.password": "password",
-		"mariadb.hostname": "127.0.0.1",
-		"mariadb.port":     "3307",
+		"postgres.username": "root",
+		"postgres.password": "password",
+		"postgres.hostname": "127.0.0.1",
+		"postgres.port":     "5433",
 	}, "."), nil)
 
 	_ = k.Load(env.Provider(".", env.Opt{
-		Prefix: "MARIADB_",
+		Prefix: "POSTGRES_",
 		TransformFunc: func(k, v string) (string, any) {
-			return strings.ToLower(strings.TrimPrefix(k, "MARIADB_")), v
+			return "postgres." + strings.ToLower(strings.TrimPrefix(k, "POSTGRES_")), v
 		},
 	}), nil)
 
-	user := k.String("mariadb.username")
-	pass := k.String("mariadb.password")
-	host := k.String("mariadb.hostname")
-	port := k.String("mariadb.port")
+	user := k.String("postgres.username")
+	pass := k.String("postgres.password")
+	host := k.String("postgres.hostname")
+	port := k.String("postgres.port")
 
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/?parseTime=true", user, pass, host, port)
-	db, err := sql.Open("mysql", dsn)
+	dsn := buildTestDSN(user, pass, host, port, "postgres")
+	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		fmt.Printf("failed to connect to database: %v\n", err)
 		os.Exit(1)
@@ -70,15 +83,19 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	_, err = db.ExecContext(ctx, fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%s`", testDBName))
+	if _, err := db.ExecContext(ctx, fmt.Sprintf(`DROP DATABASE IF EXISTS "%s" WITH (FORCE)`, testDBName)); err != nil {
+		fmt.Printf("failed to drop existing test database: %v\n", err)
+		os.Exit(1)
+	}
+	_, err = db.ExecContext(ctx, fmt.Sprintf(`CREATE DATABASE "%s"`, testDBName))
 	if err != nil {
 		fmt.Printf("failed to create test database: %v\n", err)
 		os.Exit(1)
 	}
 	_ = db.Close()
 
-	dsn = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&multiStatements=true", user, pass, host, port, testDBName)
-	testDB, err = sql.Open("mysql", dsn)
+	dsn = buildTestDSN(user, pass, host, port, testDBName)
+	testDB, err = sql.Open("pgx", dsn)
 	if err != nil {
 		fmt.Printf("failed to connect to test database: %v\n", err)
 		os.Exit(1)
@@ -165,7 +182,7 @@ func setupTestHandler(t *testing.T) (*Handler, func()) {
 	handler := NewHandler(clientUseCase, oauthUsecase, oauth2Provider, nil, OAuthConfig{
 		Issuer:      "http://localhost:8080",
 		Environment: "development",
-		TestUserID:  "testuser",
+		TestUserID:  "00000000-0000-0000-0000-000000000000",
 	})
 
 	cleanup := func() {
