@@ -4,7 +4,6 @@ go 1.26.2
 
 require (
 	github.com/alecthomas/kong v1.15.0
-	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/sessions v1.4.0
@@ -16,6 +15,7 @@ require (
 	github.com/knadh/koanf/v2 v2.3.4
 	github.com/labstack/echo/v5 v5.1.1
 	github.com/oapi-codegen/runtime v1.4.0
+	github.com/ory/fosite v0.49.0
 	github.com/sqlc-dev/pqtype v0.3.0
 	golang.org/x/crypto v0.49.0
 )
@@ -30,6 +30,7 @@ require (
 	github.com/dgraph-io/ristretto v1.0.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
+	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/go-jose/go-jose/v3 v3.0.5 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -55,7 +56,6 @@ require (
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/openzipkin/zipkin-go v0.4.2 // indirect
-	github.com/ory/fosite v0.49.0
 	github.com/ory/go-acc v0.2.9-0.20230103102148-6b1c9a70dbbe // indirect
 	github.com/ory/go-convenience v0.1.0 // indirect
 	github.com/ory/x v0.0.665 // indirect
