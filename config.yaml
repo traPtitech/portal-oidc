@@ -17,4 +17,4 @@ portal:
     name: portal
 
 oauth:
-  test_user_id: testuser
+  test_user_id: 00000000-0000-0000-0000-000000000000

@@ -55,7 +55,7 @@ var defaults = map[string]any{
 	"portal.database.sslmode":  "disable",
 	"oauth.secret":             "my-super-secret-signing-key-32!!",
 	"oauth.key_file":           "data/private.pem",
-	"oauth.test_user_id":       "testuser",
+	"oauth.test_user_id":       "00000000-0000-0000-0000-000000000000",
 }
 
 func loadConfig(configPath string) (*Config, error) {

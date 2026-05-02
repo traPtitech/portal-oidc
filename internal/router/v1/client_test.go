@@ -182,7 +182,7 @@ func setupTestHandler(t *testing.T) (*Handler, func()) {
 	handler := NewHandler(clientUseCase, oauthUsecase, oauth2Provider, nil, OAuthConfig{
 		Issuer:      "http://localhost:8080",
 		Environment: "development",
-		TestUserID:  "testuser",
+		TestUserID:  "00000000-0000-0000-0000-000000000000",
 	})
 
 	cleanup := func() {
