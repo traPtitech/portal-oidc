@@ -236,8 +236,8 @@ CREATE INDEX IF NOT EXISTS idx_mails_operator ON mails (operator_id);
 
 -- Mail logs
 CREATE TABLE mail_logs (
-  id VARCHAR(36) NOT NULL,
-  mail_id VARCHAR(36) NOT NULL,
+  id UUID NOT NULL,
+  mail_id UUID NOT NULL,
   status VARCHAR(32) NOT NULL,
   error TEXT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
