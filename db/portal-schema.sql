@@ -222,11 +222,11 @@ CREATE TABLE namecards (
 
 -- Mails
 CREATE TABLE mails (
-  id VARCHAR(36) NOT NULL,
+  id UUID NOT NULL,
   "to" TEXT NULL,
   subject VARCHAR(255) NULL,
   body TEXT NULL,
-  operator_id VARCHAR(36) NULL,
+  operator_id UUID NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   CONSTRAINT fk_mails_operator FOREIGN KEY (operator_id) REFERENCES users(id) ON DELETE SET NULL ON UPDATE CASCADE
