@@ -17,7 +17,7 @@ require (
 	github.com/oapi-codegen/runtime v1.4.0
 	github.com/ory/fosite v0.49.0
 	github.com/sqlc-dev/pqtype v0.3.0
-	golang.org/x/crypto v0.49.0
+	golang.org/x/crypto v0.50.0
 )
 
 require (
