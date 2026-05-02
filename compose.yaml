@@ -14,7 +14,7 @@ services:
       - CONFIG_FILE=/app/config.yaml
       - TZ=Asia/Tokyo
       - OIDC_DATABASE__HOST=oidc
-      - OIDC_DATABASE__PORT=5432
+      - OIDC_DATABASE__PORT=5433
       - OIDC_PORTAL__DATABASE__HOST=portal
       - OIDC_PORTAL__DATABASE__PORT=5432
     depends_on:
