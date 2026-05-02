@@ -123,18 +123,8 @@ jobs:
 
       - uses: jdx/mise-action@v4
 
-      - name: Install Gosec
-        run: go install github.com/securego/gosec/v2/cmd/gosec@v2.26.1
-
       - name: Run Gosec Security Scanner
         run: gosec -exclude-generated -fmt sarif -out gosec.sarif ./...
-
-      - name: Upload Gosec SARIF artifact
-        if: always() && hashFiles('gosec.sarif') != ''
-        uses: actions/upload-artifact@v4
-        with:
-          name: gosec-sarif
-          path: gosec.sarif
 
       - name: Upload Gosec SARIF
         uses: github/codeql-action/upload-sarif@v4
