@@ -226,13 +226,17 @@ func (h *Handler) handleUserInfo(ctx *echo.Context, token string) error {
 	info := gen.UserInfo{Sub: sub}
 
 	if h.userUseCase != nil && ar.GetGrantedScopes().Has("profile") {
-		if subID, err := uuid.Parse(sub); err == nil {
-			user, userErr := h.userUseCase.GetByID(c, subID)
-			if userErr == nil {
-				info.Name = &user.TrapID
-				info.PreferredUsername = &user.TrapID
-			}
+		subID, err := uuid.Parse(sub)
+		if err != nil {
+
+			return ctx.JSON(http.StatusUnauthorized, gen.OAuthError{Error: gen.InvalidGrant})
 		}
+		user, userErr := h.userUseCase.GetByID(c, subID)
+		if userErr != nil {
+			return ctx.JSON(http.StatusInternalServerError, gen.OAuthError{Error: gen.ServerError})
+		}
+		info.Name = &user.TrapID
+		info.PreferredUsername = &user.TrapID
 	}
 
 	return ctx.JSON(http.StatusOK, info)
