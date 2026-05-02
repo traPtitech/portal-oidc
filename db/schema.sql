@@ -1,5 +1,14 @@
 -- OIDC Schema
 
+-- updated_at auto-update trigger function
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = CURRENT_TIMESTAMP;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 CREATE TABLE IF NOT EXISTS clients (
   client_id UUID NOT NULL,
   client_secret_hash VARCHAR(255) NULL,
@@ -10,6 +19,9 @@ CREATE TABLE IF NOT EXISTS clients (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (client_id)
 );
+
+CREATE TRIGGER trg_clients_set_updated_at
+BEFORE UPDATE ON clients FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 CREATE TABLE IF NOT EXISTS authorization_codes (
   code VARCHAR(64) NOT NULL,

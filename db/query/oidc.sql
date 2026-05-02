@@ -19,14 +19,12 @@ SELECT * FROM clients;
 UPDATE clients SET
     name = $1,
     client_type = $2,
-    redirect_uris = $3,
-    updated_at = NOW()
+    redirect_uris = $3
 WHERE client_id = $4;
 
 -- name: UpdateClientSecret :exec
 UPDATE clients SET
-    client_secret_hash = $1,
-    updated_at = NOW()
+    client_secret_hash = $1
 WHERE client_id = $2;
 
 -- name: DeleteClient :exec
