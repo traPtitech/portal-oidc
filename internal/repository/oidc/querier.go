@@ -20,6 +20,10 @@ type Querier interface {
 	CreateOIDCSession(ctx context.Context, arg CreateOIDCSessionParams) error
 	// Token queries
 	CreateToken(ctx context.Context, arg CreateTokenParams) error
+	// WebAuthn challenge queries
+	CreateWebAuthnChallenge(ctx context.Context, arg CreateWebAuthnChallengeParams) error
+	// WebAuthn credential queries
+	CreateWebAuthnCredential(ctx context.Context, arg CreateWebAuthnCredentialParams) error
 	DeleteAllAuthorizationCodes(ctx context.Context) error
 	DeleteAllClients(ctx context.Context) error
 	DeleteAllOIDCSessions(ctx context.Context) error
@@ -28,23 +32,31 @@ type Querier interface {
 	DeleteClient(ctx context.Context, clientID uuid.UUID) error
 	DeleteExpiredAuthorizationCodes(ctx context.Context) error
 	DeleteExpiredTokens(ctx context.Context) error
+	DeleteExpiredWebAuthnChallenges(ctx context.Context) error
 	DeleteOIDCSession(ctx context.Context, authorizeCode string) error
 	DeleteToken(ctx context.Context, id uuid.UUID) error
 	DeleteTokenByAccessToken(ctx context.Context, accessToken string) error
 	DeleteTokenByRefreshToken(ctx context.Context, refreshToken sql.NullString) error
 	DeleteTokensByRequestID(ctx context.Context, requestID string) error
 	DeleteTokensByUserAndClient(ctx context.Context, arg DeleteTokensByUserAndClientParams) error
+	DeleteWebAuthnChallenge(ctx context.Context, id uuid.UUID) error
+	DeleteWebAuthnCredential(ctx context.Context, arg DeleteWebAuthnCredentialParams) error
 	GetAuthorizationCode(ctx context.Context, code string) (AuthorizationCode, error)
 	GetClient(ctx context.Context, clientID uuid.UUID) (Client, error)
 	GetOIDCSession(ctx context.Context, authorizeCode string) (OidcSession, error)
 	GetTokenByAccessToken(ctx context.Context, accessToken string) (Token, error)
 	GetTokenByID(ctx context.Context, id uuid.UUID) (Token, error)
 	GetTokenByRefreshToken(ctx context.Context, refreshToken sql.NullString) (Token, error)
+	GetWebAuthnChallengeBySessionID(ctx context.Context, arg GetWebAuthnChallengeBySessionIDParams) (WebauthnChallenge, error)
+	GetWebAuthnCredentialByCredentialID(ctx context.Context, credentialID []byte) (WebauthnCredential, error)
 	ListClients(ctx context.Context) ([]Client, error)
+	ListWebAuthnCredentialsByUser(ctx context.Context, userID uuid.UUID) ([]WebauthnCredential, error)
 	MarkAuthorizationCodeUsed(ctx context.Context, code string) error
 	UpdateAuthorizationCodePKCE(ctx context.Context, arg UpdateAuthorizationCodePKCEParams) error
 	UpdateClient(ctx context.Context, arg UpdateClientParams) error
 	UpdateClientSecret(ctx context.Context, arg UpdateClientSecretParams) error
+	UpdateWebAuthnCredentialDeviceName(ctx context.Context, arg UpdateWebAuthnCredentialDeviceNameParams) error
+	UpdateWebAuthnCredentialSignCount(ctx context.Context, arg UpdateWebAuthnCredentialSignCountParams) error
 }
 
 var _ Querier = (*Queries)(nil)

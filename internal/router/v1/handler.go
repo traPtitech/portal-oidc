@@ -5,19 +5,24 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/gorilla/sessions"
 	"github.com/ory/fosite"
 
+	"github.com/traPtitech/portal-oidc/internal/repository"
 	"github.com/traPtitech/portal-oidc/internal/usecase"
 )
 
 type Handler struct {
-	clientUseCase usecase.ClientUseCase
-	oauthUseCase  usecase.OAuthUseCase
-	oauth2        fosite.OAuth2Provider
-	userUseCase   usecase.UserUseCase
-	sessions      *sessions.CookieStore
-	config        OAuthConfig
+	clientUseCase  usecase.ClientUseCase
+	oauthUseCase   usecase.OAuthUseCase
+	oauth2         fosite.OAuth2Provider
+	userUseCase    usecase.UserUseCase
+	sessions       *sessions.CookieStore
+	webauthn       *webauthn.WebAuthn
+	webAuthnCreds  repository.WebAuthnCredentialRepository
+	webAuthnChalls repository.WebAuthnChallengeRepository
+	config         OAuthConfig
 }
 
 type OAuthConfig struct {
@@ -33,6 +38,9 @@ func NewHandler(
 	oauthUseCase usecase.OAuthUseCase,
 	oauth2 fosite.OAuth2Provider,
 	userUseCase usecase.UserUseCase,
+	wa *webauthn.WebAuthn,
+	webAuthnCreds repository.WebAuthnCredentialRepository,
+	webAuthnChalls repository.WebAuthnChallengeRepository,
 	config OAuthConfig,
 ) *Handler {
 	store := sessions.NewCookieStore(config.SessionSecret)
@@ -45,11 +53,14 @@ func NewHandler(
 	}
 
 	return &Handler{
-		clientUseCase: clientUseCase,
-		oauthUseCase:  oauthUseCase,
-		oauth2:        oauth2,
-		userUseCase:   userUseCase,
-		sessions:      store,
-		config:        config,
+		clientUseCase:  clientUseCase,
+		oauthUseCase:   oauthUseCase,
+		oauth2:         oauth2,
+		userUseCase:    userUseCase,
+		sessions:       store,
+		webauthn:       wa,
+		webAuthnCreds:  webAuthnCreds,
+		webAuthnChalls: webAuthnChalls,
+		config:         config,
 	}
 }

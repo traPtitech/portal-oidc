@@ -78,3 +78,53 @@ CREATE TABLE IF NOT EXISTS oidc_sessions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_oidc_sessions_client_id ON oidc_sessions (client_id);
+
+-- traPortal v2 spec §webauthn_credentials
+-- WebAuthn (FIDO2 / Passkey) credentials registered by users. credential_id
+-- is the rawId returned by the authenticator and is used as the lookup key
+-- on each authentication ceremony. public_key is the COSE-encoded form so it
+-- can be re-fed verbatim to a WebAuthn library at sign-in time. sign_count
+-- is monotonically increasing per credential (RFC W3C-WebAuthn-Level-3 §6.1)
+-- and a non-monotonic increment indicates a cloned authenticator.
+CREATE TABLE IF NOT EXISTS webauthn_credentials (
+  id UUID NOT NULL,
+  user_id UUID NOT NULL,
+  credential_id BYTEA NOT NULL,
+  public_key BYTEA NOT NULL,
+  public_key_alg INT NOT NULL,
+  attestation_format TEXT NULL,
+  aaguid UUID NULL,
+  sign_count BIGINT NOT NULL DEFAULT 0,
+  transports JSONB NULL,
+  device_name TEXT NULL,
+  backed_up BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_used_at TIMESTAMPTZ NULL,
+  PRIMARY KEY (id),
+  CONSTRAINT idx_webauthn_credentials_credential_id UNIQUE (credential_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_webauthn_credentials_user_id ON webauthn_credentials (user_id);
+
+-- traPortal v2 spec §webauthn_challenges
+-- One-shot challenge tracker for an in-flight registration or authentication
+-- ceremony. user_id is nullable because the discoverable-credential
+-- (a.k.a. usernameless) flow starts authentication without knowing who is
+-- about to log in. session_id pairs the challenge with the cookie session
+-- that initiated it so cross-session replay is impossible.
+CREATE TABLE IF NOT EXISTS webauthn_challenges (
+  id UUID NOT NULL,
+  challenge BYTEA NOT NULL,
+  user_id UUID NULL,
+  session_id TEXT NULL,
+  type TEXT NOT NULL,
+  data JSONB NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT idx_webauthn_challenges_challenge UNIQUE (challenge),
+  CONSTRAINT chk_webauthn_challenges_type CHECK (type IN ('register', 'authenticate'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_webauthn_challenges_session_id ON webauthn_challenges (session_id);
+CREATE INDEX IF NOT EXISTS idx_webauthn_challenges_expires_at ON webauthn_challenges (expires_at);

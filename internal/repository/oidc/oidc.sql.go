@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sqlc-dev/pqtype"
 )
 
 const createAuthorizationCode = `-- name: CreateAuthorizationCode :exec
@@ -165,6 +166,92 @@ func (q *Queries) CreateToken(ctx context.Context, arg CreateTokenParams) error 
 	return err
 }
 
+const createWebAuthnChallenge = `-- name: CreateWebAuthnChallenge :exec
+
+INSERT INTO webauthn_challenges (
+    id,
+    challenge,
+    user_id,
+    session_id,
+    type,
+    data,
+    expires_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7)
+`
+
+type CreateWebAuthnChallengeParams struct {
+	ID        uuid.UUID       `json:"id"`
+	Challenge []byte          `json:"challenge"`
+	UserID    uuid.NullUUID   `json:"user_id"`
+	SessionID sql.NullString  `json:"session_id"`
+	Type      string          `json:"type"`
+	Data      json.RawMessage `json:"data"`
+	ExpiresAt time.Time       `json:"expires_at"`
+}
+
+// WebAuthn challenge queries
+func (q *Queries) CreateWebAuthnChallenge(ctx context.Context, arg CreateWebAuthnChallengeParams) error {
+	_, err := q.exec(ctx, q.createWebAuthnChallengeStmt, createWebAuthnChallenge,
+		arg.ID,
+		arg.Challenge,
+		arg.UserID,
+		arg.SessionID,
+		arg.Type,
+		arg.Data,
+		arg.ExpiresAt,
+	)
+	return err
+}
+
+const createWebAuthnCredential = `-- name: CreateWebAuthnCredential :exec
+
+INSERT INTO webauthn_credentials (
+    id,
+    user_id,
+    credential_id,
+    public_key,
+    public_key_alg,
+    attestation_format,
+    aaguid,
+    sign_count,
+    transports,
+    device_name,
+    backed_up
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+`
+
+type CreateWebAuthnCredentialParams struct {
+	ID                uuid.UUID             `json:"id"`
+	UserID            uuid.UUID             `json:"user_id"`
+	CredentialID      []byte                `json:"credential_id"`
+	PublicKey         []byte                `json:"public_key"`
+	PublicKeyAlg      int32                 `json:"public_key_alg"`
+	AttestationFormat sql.NullString        `json:"attestation_format"`
+	Aaguid            uuid.NullUUID         `json:"aaguid"`
+	SignCount         int64                 `json:"sign_count"`
+	Transports        pqtype.NullRawMessage `json:"transports"`
+	DeviceName        sql.NullString        `json:"device_name"`
+	BackedUp          bool                  `json:"backed_up"`
+}
+
+// WebAuthn credential queries
+func (q *Queries) CreateWebAuthnCredential(ctx context.Context, arg CreateWebAuthnCredentialParams) error {
+	_, err := q.exec(ctx, q.createWebAuthnCredentialStmt, createWebAuthnCredential,
+		arg.ID,
+		arg.UserID,
+		arg.CredentialID,
+		arg.PublicKey,
+		arg.PublicKeyAlg,
+		arg.AttestationFormat,
+		arg.Aaguid,
+		arg.SignCount,
+		arg.Transports,
+		arg.DeviceName,
+		arg.BackedUp,
+	)
+	return err
+}
+
 const deleteAllAuthorizationCodes = `-- name: DeleteAllAuthorizationCodes :exec
 DELETE FROM authorization_codes
 `
@@ -237,6 +324,15 @@ func (q *Queries) DeleteExpiredTokens(ctx context.Context) error {
 	return err
 }
 
+const deleteExpiredWebAuthnChallenges = `-- name: DeleteExpiredWebAuthnChallenges :exec
+DELETE FROM webauthn_challenges WHERE expires_at < CURRENT_TIMESTAMP
+`
+
+func (q *Queries) DeleteExpiredWebAuthnChallenges(ctx context.Context) error {
+	_, err := q.exec(ctx, q.deleteExpiredWebAuthnChallengesStmt, deleteExpiredWebAuthnChallenges)
+	return err
+}
+
 const deleteOIDCSession = `-- name: DeleteOIDCSession :exec
 DELETE FROM oidc_sessions WHERE authorize_code = $1
 `
@@ -293,6 +389,29 @@ type DeleteTokensByUserAndClientParams struct {
 
 func (q *Queries) DeleteTokensByUserAndClient(ctx context.Context, arg DeleteTokensByUserAndClientParams) error {
 	_, err := q.exec(ctx, q.deleteTokensByUserAndClientStmt, deleteTokensByUserAndClient, arg.UserID, arg.ClientID)
+	return err
+}
+
+const deleteWebAuthnChallenge = `-- name: DeleteWebAuthnChallenge :exec
+DELETE FROM webauthn_challenges WHERE id = $1
+`
+
+func (q *Queries) DeleteWebAuthnChallenge(ctx context.Context, id uuid.UUID) error {
+	_, err := q.exec(ctx, q.deleteWebAuthnChallengeStmt, deleteWebAuthnChallenge, id)
+	return err
+}
+
+const deleteWebAuthnCredential = `-- name: DeleteWebAuthnCredential :exec
+DELETE FROM webauthn_credentials WHERE id = $1 AND user_id = $2
+`
+
+type DeleteWebAuthnCredentialParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) DeleteWebAuthnCredential(ctx context.Context, arg DeleteWebAuthnCredentialParams) error {
+	_, err := q.exec(ctx, q.deleteWebAuthnCredentialStmt, deleteWebAuthnCredential, arg.ID, arg.UserID)
 	return err
 }
 
@@ -421,6 +540,59 @@ func (q *Queries) GetTokenByRefreshToken(ctx context.Context, refreshToken sql.N
 	return i, err
 }
 
+const getWebAuthnChallengeBySessionID = `-- name: GetWebAuthnChallengeBySessionID :one
+SELECT id, challenge, user_id, session_id, type, data, expires_at, created_at FROM webauthn_challenges
+WHERE session_id = $1 AND type = $2 AND expires_at > CURRENT_TIMESTAMP
+ORDER BY created_at DESC
+LIMIT 1
+`
+
+type GetWebAuthnChallengeBySessionIDParams struct {
+	SessionID sql.NullString `json:"session_id"`
+	Type      string         `json:"type"`
+}
+
+func (q *Queries) GetWebAuthnChallengeBySessionID(ctx context.Context, arg GetWebAuthnChallengeBySessionIDParams) (WebauthnChallenge, error) {
+	row := q.queryRow(ctx, q.getWebAuthnChallengeBySessionIDStmt, getWebAuthnChallengeBySessionID, arg.SessionID, arg.Type)
+	var i WebauthnChallenge
+	err := row.Scan(
+		&i.ID,
+		&i.Challenge,
+		&i.UserID,
+		&i.SessionID,
+		&i.Type,
+		&i.Data,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getWebAuthnCredentialByCredentialID = `-- name: GetWebAuthnCredentialByCredentialID :one
+SELECT id, user_id, credential_id, public_key, public_key_alg, attestation_format, aaguid, sign_count, transports, device_name, backed_up, created_at, last_used_at FROM webauthn_credentials WHERE credential_id = $1
+`
+
+func (q *Queries) GetWebAuthnCredentialByCredentialID(ctx context.Context, credentialID []byte) (WebauthnCredential, error) {
+	row := q.queryRow(ctx, q.getWebAuthnCredentialByCredentialIDStmt, getWebAuthnCredentialByCredentialID, credentialID)
+	var i WebauthnCredential
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.CredentialID,
+		&i.PublicKey,
+		&i.PublicKeyAlg,
+		&i.AttestationFormat,
+		&i.Aaguid,
+		&i.SignCount,
+		&i.Transports,
+		&i.DeviceName,
+		&i.BackedUp,
+		&i.CreatedAt,
+		&i.LastUsedAt,
+	)
+	return i, err
+}
+
 const listClients = `-- name: ListClients :many
 SELECT client_id, client_secret_hash, name, client_type, redirect_uris, created_at, updated_at FROM clients
 `
@@ -442,6 +614,47 @@ func (q *Queries) ListClients(ctx context.Context) ([]Client, error) {
 			&i.RedirectUris,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWebAuthnCredentialsByUser = `-- name: ListWebAuthnCredentialsByUser :many
+SELECT id, user_id, credential_id, public_key, public_key_alg, attestation_format, aaguid, sign_count, transports, device_name, backed_up, created_at, last_used_at FROM webauthn_credentials WHERE user_id = $1 ORDER BY created_at
+`
+
+func (q *Queries) ListWebAuthnCredentialsByUser(ctx context.Context, userID uuid.UUID) ([]WebauthnCredential, error) {
+	rows, err := q.query(ctx, q.listWebAuthnCredentialsByUserStmt, listWebAuthnCredentialsByUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []WebauthnCredential{}
+	for rows.Next() {
+		var i WebauthnCredential
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.CredentialID,
+			&i.PublicKey,
+			&i.PublicKeyAlg,
+			&i.AttestationFormat,
+			&i.Aaguid,
+			&i.SignCount,
+			&i.Transports,
+			&i.DeviceName,
+			&i.BackedUp,
+			&i.CreatedAt,
+			&i.LastUsedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -521,5 +734,36 @@ type UpdateClientSecretParams struct {
 
 func (q *Queries) UpdateClientSecret(ctx context.Context, arg UpdateClientSecretParams) error {
 	_, err := q.exec(ctx, q.updateClientSecretStmt, updateClientSecret, arg.ClientSecretHash, arg.ClientID)
+	return err
+}
+
+const updateWebAuthnCredentialDeviceName = `-- name: UpdateWebAuthnCredentialDeviceName :exec
+UPDATE webauthn_credentials SET device_name = $1 WHERE id = $2 AND user_id = $3
+`
+
+type UpdateWebAuthnCredentialDeviceNameParams struct {
+	DeviceName sql.NullString `json:"device_name"`
+	ID         uuid.UUID      `json:"id"`
+	UserID     uuid.UUID      `json:"user_id"`
+}
+
+func (q *Queries) UpdateWebAuthnCredentialDeviceName(ctx context.Context, arg UpdateWebAuthnCredentialDeviceNameParams) error {
+	_, err := q.exec(ctx, q.updateWebAuthnCredentialDeviceNameStmt, updateWebAuthnCredentialDeviceName, arg.DeviceName, arg.ID, arg.UserID)
+	return err
+}
+
+const updateWebAuthnCredentialSignCount = `-- name: UpdateWebAuthnCredentialSignCount :exec
+UPDATE webauthn_credentials
+SET sign_count = $1, last_used_at = CURRENT_TIMESTAMP
+WHERE id = $2
+`
+
+type UpdateWebAuthnCredentialSignCountParams struct {
+	SignCount int64     `json:"sign_count"`
+	ID        uuid.UUID `json:"id"`
+}
+
+func (q *Queries) UpdateWebAuthnCredentialSignCount(ctx context.Context, arg UpdateWebAuthnCredentialSignCountParams) error {
+	_, err := q.exec(ctx, q.updateWebAuthnCredentialSignCountStmt, updateWebAuthnCredentialSignCount, arg.SignCount, arg.ID)
 	return err
 }
