@@ -38,6 +38,16 @@ Access:
 - [DB schema (portal-oidc)](./docs/db/oidc)
 - [DB schema (traPortal v2)](./docs/db/portal)
 
+## Configuration
+
+Settings are loaded in priority order (later wins):
+
+1. Built-in defaults (`cmd/config.go`)
+2. `config.yaml` in the working directory (or `--config <path>`) — local-dev defaults (host: `localhost`)
+3. `OIDC_*` environment variables — used by `compose.yaml` to override DB hosts/ports for the Docker network (e.g. `OIDC_DATABASE__HOST=oidc`)
+
+Env keys are mapped to koanf paths by stripping the `OIDC_` prefix, lowercasing, and turning `__` into `.` (so `OIDC_PORTAL__DATABASE__HOST` → `portal.database.host`).
+
 ## Development
 
 ```bash

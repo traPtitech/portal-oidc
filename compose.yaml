@@ -11,8 +11,10 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - CONFIG_FILE=/app/config.yaml
       - TZ=Asia/Tokyo
+      # Docker network overrides for config.yaml (which defaults to localhost
+      # for non-Docker development). Env keys map to koanf paths via the
+      # `OIDC_` prefix and `__` -> `.` separator (see cmd/config.go).
       - OIDC_DATABASE__HOST=oidc
       - OIDC_DATABASE__PORT=5433
       - OIDC_PORTAL__DATABASE__HOST=portal
