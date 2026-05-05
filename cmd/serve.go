@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -75,12 +76,7 @@ func newServer(cfg Config) (http.Handler, error) {
 	)
 
 	e := echo.New()
-	e.Use(middleware.Recover())
-	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{"*"},
-		AllowHeaders: []string{"*"},
-		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-	}))
+	registerMiddleware(e)
 	gen.RegisterHandlers(e, handler)
 	e.GET("/login", handler.GetLogin)
 	e.POST("/login", handler.PostLogin)
@@ -90,6 +86,42 @@ func newServer(cfg Config) (http.Handler, error) {
 	})
 
 	return e, nil
+}
+
+func registerMiddleware(e *echo.Echo) {
+	e.Use(middleware.Recover())
+	e.Use(middleware.RequestID())
+	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
+		LogMethod:    true,
+		LogURIPath:   true,
+		LogStatus:    true,
+		LogLatency:   true,
+		LogRemoteIP:  true,
+		LogRequestID: true,
+		LogValuesFunc: func(_ *echo.Context, v middleware.RequestLoggerValues) error {
+			level := slog.LevelInfo
+			switch {
+			case v.Status >= 500:
+				level = slog.LevelError
+			case v.Status >= 400:
+				level = slog.LevelWarn
+			}
+			slog.LogAttrs(context.Background(), level, "http_request",
+				slog.String("request_id", v.RequestID),
+				slog.String("method", v.Method),
+				slog.String("path", v.URIPath),
+				slog.Int("status", v.Status),
+				slog.Duration("latency", v.Latency),
+				slog.String("remote_ip", v.RemoteIP),
+			)
+			return nil
+		},
+	}))
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"*"},
+		AllowHeaders: []string{"*"},
+		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+	}))
 }
 
 func postgresDSN(cfg DatabaseConfig) string {
