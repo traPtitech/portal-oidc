@@ -43,14 +43,16 @@ func newServer(cfg Config) (http.Handler, error) {
 		repository.NewOIDCSessionRepository(queries),
 	)
 	defaults := defaultOAuthProviderConfig()
-	oauth2Provider := newOAuthProvider(oauthStorage, OAuthProviderConfig{
+	providerCfg := OAuthProviderConfig{
 		Issuer:               cfg.Host,
 		AccessTokenLifespan:  defaults.AccessTokenLifespan,
 		RefreshTokenLifespan: defaults.RefreshTokenLifespan,
 		AuthCodeLifespan:     defaults.AuthCodeLifespan,
 		IDTokenLifespan:      defaults.IDTokenLifespan,
 		Secret:               []byte(cfg.OAuth.Secret),
-	}, privateKey)
+	}
+	oauth2Provider := newOAuthProvider(oauthStorage, providerCfg, privateKey)
+	tokenStrategy := newTokenStrategy(providerCfg)
 
 	var userUseCase usecase.UserUseCase
 	if cfg.Environment == "production" {
@@ -60,11 +62,16 @@ func newServer(cfg Config) (http.Handler, error) {
 		}
 		userUseCase = usecase.NewUserUseCase(repository.NewUserRepository(portalQueries))
 	}
+	tokenRepo := repository.NewTokenRepository(queries)
+	deviceAuthRepo := repository.NewDeviceAuthorizationRepository(queries)
 	handler := v1.NewHandler(
 		usecase.NewClientUseCase(clientRepo),
 		usecase.NewOAuthUseCase(),
 		oauth2Provider,
+		tokenStrategy,
 		userUseCase,
+		tokenRepo,
+		deviceAuthRepo,
 		v1.OAuthConfig{
 			Issuer:        cfg.Host,
 			SessionSecret: []byte(cfg.OAuth.Secret),
@@ -82,6 +89,9 @@ func newServer(cfg Config) (http.Handler, error) {
 		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 	}))
 	gen.RegisterHandlers(e, handler)
+	e.POST("/oauth2/device/code", handler.DeviceAuthorize)
+	e.GET("/oauth2/device", handler.GetDeviceVerification)
+	e.POST("/oauth2/device", handler.PostDeviceVerification)
 	e.GET("/login", handler.GetLogin)
 	e.POST("/login", handler.PostLogin)
 	e.GET("/logout", handler.Logout)

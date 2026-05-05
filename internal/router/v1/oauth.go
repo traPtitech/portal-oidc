@@ -159,6 +159,12 @@ func (h *Handler) Token(ctx *echo.Context) error {
 	rw := ctx.Response()
 	req := ctx.Request()
 
+	// RFC 8628 §3.4 introduces a grant_type fosite v0.49 does not natively
+	// support, so peek before the standard fosite path takes over.
+	if err := req.ParseForm(); err == nil && req.Form.Get("grant_type") == "urn:ietf:params:oauth:grant-type:device_code" {
+		return h.DeviceTokenGrant(ctx)
+	}
+
 	session := oauth.NewSession("", time.Time{})
 	accessRequest, err := h.oauth2.NewAccessRequest(c, req, session)
 	if err != nil {

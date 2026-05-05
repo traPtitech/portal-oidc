@@ -15,8 +15,21 @@ import (
 
 	"github.com/ory/fosite"
 	"github.com/ory/fosite/compose"
+	"github.com/ory/fosite/handler/oauth2"
 	"github.com/ory/fosite/token/jwt"
 )
+
+// newTokenStrategy returns an HMAC strategy initialised with the same secret
+// fosite uses for the standard grants. The Device Authorization Grant
+// (RFC 8628) handler uses it to mint access and refresh tokens that the rest
+// of the system (introspection, /userinfo) can validate verbatim.
+func newTokenStrategy(config OAuthProviderConfig) *oauth2.HMACSHAStrategy {
+	return compose.NewOAuth2HMACStrategy(&fosite.Config{
+		AccessTokenLifespan:  config.AccessTokenLifespan,
+		RefreshTokenLifespan: config.RefreshTokenLifespan,
+		GlobalSecret:         config.Secret,
+	})
+}
 
 type OAuthProviderConfig struct {
 	Issuer               string
