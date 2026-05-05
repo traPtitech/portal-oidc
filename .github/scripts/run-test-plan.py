@@ -77,6 +77,82 @@ def find_authorize_url(log_entries: list) -> str | None:
     return None
 
 
+TEST_USERNAME = os.environ.get("CONFORMANCE_TEST_USERNAME", "testuser")
+TEST_PASSWORD = os.environ.get("CONFORMANCE_TEST_PASSWORD", "password")
+
+
+def submit_login_form(
+    browser: httpx.Client, login_url: str
+) -> httpx.Response | None:
+    """POST credentials to the login form and return the resulting redirect.
+
+    The /login page on portal-oidc is a static HTML form whose action target is
+    /login itself. After successful auth it issues a 302 back to the authorize
+    URL embedded in the `return_url` hidden field.
+    """
+    parsed = httpx.URL(login_url)
+    return_url = ""
+    for key, value in parsed.params.multi_items():
+        if key == "return_url":
+            return_url = value
+            break
+
+    print("  Browser: submitting login credentials")
+    try:
+        return browser.post(
+            login_url,
+            data={
+                "username": TEST_USERNAME,
+                "password": TEST_PASSWORD,
+                "return_url": return_url,
+            },
+            follow_redirects=False,
+        )
+    except httpx.HTTPError as e:
+        print(f"  Browser: login submission failed: {e}")
+        return None
+
+
+def follow_authorize(
+    browser: httpx.Client, auth_url: str, max_hops: int = 5
+) -> httpx.Response | None:
+    """Drive the authorize → (login →) callback redirect chain.
+
+    Conformance tests that exercise prompt=login or max_age cause portal-oidc
+    to redirect to /login even when there is an existing session, so we may
+    bounce login → authorize → callback multiple times.
+    """
+    current_url = auth_url
+    for _ in range(max_hops):
+        try:
+            resp = browser.get(current_url, follow_redirects=False)
+        except httpx.HTTPError as e:
+            print(f"  Browser: request failed: {e}")
+            return None
+
+        if resp.status_code in (301, 302, 303, 307, 308):
+            current_url = resp.headers.get("location", "")
+            if not current_url:
+                return resp
+            continue
+
+        if resp.status_code == 200 and "/login" in str(resp.url):
+            login_resp = submit_login_form(browser, str(resp.url))
+            if not login_resp:
+                return None
+            if login_resp.status_code in (301, 302, 303, 307, 308):
+                current_url = login_resp.headers.get("location", "")
+                if not current_url:
+                    return login_resp
+                continue
+            return login_resp
+
+        return resp
+
+    print("  Browser: exceeded redirect hop limit")
+    return None
+
+
 def perform_browser_interaction(
     api_client: httpx.Client,
     browser: httpx.Client,
@@ -92,14 +168,12 @@ def perform_browser_interaction(
         auth_url = auth_url.replace("host.docker.internal:8080", oidc_server_url)
 
     print("  Browser: visiting authorize URL")
-    try:
-        resp = browser.get(auth_url, follow_redirects=False)
-    except httpx.HTTPError as e:
-        print(f"  Browser: authorize request failed: {e}")
+    resp = follow_authorize(browser, auth_url)
+    if resp is None:
         return
 
     if resp.status_code not in (301, 302, 303, 307, 308):
-        print(f"  Browser: OP returned {resp.status_code} (no redirect)")
+        print(f"  Browser: OP returned {resp.status_code} (no callback redirect)")
         return
 
     callback_url = resp.headers.get("location", "")
