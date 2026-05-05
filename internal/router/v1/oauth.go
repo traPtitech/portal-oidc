@@ -285,3 +285,36 @@ func (h *Handler) GetOpenIDConfiguration(ctx *echo.Context) error {
 		TokenEndpointAuthMethodsSupported: &tokenEndpointAuthMethodsSupported,
 	})
 }
+
+// GetOAuthAuthorizationServerMetadata serves the RFC 8414 metadata document.
+// Compared to OIDC discovery this strips OIDC-only fields (subject_types_supported,
+// id_token_signing_alg_values_supported, claims_supported) and adds OAuth-only ones
+// (response_modes_supported, grant_types_supported).
+//
+// Refs:
+//   - RFC 8414 §2 (Authorization Server Metadata)
+//     https://datatracker.ietf.org/doc/html/rfc8414#section-2
+//   - RFC 8414 §3.1 (.well-known/oauth-authorization-server)
+//     https://datatracker.ietf.org/doc/html/rfc8414#section-3.1
+func (h *Handler) GetOAuthAuthorizationServerMetadata(ctx *echo.Context) error {
+	issuer := strings.TrimRight(h.config.Issuer, "/")
+	jwksURI := issuer + "/.well-known/jwks.json"
+	scopesSupported := []string{"openid", "profile", "email"}
+	grantTypesSupported := []string{"authorization_code", "refresh_token"}
+	responseModesSupported := []string{"query"}
+	codeChallengeMethodsSupported := []string{"S256", "plain"}
+	tokenEndpointAuthMethodsSupported := []string{"client_secret_basic", "client_secret_post"}
+
+	return ctx.JSON(http.StatusOK, gen.OAuthAuthorizationServerMetadata{
+		Issuer:                            issuer,
+		AuthorizationEndpoint:             issuer + "/oauth2/authorize",
+		TokenEndpoint:                     issuer + "/oauth2/token",
+		JwksUri:                           &jwksURI,
+		ResponseTypesSupported:            []string{"code"},
+		ResponseModesSupported:            &responseModesSupported,
+		GrantTypesSupported:               &grantTypesSupported,
+		ScopesSupported:                   &scopesSupported,
+		CodeChallengeMethodsSupported:     &codeChallengeMethodsSupported,
+		TokenEndpointAuthMethodsSupported: &tokenEndpointAuthMethodsSupported,
+	})
+}

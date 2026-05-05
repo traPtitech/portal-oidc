@@ -220,6 +220,28 @@ type OAuthError struct {
 // OAuthErrorError defines model for OAuthError.Error.
 type OAuthErrorError string
 
+// OAuthAuthorizationServerMetadata defines model for OAuthAuthorizationServerMetadata
+// per RFC 8414. Includes OAuth-specific fields not present in OIDC discovery
+// (revocation_endpoint, introspection_endpoint, response_modes_supported, etc.).
+type OAuthAuthorizationServerMetadata struct {
+	AuthorizationEndpoint                      string    `json:"authorization_endpoint"`
+	CodeChallengeMethodsSupported              *[]string `json:"code_challenge_methods_supported,omitempty"`
+	GrantTypesSupported                        *[]string `json:"grant_types_supported,omitempty"`
+	IntrospectionEndpoint                      *string   `json:"introspection_endpoint,omitempty"`
+	IntrospectionEndpointAuthMethodsSupported  *[]string `json:"introspection_endpoint_auth_methods_supported,omitempty"`
+	Issuer                                     string    `json:"issuer"`
+	JwksUri                                    *string   `json:"jwks_uri,omitempty"`
+	RegistrationEndpoint                       *string   `json:"registration_endpoint,omitempty"`
+	ResponseModesSupported                     *[]string `json:"response_modes_supported,omitempty"`
+	ResponseTypesSupported                     []string  `json:"response_types_supported"`
+	RevocationEndpoint                         *string   `json:"revocation_endpoint,omitempty"`
+	RevocationEndpointAuthMethodsSupported     *[]string `json:"revocation_endpoint_auth_methods_supported,omitempty"`
+	ScopesSupported                            *[]string `json:"scopes_supported,omitempty"`
+	ServiceDocumentation                       *string   `json:"service_documentation,omitempty"`
+	TokenEndpoint                              string    `json:"token_endpoint"`
+	TokenEndpointAuthMethodsSupported          *[]string `json:"token_endpoint_auth_methods_supported,omitempty"`
+}
+
 // OpenIDConfiguration defines model for OpenIDConfiguration.
 type OpenIDConfiguration struct {
 	AuthorizationEndpoint             string    `json:"authorization_endpoint"`
