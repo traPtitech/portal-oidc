@@ -49,11 +49,12 @@ func (r *webAuthnCredentialRepository) Create(ctx context.Context, c domain.WebA
 		transports = pqtype.NullRawMessage{RawMessage: raw, Valid: true}
 	}
 	return r.queries.CreateWebAuthnCredential(ctx, oidc.CreateWebAuthnCredentialParams{
-		ID:                id,
-		UserID:            c.UserID,
-		CredentialID:      c.CredentialID,
-		PublicKey:         c.PublicKey,
-		PublicKeyAlg:      int32(c.PublicKeyAlg), //nolint:gosec // COSE alg id fits
+		ID:           id,
+		UserID:       c.UserID,
+		CredentialID: c.CredentialID,
+		PublicKey:    c.PublicKey,
+		// #nosec G115 -- COSE algorithm identifiers (e.g. -7 ES256, -257 RS256) fit in int32
+		PublicKeyAlg:      int32(c.PublicKeyAlg),
 		AttestationFormat: nullString(c.AttestationFormat),
 		Aaguid:            nullUUID(c.AAGUID),
 		SignCount:         int64(c.SignCount),
@@ -124,6 +125,16 @@ func toDomainWebAuthnCredential(row oidc.WebauthnCredential) (domain.WebAuthnCre
 		id := row.Aaguid.UUID
 		aaguid = &id
 	}
+	// W3C WebAuthn Level 3 §6.1.1 defines sign_count as a uint32. We persist
+	// in BIGINT for headroom but clamp on the way back so an out-of-range row
+	// (which shouldn't occur unless the column was hand-edited) cannot wrap
+	// silently.
+	signCount := row.SignCount
+	if signCount < 0 {
+		signCount = 0
+	} else if signCount > int64(^uint32(0)) {
+		signCount = int64(^uint32(0))
+	}
 	c := domain.WebAuthnCredential{
 		ID:                row.ID,
 		UserID:            row.UserID,
@@ -132,7 +143,7 @@ func toDomainWebAuthnCredential(row oidc.WebauthnCredential) (domain.WebAuthnCre
 		PublicKeyAlg:      int(row.PublicKeyAlg),
 		AttestationFormat: row.AttestationFormat.String,
 		AAGUID:            aaguid,
-		SignCount:         uint32(row.SignCount), //nolint:gosec // bigint round-trip
+		SignCount:         uint32(signCount), // bounded above
 		Transports:        transports,
 		DeviceName:        row.DeviceName.String,
 		BackedUp:          row.BackedUp,
