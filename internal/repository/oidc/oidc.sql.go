@@ -144,7 +144,7 @@ type CreateTokenParams struct {
 	RequestID    string         `json:"request_id"`
 	ClientID     uuid.UUID      `json:"client_id"`
 	UserID       uuid.UUID      `json:"user_id"`
-	AccessToken  string         `json:"access_token"`
+	AccessToken  sql.NullString `json:"access_token"`
 	RefreshToken sql.NullString `json:"refresh_token"`
 	Scopes       string         `json:"scopes"`
 	ExpiresAt    time.Time      `json:"expires_at"`
@@ -259,7 +259,7 @@ const deleteTokenByAccessToken = `-- name: DeleteTokenByAccessToken :exec
 DELETE FROM tokens WHERE access_token = $1
 `
 
-func (q *Queries) DeleteTokenByAccessToken(ctx context.Context, accessToken string) error {
+func (q *Queries) DeleteTokenByAccessToken(ctx context.Context, accessToken sql.NullString) error {
 	_, err := q.exec(ctx, q.deleteTokenByAccessTokenStmt, deleteTokenByAccessToken, accessToken)
 	return err
 }
@@ -362,7 +362,7 @@ const getTokenByAccessToken = `-- name: GetTokenByAccessToken :one
 SELECT id, request_id, client_id, user_id, access_token, refresh_token, scopes, expires_at, created_at FROM tokens WHERE access_token = $1
 `
 
-func (q *Queries) GetTokenByAccessToken(ctx context.Context, accessToken string) (Token, error) {
+func (q *Queries) GetTokenByAccessToken(ctx context.Context, accessToken sql.NullString) (Token, error) {
 	row := q.queryRow(ctx, q.getTokenByAccessTokenStmt, getTokenByAccessToken, accessToken)
 	var i Token
 	err := row.Scan(
