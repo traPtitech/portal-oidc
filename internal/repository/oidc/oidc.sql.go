@@ -15,6 +15,49 @@ import (
 	"github.com/sqlc-dev/pqtype"
 )
 
+const consumeWebAuthnChallenge = `-- name: ConsumeWebAuthnChallenge :one
+WITH latest AS (
+    SELECT id
+    FROM webauthn_challenges
+    WHERE webauthn_challenges.session_id = $1
+      AND webauthn_challenges.type = $2
+      AND webauthn_challenges.expires_at > CURRENT_TIMESTAMP
+    ORDER BY webauthn_challenges.created_at DESC
+    LIMIT 1
+    FOR UPDATE SKIP LOCKED
+)
+DELETE FROM webauthn_challenges
+WHERE webauthn_challenges.id = (SELECT id FROM latest)
+RETURNING id, challenge, user_id, session_id, type, data, expires_at, created_at
+`
+
+type ConsumeWebAuthnChallengeParams struct {
+	SessionID sql.NullString `json:"session_id"`
+	Type      string         `json:"type"`
+}
+
+// Atomically delete and return the most recent active challenge for the given
+// (session_id, type). DELETE ... RETURNING removes the SELECT-then-DELETE race
+// so a challenge is guaranteed one-shot even under concurrent requests.
+// FOR UPDATE SKIP LOCKED prevents two concurrent transactions from queuing on
+// the same row; the loser sees zero rows and reports "no pending challenge"
+// which the handler treats as an authentication failure.
+func (q *Queries) ConsumeWebAuthnChallenge(ctx context.Context, arg ConsumeWebAuthnChallengeParams) (WebauthnChallenge, error) {
+	row := q.queryRow(ctx, q.consumeWebAuthnChallengeStmt, consumeWebAuthnChallenge, arg.SessionID, arg.Type)
+	var i WebauthnChallenge
+	err := row.Scan(
+		&i.ID,
+		&i.Challenge,
+		&i.UserID,
+		&i.SessionID,
+		&i.Type,
+		&i.Data,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createAuthorizationCode = `-- name: CreateAuthorizationCode :exec
 
 INSERT INTO authorization_codes (
@@ -392,15 +435,6 @@ func (q *Queries) DeleteTokensByUserAndClient(ctx context.Context, arg DeleteTok
 	return err
 }
 
-const deleteWebAuthnChallenge = `-- name: DeleteWebAuthnChallenge :exec
-DELETE FROM webauthn_challenges WHERE id = $1
-`
-
-func (q *Queries) DeleteWebAuthnChallenge(ctx context.Context, id uuid.UUID) error {
-	_, err := q.exec(ctx, q.deleteWebAuthnChallengeStmt, deleteWebAuthnChallenge, id)
-	return err
-}
-
 const deleteWebAuthnCredential = `-- name: DeleteWebAuthnCredential :exec
 DELETE FROM webauthn_credentials WHERE id = $1 AND user_id = $2
 `
@@ -534,34 +568,6 @@ func (q *Queries) GetTokenByRefreshToken(ctx context.Context, refreshToken sql.N
 		&i.AccessToken,
 		&i.RefreshToken,
 		&i.Scopes,
-		&i.ExpiresAt,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const getWebAuthnChallengeBySessionID = `-- name: GetWebAuthnChallengeBySessionID :one
-SELECT id, challenge, user_id, session_id, type, data, expires_at, created_at FROM webauthn_challenges
-WHERE session_id = $1 AND type = $2 AND expires_at > CURRENT_TIMESTAMP
-ORDER BY created_at DESC
-LIMIT 1
-`
-
-type GetWebAuthnChallengeBySessionIDParams struct {
-	SessionID sql.NullString `json:"session_id"`
-	Type      string         `json:"type"`
-}
-
-func (q *Queries) GetWebAuthnChallengeBySessionID(ctx context.Context, arg GetWebAuthnChallengeBySessionIDParams) (WebauthnChallenge, error) {
-	row := q.queryRow(ctx, q.getWebAuthnChallengeBySessionIDStmt, getWebAuthnChallengeBySessionID, arg.SessionID, arg.Type)
-	var i WebauthnChallenge
-	err := row.Scan(
-		&i.ID,
-		&i.Challenge,
-		&i.UserID,
-		&i.SessionID,
-		&i.Type,
-		&i.Data,
 		&i.ExpiresAt,
 		&i.CreatedAt,
 	)

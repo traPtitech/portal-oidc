@@ -126,5 +126,7 @@ CREATE TABLE IF NOT EXISTS webauthn_challenges (
   CONSTRAINT chk_webauthn_challenges_type CHECK (type IN ('register', 'authenticate'))
 );
 
-CREATE INDEX IF NOT EXISTS idx_webauthn_challenges_session_id ON webauthn_challenges (session_id);
+-- Composite index covers ConsumeWebAuthnChallenge's WHERE on (session_id, type)
+-- which is the hot path during every WebAuthn ceremony.
+CREATE INDEX IF NOT EXISTS idx_webauthn_challenges_session_type ON webauthn_challenges (session_id, type);
 CREATE INDEX IF NOT EXISTS idx_webauthn_challenges_expires_at ON webauthn_challenges (expires_at);

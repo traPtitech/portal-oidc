@@ -2,6 +2,8 @@ package v1
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"log"
@@ -16,6 +18,13 @@ import (
 	"github.com/traPtitech/portal-oidc/internal/domain"
 	"github.com/traPtitech/portal-oidc/internal/repository"
 )
+
+// webAuthnSessionKey is the session.Values entry holding a per-browser random
+// identifier used to bind a WebAuthn challenge to the browser that requested
+// it. Required because gorilla/sessions' CookieStore leaves Session.ID empty
+// (the cookie itself is the identifier in that store), so naively keying on
+// sess.ID would collide every challenge across every browser.
+const webAuthnSessionKey = "webauthn_session_key"
 
 const webauthnChallengeTTL = 5 * time.Minute
 
@@ -75,7 +84,7 @@ func (h *Handler) FinishWebAuthnRegistration(ctx *echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	sessionData, challengeID, err := h.consumeChallenge(ctx, cookieID, domain.WebAuthnChallengeRegister)
+	sessionData, err := h.consumeChallenge(ctx, cookieID, domain.WebAuthnChallengeRegister)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
@@ -114,9 +123,6 @@ func (h *Handler) FinishWebAuthnRegistration(ctx *echo.Context) error {
 	}
 	if err := h.webAuthnCreds.Create(ctx.Request().Context(), persisted); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to persist credential")
-	}
-	if err := h.webAuthnChalls.Delete(ctx.Request().Context(), challengeID); err != nil {
-		log.Printf("webauthn: failed to delete consumed challenge: %v", err)
 	}
 
 	return ctx.JSON(http.StatusOK, map[string]any{"status": "ok"})
@@ -163,7 +169,7 @@ func (h *Handler) FinishWebAuthnLogin(ctx *echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	sessionData, challengeID, err := h.consumeChallenge(ctx, cookieID, domain.WebAuthnChallengeAuthenticate)
+	sessionData, err := h.consumeChallenge(ctx, cookieID, domain.WebAuthnChallengeAuthenticate)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
@@ -182,9 +188,6 @@ func (h *Handler) FinishWebAuthnLogin(ctx *echo.Context) error {
 		if err := h.webAuthnCreds.UpdateSignCount(ctx.Request().Context(), stored.ID, credential.Authenticator.SignCount); err != nil {
 			log.Printf("webauthn: failed to update sign_count: %v", err)
 		}
-	}
-	if err := h.webAuthnChalls.Delete(ctx.Request().Context(), challengeID); err != nil {
-		log.Printf("webauthn: failed to delete consumed challenge: %v", err)
 	}
 
 	return ctx.JSON(http.StatusOK, map[string]any{"status": "ok"})
@@ -313,6 +316,10 @@ func (h *Handler) loadWebAuthnUser(ctx context.Context, userIDStr string) (*webA
 	}, nil
 }
 
+// currentWebAuthnSession returns the per-browser session identifier used to
+// bind a WebAuthn challenge to its origin. Generates and persists a random
+// 32-byte value in session.Values on first use because CookieStore does not
+// supply a Session.ID.
 func (h *Handler) currentWebAuthnSession(ctx *echo.Context) (string, authInfo, bool) {
 	info, ok := h.getAuthInfo(ctx)
 	if !ok {
@@ -322,7 +329,19 @@ func (h *Handler) currentWebAuthnSession(ctx *echo.Context) (string, authInfo, b
 	if err != nil {
 		return "", authInfo{}, false
 	}
-	return sess.ID, info, true
+	key, _ := sess.Values[webAuthnSessionKey].(string) //nolint:errcheck // ok-style assertion: empty string triggers regeneration below
+	if key == "" {
+		var buf [32]byte
+		if _, err := rand.Read(buf[:]); err != nil {
+			return "", authInfo{}, false
+		}
+		key = base64.RawURLEncoding.EncodeToString(buf[:])
+		sess.Values[webAuthnSessionKey] = key
+		if err := sess.Save(ctx.Request(), ctx.Response()); err != nil {
+			return "", authInfo{}, false
+		}
+	}
+	return key, info, true
 }
 
 func (h *Handler) persistChallenge(ctx *echo.Context, sessionID string, userID *uuid.UUID, t domain.WebAuthnChallengeType, sessionData *webauthn.SessionData) error {
@@ -340,17 +359,20 @@ func (h *Handler) persistChallenge(ctx *echo.Context, sessionID string, userID *
 	})
 }
 
-func (h *Handler) consumeChallenge(ctx *echo.Context, sessionID string, t domain.WebAuthnChallengeType) (*webauthn.SessionData, uuid.UUID, error) {
-	stored, err := h.webAuthnChalls.GetLatestForSession(ctx.Request().Context(), sessionID, t)
+// consumeChallenge atomically removes the pending challenge for this browser
+// session before returning it to the caller. Concurrent verify attempts
+// against the same challenge see ErrWebAuthnChallengeNotFound.
+func (h *Handler) consumeChallenge(ctx *echo.Context, sessionID string, t domain.WebAuthnChallengeType) (*webauthn.SessionData, error) {
+	stored, err := h.webAuthnChalls.Consume(ctx.Request().Context(), sessionID, t)
 	if err != nil {
 		if errors.Is(err, repository.ErrWebAuthnChallengeNotFound) {
-			return nil, uuid.Nil, errors.New("no pending webauthn challenge")
+			return nil, errors.New("no pending webauthn challenge")
 		}
-		return nil, uuid.Nil, err
+		return nil, err
 	}
 	var sessionData webauthn.SessionData
 	if err := json.Unmarshal(stored.Data, &sessionData); err != nil {
-		return nil, uuid.Nil, errors.New("corrupt webauthn challenge state")
+		return nil, errors.New("corrupt webauthn challenge state")
 	}
-	return &sessionData, stored.ID, nil
+	return &sessionData, nil
 }

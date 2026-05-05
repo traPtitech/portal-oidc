@@ -12,6 +12,13 @@ import (
 )
 
 type Querier interface {
+	// Atomically delete and return the most recent active challenge for the given
+	// (session_id, type). DELETE ... RETURNING removes the SELECT-then-DELETE race
+	// so a challenge is guaranteed one-shot even under concurrent requests.
+	// FOR UPDATE SKIP LOCKED prevents two concurrent transactions from queuing on
+	// the same row; the loser sees zero rows and reports "no pending challenge"
+	// which the handler treats as an authentication failure.
+	ConsumeWebAuthnChallenge(ctx context.Context, arg ConsumeWebAuthnChallengeParams) (WebauthnChallenge, error)
 	// Authorization Code queries
 	CreateAuthorizationCode(ctx context.Context, arg CreateAuthorizationCodeParams) error
 	// Client queries
@@ -39,7 +46,6 @@ type Querier interface {
 	DeleteTokenByRefreshToken(ctx context.Context, refreshToken sql.NullString) error
 	DeleteTokensByRequestID(ctx context.Context, requestID string) error
 	DeleteTokensByUserAndClient(ctx context.Context, arg DeleteTokensByUserAndClientParams) error
-	DeleteWebAuthnChallenge(ctx context.Context, id uuid.UUID) error
 	DeleteWebAuthnCredential(ctx context.Context, arg DeleteWebAuthnCredentialParams) error
 	GetAuthorizationCode(ctx context.Context, code string) (AuthorizationCode, error)
 	GetClient(ctx context.Context, clientID uuid.UUID) (Client, error)
@@ -47,7 +53,6 @@ type Querier interface {
 	GetTokenByAccessToken(ctx context.Context, accessToken string) (Token, error)
 	GetTokenByID(ctx context.Context, id uuid.UUID) (Token, error)
 	GetTokenByRefreshToken(ctx context.Context, refreshToken sql.NullString) (Token, error)
-	GetWebAuthnChallengeBySessionID(ctx context.Context, arg GetWebAuthnChallengeBySessionIDParams) (WebauthnChallenge, error)
 	GetWebAuthnCredentialByCredentialID(ctx context.Context, credentialID []byte) (WebauthnCredential, error)
 	ListClients(ctx context.Context) ([]Client, error)
 	ListWebAuthnCredentialsByUser(ctx context.Context, userID uuid.UUID) ([]WebauthnCredential, error)

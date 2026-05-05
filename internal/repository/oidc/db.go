@@ -24,6 +24,9 @@ func New(db DBTX) *Queries {
 func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	q := Queries{db: db}
 	var err error
+	if q.consumeWebAuthnChallengeStmt, err = db.PrepareContext(ctx, consumeWebAuthnChallenge); err != nil {
+		return nil, fmt.Errorf("error preparing query ConsumeWebAuthnChallenge: %w", err)
+	}
 	if q.createAuthorizationCodeStmt, err = db.PrepareContext(ctx, createAuthorizationCode); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateAuthorizationCode: %w", err)
 	}
@@ -87,9 +90,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.deleteTokensByUserAndClientStmt, err = db.PrepareContext(ctx, deleteTokensByUserAndClient); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteTokensByUserAndClient: %w", err)
 	}
-	if q.deleteWebAuthnChallengeStmt, err = db.PrepareContext(ctx, deleteWebAuthnChallenge); err != nil {
-		return nil, fmt.Errorf("error preparing query DeleteWebAuthnChallenge: %w", err)
-	}
 	if q.deleteWebAuthnCredentialStmt, err = db.PrepareContext(ctx, deleteWebAuthnCredential); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteWebAuthnCredential: %w", err)
 	}
@@ -110,9 +110,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getTokenByRefreshTokenStmt, err = db.PrepareContext(ctx, getTokenByRefreshToken); err != nil {
 		return nil, fmt.Errorf("error preparing query GetTokenByRefreshToken: %w", err)
-	}
-	if q.getWebAuthnChallengeBySessionIDStmt, err = db.PrepareContext(ctx, getWebAuthnChallengeBySessionID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetWebAuthnChallengeBySessionID: %w", err)
 	}
 	if q.getWebAuthnCredentialByCredentialIDStmt, err = db.PrepareContext(ctx, getWebAuthnCredentialByCredentialID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetWebAuthnCredentialByCredentialID: %w", err)
@@ -146,6 +143,11 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 
 func (q *Queries) Close() error {
 	var err error
+	if q.consumeWebAuthnChallengeStmt != nil {
+		if cerr := q.consumeWebAuthnChallengeStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing consumeWebAuthnChallengeStmt: %w", cerr)
+		}
+	}
 	if q.createAuthorizationCodeStmt != nil {
 		if cerr := q.createAuthorizationCodeStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createAuthorizationCodeStmt: %w", cerr)
@@ -251,11 +253,6 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deleteTokensByUserAndClientStmt: %w", cerr)
 		}
 	}
-	if q.deleteWebAuthnChallengeStmt != nil {
-		if cerr := q.deleteWebAuthnChallengeStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deleteWebAuthnChallengeStmt: %w", cerr)
-		}
-	}
 	if q.deleteWebAuthnCredentialStmt != nil {
 		if cerr := q.deleteWebAuthnCredentialStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteWebAuthnCredentialStmt: %w", cerr)
@@ -289,11 +286,6 @@ func (q *Queries) Close() error {
 	if q.getTokenByRefreshTokenStmt != nil {
 		if cerr := q.getTokenByRefreshTokenStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getTokenByRefreshTokenStmt: %w", cerr)
-		}
-	}
-	if q.getWebAuthnChallengeBySessionIDStmt != nil {
-		if cerr := q.getWebAuthnChallengeBySessionIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getWebAuthnChallengeBySessionIDStmt: %w", cerr)
 		}
 	}
 	if q.getWebAuthnCredentialByCredentialIDStmt != nil {
@@ -380,6 +372,7 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 type Queries struct {
 	db                                      DBTX
 	tx                                      *sql.Tx
+	consumeWebAuthnChallengeStmt            *sql.Stmt
 	createAuthorizationCodeStmt             *sql.Stmt
 	createClientStmt                        *sql.Stmt
 	createOIDCSessionStmt                   *sql.Stmt
@@ -401,7 +394,6 @@ type Queries struct {
 	deleteTokenByRefreshTokenStmt           *sql.Stmt
 	deleteTokensByRequestIDStmt             *sql.Stmt
 	deleteTokensByUserAndClientStmt         *sql.Stmt
-	deleteWebAuthnChallengeStmt             *sql.Stmt
 	deleteWebAuthnCredentialStmt            *sql.Stmt
 	getAuthorizationCodeStmt                *sql.Stmt
 	getClientStmt                           *sql.Stmt
@@ -409,7 +401,6 @@ type Queries struct {
 	getTokenByAccessTokenStmt               *sql.Stmt
 	getTokenByIDStmt                        *sql.Stmt
 	getTokenByRefreshTokenStmt              *sql.Stmt
-	getWebAuthnChallengeBySessionIDStmt     *sql.Stmt
 	getWebAuthnCredentialByCredentialIDStmt *sql.Stmt
 	listClientsStmt                         *sql.Stmt
 	listWebAuthnCredentialsByUserStmt       *sql.Stmt
@@ -425,6 +416,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
 		db:                                      tx,
 		tx:                                      tx,
+		consumeWebAuthnChallengeStmt:            q.consumeWebAuthnChallengeStmt,
 		createAuthorizationCodeStmt:             q.createAuthorizationCodeStmt,
 		createClientStmt:                        q.createClientStmt,
 		createOIDCSessionStmt:                   q.createOIDCSessionStmt,
@@ -446,7 +438,6 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteTokenByRefreshTokenStmt:           q.deleteTokenByRefreshTokenStmt,
 		deleteTokensByRequestIDStmt:             q.deleteTokensByRequestIDStmt,
 		deleteTokensByUserAndClientStmt:         q.deleteTokensByUserAndClientStmt,
-		deleteWebAuthnChallengeStmt:             q.deleteWebAuthnChallengeStmt,
 		deleteWebAuthnCredentialStmt:            q.deleteWebAuthnCredentialStmt,
 		getAuthorizationCodeStmt:                q.getAuthorizationCodeStmt,
 		getClientStmt:                           q.getClientStmt,
@@ -454,7 +445,6 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getTokenByAccessTokenStmt:               q.getTokenByAccessTokenStmt,
 		getTokenByIDStmt:                        q.getTokenByIDStmt,
 		getTokenByRefreshTokenStmt:              q.getTokenByRefreshTokenStmt,
-		getWebAuthnChallengeBySessionIDStmt:     q.getWebAuthnChallengeBySessionIDStmt,
 		getWebAuthnCredentialByCredentialIDStmt: q.getWebAuthnCredentialByCredentialIDStmt,
 		listClientsStmt:                         q.listClientsStmt,
 		listWebAuthnCredentialsByUserStmt:       q.listWebAuthnCredentialsByUserStmt,

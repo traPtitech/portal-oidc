@@ -180,11 +180,14 @@ func setupTestHandler(t *testing.T) (*Handler, func()) {
 		compose.OAuth2TokenRevocationFactory,
 	)
 
-	wa, _ := webauthn.New(&webauthn.Config{
+	wa, waErr := webauthn.New(&webauthn.Config{
 		RPDisplayName: "test",
 		RPID:          "localhost",
 		RPOrigins:     []string{"http://localhost:8080"},
 	})
+	if waErr != nil {
+		t.Fatalf("failed to initialize webauthn: %v", waErr)
+	}
 
 	handler := NewHandler(
 		clientUseCase, oauthUsecase, oauth2Provider, nil,

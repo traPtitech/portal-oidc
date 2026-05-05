@@ -182,14 +182,26 @@ INSERT INTO webauthn_challenges (
     expires_at
 ) VALUES ($1, $2, $3, $4, $5, $6, $7);
 
--- name: GetWebAuthnChallengeBySessionID :one
-SELECT * FROM webauthn_challenges
-WHERE session_id = $1 AND type = $2 AND expires_at > CURRENT_TIMESTAMP
-ORDER BY created_at DESC
-LIMIT 1;
-
--- name: DeleteWebAuthnChallenge :exec
-DELETE FROM webauthn_challenges WHERE id = $1;
+-- name: ConsumeWebAuthnChallenge :one
+-- Atomically delete and return the most recent active challenge for the given
+-- (session_id, type). DELETE ... RETURNING removes the SELECT-then-DELETE race
+-- so a challenge is guaranteed one-shot even under concurrent requests.
+-- FOR UPDATE SKIP LOCKED prevents two concurrent transactions from queuing on
+-- the same row; the loser sees zero rows and reports "no pending challenge"
+-- which the handler treats as an authentication failure.
+WITH latest AS (
+    SELECT id
+    FROM webauthn_challenges
+    WHERE webauthn_challenges.session_id = $1
+      AND webauthn_challenges.type = $2
+      AND webauthn_challenges.expires_at > CURRENT_TIMESTAMP
+    ORDER BY webauthn_challenges.created_at DESC
+    LIMIT 1
+    FOR UPDATE SKIP LOCKED
+)
+DELETE FROM webauthn_challenges
+WHERE webauthn_challenges.id = (SELECT id FROM latest)
+RETURNING *;
 
 -- name: DeleteExpiredWebAuthnChallenges :exec
 DELETE FROM webauthn_challenges WHERE expires_at < CURRENT_TIMESTAMP;

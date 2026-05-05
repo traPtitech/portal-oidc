@@ -93,7 +93,7 @@ func buildEcho(handler *v1.Handler) *echo.Echo {
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
 		AllowHeaders: []string{"*"},
-		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 	}))
 	gen.RegisterHandlers(e, handler)
 	e.POST("/auth/webauthn/register/options", handler.BeginWebAuthnRegistration)

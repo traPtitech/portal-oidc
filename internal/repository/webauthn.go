@@ -158,8 +158,10 @@ func toDomainWebAuthnCredential(row oidc.WebauthnCredential) (domain.WebAuthnCre
 
 type WebAuthnChallengeRepository interface {
 	Create(ctx context.Context, ch domain.WebAuthnChallenge) error
-	GetLatestForSession(ctx context.Context, sessionID string, t domain.WebAuthnChallengeType) (domain.WebAuthnChallenge, error)
-	Delete(ctx context.Context, id uuid.UUID) error
+	// Consume atomically deletes and returns the most recent active challenge
+	// for the (sessionID, type) pair. Returns ErrWebAuthnChallengeNotFound if
+	// no live challenge exists or another request consumed it first.
+	Consume(ctx context.Context, sessionID string, t domain.WebAuthnChallengeType) (domain.WebAuthnChallenge, error)
 	DeleteExpired(ctx context.Context) error
 }
 
@@ -187,8 +189,8 @@ func (r *webAuthnChallengeRepository) Create(ctx context.Context, ch domain.WebA
 	})
 }
 
-func (r *webAuthnChallengeRepository) GetLatestForSession(ctx context.Context, sessionID string, t domain.WebAuthnChallengeType) (domain.WebAuthnChallenge, error) {
-	row, err := r.queries.GetWebAuthnChallengeBySessionID(ctx, oidc.GetWebAuthnChallengeBySessionIDParams{
+func (r *webAuthnChallengeRepository) Consume(ctx context.Context, sessionID string, t domain.WebAuthnChallengeType) (domain.WebAuthnChallenge, error) {
+	row, err := r.queries.ConsumeWebAuthnChallenge(ctx, oidc.ConsumeWebAuthnChallengeParams{
 		SessionID: nullString(sessionID),
 		Type:      string(t),
 	})
@@ -199,10 +201,6 @@ func (r *webAuthnChallengeRepository) GetLatestForSession(ctx context.Context, s
 		return domain.WebAuthnChallenge{}, err
 	}
 	return toDomainWebAuthnChallenge(row), nil
-}
-
-func (r *webAuthnChallengeRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	return r.queries.DeleteWebAuthnChallenge(ctx, id)
 }
 
 func (r *webAuthnChallengeRepository) DeleteExpired(ctx context.Context) error {
