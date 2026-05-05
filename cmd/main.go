@@ -1,13 +1,19 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/alecthomas/kong"
 )
+
+const shutdownTimeout = 30 * time.Second
 
 type CLI struct {
 	Config string   `short:"c" help:"Config file path" type:"path"`
@@ -27,8 +33,33 @@ func (s *ServeCmd) Run(cfg *Config) error {
 		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
-	log.Printf("Starting server on %s", srv.Addr)
-	return srv.ListenAndServe()
+
+	serveErr := make(chan error, 1)
+	go func() {
+		log.Printf("Starting server on %s", srv.Addr)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			serveErr <- err
+			return
+		}
+		serveErr <- nil
+	}()
+
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
+
+	select {
+	case err := <-serveErr:
+		return err
+	case sig := <-signals:
+		log.Printf("Received %s, shutting down...", sig)
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		return err
+	}
+	return <-serveErr
 }
 
 func main() {
