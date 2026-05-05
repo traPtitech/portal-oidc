@@ -47,6 +47,19 @@ type OidcSession struct {
 	CreatedAt     time.Time      `json:"created_at"`
 }
 
+type SigningKey struct {
+	ID         uuid.UUID    `json:"id"`
+	Kid        string       `json:"kid"`
+	Algorithm  string       `json:"algorithm"`
+	Use        string       `json:"use_"`
+	Status     string       `json:"status"`
+	PublicKey  string       `json:"public_key"`
+	PrivateKey string       `json:"private_key"`
+	ExpiresAt  sql.NullTime `json:"expires_at"`
+	RotatedAt  sql.NullTime `json:"rotated_at"`
+	CreatedAt  time.Time    `json:"created_at"`
+}
+
 type Token struct {
 	ID           uuid.UUID      `json:"id"`
 	RequestID    string         `json:"request_id"`

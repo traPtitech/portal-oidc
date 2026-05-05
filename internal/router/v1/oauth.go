@@ -1,8 +1,6 @@
 package v1
 
 import (
-	"crypto/sha256"
-	"encoding/base64"
 	"errors"
 	"net/http"
 	"net/url"
@@ -242,24 +240,35 @@ func (h *Handler) handleUserInfo(ctx *echo.Context, token string) error {
 	return ctx.JSON(http.StatusOK, info)
 }
 
+// GetJWKS publishes every active and rotated signing key so RPs can verify
+// tokens issued before the most recent rotation. Revoked keys are excluded.
+//
+// Refs:
+//   - RFC 7517 §5 (JWK Set Format)
+//     https://datatracker.ietf.org/doc/html/rfc7517#section-5
+//   - OIDC Discovery 1.0 §10.1 (Key Rotation)
+//     https://openid.net/specs/openid-connect-discovery-1_0.html#RotateSigKeys
 func (h *Handler) GetJWKS(ctx *echo.Context) error {
-	if h.config.PrivateKey == nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "signing key not configured")
+	keys, err := h.keys.PublishableKeys(ctx.Request().Context())
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to load signing keys")
 	}
-	pubKey := &h.config.PrivateKey.PublicKey
+	if len(keys) == 0 {
+		return echo.NewHTTPError(http.StatusInternalServerError, "no signing keys available")
+	}
 
-	hash := sha256.Sum256(pubKey.N.Bytes())
-	kid := base64.RawURLEncoding.EncodeToString(hash[:8])
-
-	jwk := jose.JSONWebKey{
-		Key:       pubKey,
-		KeyID:     kid,
-		Algorithm: string(jose.RS256),
-		Use:       "sig",
+	jwks := make([]jose.JSONWebKey, 0, len(keys))
+	for _, k := range keys {
+		jwks = append(jwks, jose.JSONWebKey{
+			Key:       k.PublicKey,
+			KeyID:     k.KID,
+			Algorithm: k.Algorithm,
+			Use:       string(k.Use),
+		})
 	}
 
 	return ctx.JSON(http.StatusOK, map[string]interface{}{
-		"keys": []jose.JSONWebKey{jwk},
+		"keys": jwks,
 	})
 }
 

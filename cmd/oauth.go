@@ -2,20 +2,13 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
-	"encoding/pem"
-	"errors"
-	"fmt"
-	"io"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/ory/fosite"
 	"github.com/ory/fosite/compose"
 	"github.com/ory/fosite/token/jwt"
+
+	"github.com/traPtitech/portal-oidc/internal/keymanager"
 )
 
 type OAuthProviderConfig struct {
@@ -38,7 +31,7 @@ func defaultOAuthProviderConfig() OAuthProviderConfig {
 	}
 }
 
-func newOAuthProvider(storage fosite.Storage, config OAuthProviderConfig, privateKey *rsa.PrivateKey) fosite.OAuth2Provider {
+func newOAuthProvider(storage fosite.Storage, config OAuthProviderConfig, keys *keymanager.Manager) fosite.OAuth2Provider {
 	fositeConfig := &fosite.Config{
 		AccessTokenLifespan:            config.AccessTokenLifespan,
 		RefreshTokenLifespan:           config.RefreshTokenLifespan,
@@ -55,8 +48,14 @@ func newOAuthProvider(storage fosite.Storage, config OAuthProviderConfig, privat
 		IDTokenIssuer:                  config.Issuer,
 	}
 
+	// Resolve the active signing key on every request so a manual rotation via
+	// the keymanager is picked up without restarting fosite.
 	privateKeyGetter := func(_ context.Context) (interface{}, error) {
-		return privateKey, nil
+		key, _, err := keys.ActiveKey()
+		if err != nil {
+			return nil, err
+		}
+		return key, nil
 	}
 
 	return compose.Compose(
@@ -76,130 +75,4 @@ func newOAuthProvider(storage fosite.Storage, config OAuthProviderConfig, privat
 		compose.OpenIDConnectExplicitFactory,
 		compose.OpenIDConnectRefreshFactory,
 	)
-}
-
-func loadOrGenerateKey(path string) (*rsa.PrivateKey, error) {
-	key, err := loadKey(path)
-	if err == nil {
-		return key, nil
-	}
-
-	if !errors.Is(err, os.ErrNotExist) {
-		return nil, err
-	}
-
-	key, err = rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := saveKey(path, key); err != nil {
-		return nil, err
-	}
-
-	return key, nil
-}
-
-func loadKey(path string) (key *rsa.PrivateKey, err error) {
-	root, filename, err := openKeyRoot(path)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if cerr := root.Close(); cerr != nil && err == nil {
-			err = cerr
-		}
-	}()
-
-	f, err := root.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if cerr := f.Close(); cerr != nil && err == nil {
-			err = cerr
-		}
-	}()
-
-	data, err := io.ReadAll(f)
-	if err != nil {
-		return nil, err
-	}
-
-	block, _ := pem.Decode(data)
-	if block == nil {
-		return nil, errors.New("failed to decode PEM")
-	}
-
-	switch block.Type {
-	case "RSA PRIVATE KEY":
-		return x509.ParsePKCS1PrivateKey(block.Bytes)
-	case "PRIVATE KEY":
-		parsed, pkcs8Err := x509.ParsePKCS8PrivateKey(block.Bytes)
-		if pkcs8Err != nil {
-			return nil, pkcs8Err
-		}
-		rsaKey, ok := parsed.(*rsa.PrivateKey)
-		if !ok {
-			return nil, errors.New("private key is not RSA")
-		}
-		return rsaKey, nil
-	default:
-		return nil, fmt.Errorf("unsupported PEM type: %s", block.Type)
-	}
-}
-
-func openKeyRoot(path string) (*os.Root, string, error) {
-	cleanPath := filepath.Clean(path)
-	dir := filepath.Dir(cleanPath)
-	filename := filepath.Base(cleanPath)
-
-	root, err := os.OpenRoot(dir)
-	if err != nil {
-		return nil, "", err
-	}
-
-	return root, filename, nil
-}
-
-func saveKey(path string, key *rsa.PrivateKey) (err error) {
-	cleanPath := filepath.Clean(path)
-	dir := filepath.Dir(cleanPath)
-	filename := filepath.Base(cleanPath)
-
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return err
-	}
-
-	root, err := os.OpenRoot(dir)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if cerr := root.Close(); cerr != nil && err == nil {
-			err = cerr
-		}
-	}()
-
-	data := pem.EncodeToMemory(&pem.Block{
-		Type:  "RSA PRIVATE KEY",
-		Bytes: x509.MarshalPKCS1PrivateKey(key),
-	})
-
-	f, err := root.Create(filename)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if cerr := f.Close(); cerr != nil && err == nil {
-			err = cerr
-		}
-	}()
-
-	if err := f.Chmod(0o600); err != nil {
-		return err
-	}
-
-	_, err = f.Write(data)
-	return err
 }
