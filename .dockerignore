@@ -10,6 +10,9 @@
 
 # Build artifacts
 tmp/
+bin/
+out/
+/portal-oidc
 *.exe
 *.exe~
 *.dll
@@ -17,6 +20,15 @@ tmp/
 *.dylib
 *.test
 *.out
+
+# Local runtime state — must never enter the image
+data/
+*.pem
+*.key
+
+# Logs
+*.log
+logs/
 
 # Documentation
 *.md

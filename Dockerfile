@@ -1,25 +1,30 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1.7
 
 # ============================================================================
-# Base stage: Common setup for all stages
+# Base stage
 # ============================================================================
-FROM golang:1.26-alpine AS base
+FROM --platform=$BUILDPLATFORM golang:1.26.2-alpine@sha256:f85330846cde1e57ca9ec309382da3b8e6ae3ab943d2739500e08c86393a21b1 AS base
 
 WORKDIR /app
+ENV CGO_ENABLED=0 \
+    GOTOOLCHAIN=local \
+    GOFLAGS=-mod=readonly
 
 # ============================================================================
-# Development stage: Hot-reload with Air
+# Development stage: hot-reload with Air
 # ============================================================================
 FROM base AS development
 
-# Install development tools
-RUN go install github.com/air-verse/air@latest
+# renovate: datasource=github-releases depName=air-verse/air
+ARG AIR_VERSION=v1.63.0
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    GOFLAGS= go install github.com/air-verse/air@${AIR_VERSION}
 
-# Copy dependency files first for better layer caching
 COPY go.mod go.sum ./
-RUN go mod download && go mod verify
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download && go mod verify
 
-# Copy source code (will be overwritten by volume mount in compose)
 COPY . .
 
 EXPOSE 8080
@@ -27,45 +32,59 @@ EXPOSE 8080
 CMD ["air", "-c", ".air.toml"]
 
 # ============================================================================
-# Builder stage: Compile the application
+# Builder stage: compile the application
 # ============================================================================
 FROM base AS builder
 
-# Build arguments for versioning
+ARG VERSION=dev
+ARG COMMIT=unknown
+ARG BUILD_DATE=unknown
+ARG TARGETOS
+ARG TARGETARCH
+
+RUN --mount=type=bind,source=go.mod,target=go.mod \
+    --mount=type=bind,source=go.sum,target=go.sum \
+    --mount=type=cache,target=/go/pkg/mod \
+    go mod download && go mod verify
+
+RUN --mount=type=bind,target=. \
+    --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build,id=gobuild-${TARGETOS}-${TARGETARCH} \
+    GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} \
+    go build \
+      -trimpath \
+      -buildvcs=false \
+      -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.buildDate=${BUILD_DATE}" \
+      -o /out/portal-oidc \
+      ./cmd
+
+RUN mkdir -p /out/data && chown 65532:65532 /out/data && chmod 700 /out/data
+
+# ============================================================================
+# Production stage: distroless runtime image
+# ============================================================================
+FROM gcr.io/distroless/static-debian12:nonroot@sha256:a9329520abc449e3b14d5bc3a6ffae065bdde0f02667fa10880c49b35c109fd1 AS production
+
 ARG VERSION=dev
 ARG COMMIT=unknown
 ARG BUILD_DATE=unknown
 
-# Copy dependency files first for better layer caching
-COPY go.mod go.sum ./
-RUN go mod download && go mod verify
-
-# Copy source code
-COPY . .
-
-# Build static binary with optimizations
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-    -trimpath \
-    -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.buildDate=${BUILD_DATE}" \
-    -o /app/portal-oidc \
-    ./cmd
-
-# ============================================================================
-# Production stage: Distroless runtime image
-# ============================================================================
-FROM gcr.io/distroless/static-debian12:nonroot AS production
-
-# OCI labels
 LABEL org.opencontainers.image.title="portal-oidc" \
       org.opencontainers.image.description="traP Portal OIDC Provider" \
       org.opencontainers.image.source="https://github.com/traPtitech/portal-oidc" \
       org.opencontainers.image.vendor="traP" \
-      org.opencontainers.image.licenses="MIT"
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${COMMIT}" \
+      org.opencontainers.image.created="${BUILD_DATE}"
 
 WORKDIR /app
 
-# Copy the binary
-COPY --from=builder /app/portal-oidc /app/portal-oidc
+COPY --from=builder --link --chown=65532:65532 /out/portal-oidc /app/portal-oidc
+COPY --from=builder --link --chown=65532:65532 /out/data        /app/data
+
+USER 65532:65532
+STOPSIGNAL SIGTERM
 
 EXPOSE 8080
 
