@@ -33,6 +33,23 @@ func (h *Handler) authorize(ctx *echo.Context) error {
 	rw := ctx.Response()
 	req := ctx.Request()
 
+	// Discovery advertises request_parameter_supported=false and
+	// request_uri_parameter_supported=false. OIDC Core 1.0 §6.1 requires the
+	// matching error codes (request_not_supported / request_uri_not_supported)
+	// when these parameters are sent regardless. Without this short-circuit
+	// fosite would otherwise try to parse the JWT request object and surface
+	// invalid_request_object instead.
+	if err := req.ParseForm(); err == nil {
+		if req.Form.Get("request") != "" {
+			h.oauth2.WriteAuthorizeError(c, rw, &fosite.AuthorizeRequest{Request: fosite.Request{Form: req.Form}}, fosite.ErrRequestNotSupported)
+			return nil
+		}
+		if req.Form.Get("request_uri") != "" {
+			h.oauth2.WriteAuthorizeError(c, rw, &fosite.AuthorizeRequest{Request: fosite.Request{Form: req.Form}}, fosite.ErrRequestURINotSupported)
+			return nil
+		}
+	}
+
 	ar, err := h.oauth2.NewAuthorizeRequest(c, req)
 	if err != nil {
 		h.oauth2.WriteAuthorizeError(c, rw, ar, err)
@@ -269,6 +286,8 @@ func (h *Handler) GetOpenIDConfiguration(ctx *echo.Context) error {
 	claimsSupported := []string{"sub", "name", "preferred_username", "email", "email_verified"}
 	codeChallengeMethodsSupported := []string{"S256", "plain"}
 	tokenEndpointAuthMethodsSupported := []string{"client_secret_basic", "client_secret_post"}
+	requestParameterSupported := false
+	requestURIParameterSupported := false
 
 	return ctx.JSON(http.StatusOK, gen.OpenIDConfiguration{
 		Issuer:                            issuer,
@@ -283,5 +302,7 @@ func (h *Handler) GetOpenIDConfiguration(ctx *echo.Context) error {
 		ClaimsSupported:                   &claimsSupported,
 		CodeChallengeMethodsSupported:     &codeChallengeMethodsSupported,
 		TokenEndpointAuthMethodsSupported: &tokenEndpointAuthMethodsSupported,
+		RequestParameterSupported:         &requestParameterSupported,
+		RequestUriParameterSupported:      &requestURIParameterSupported,
 	})
 }
