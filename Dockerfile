@@ -3,7 +3,7 @@
 # ============================================================================
 # Base stage
 # ============================================================================
-FROM --platform=$BUILDPLATFORM golang:1.26.2-alpine AS base
+FROM --platform=$BUILDPLATFORM golang:1.26.2-alpine@sha256:f85330846cde1e57ca9ec309382da3b8e6ae3ab943d2739500e08c86393a21b1 AS base
 
 WORKDIR /app
 ENV CGO_ENABLED=0 \
@@ -63,7 +63,7 @@ RUN mkdir -p /out/data && chown 65532:65532 /out/data && chmod 700 /out/data
 # ============================================================================
 # Production stage: distroless runtime image
 # ============================================================================
-FROM gcr.io/distroless/static-debian12:nonroot AS production
+FROM gcr.io/distroless/static-debian12:nonroot@sha256:a9329520abc449e3b14d5bc3a6ffae065bdde0f02667fa10880c49b35c109fd1 AS production
 
 ARG VERSION=dev
 ARG COMMIT=unknown

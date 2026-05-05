@@ -1,11 +1,14 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "docker": {
+    "pinDigests": true
+  },
   "packageRules": [
     {
       "description": "Docker images (non-major)",
       "matchDatasources": ["docker"],
       "automerge": true,
-      "matchUpdateTypes": ["minor", "patch"]
+      "matchUpdateTypes": ["minor", "patch", "digest"]
     },
     {
       "description": "Docker images (major)",
