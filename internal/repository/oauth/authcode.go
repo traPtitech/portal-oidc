@@ -101,5 +101,9 @@ func (s *Storage) CreatePKCERequestSession(ctx context.Context, signature string
 }
 
 func (s *Storage) DeletePKCERequestSession(ctx context.Context, signature string) error {
-	return nil
+	err := s.getAuthCodes(ctx).ClearPKCE(ctx, signature)
+	if err != nil && errors.Is(err, repository.ErrAuthCodeNotFound) {
+		return nil
+	}
+	return err
 }

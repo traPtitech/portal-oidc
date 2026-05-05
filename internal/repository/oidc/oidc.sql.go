@@ -14,6 +14,18 @@ import (
 	"github.com/google/uuid"
 )
 
+const clearAuthorizationCodePKCE = `-- name: ClearAuthorizationCodePKCE :exec
+UPDATE authorization_codes SET
+    code_challenge = NULL,
+    code_challenge_method = NULL
+WHERE code = $1
+`
+
+func (q *Queries) ClearAuthorizationCodePKCE(ctx context.Context, code string) error {
+	_, err := q.exec(ctx, q.clearAuthorizationCodePKCEStmt, clearAuthorizationCodePKCE, code)
+	return err
+}
+
 const createAuthorizationCode = `-- name: CreateAuthorizationCode :exec
 
 INSERT INTO authorization_codes (
