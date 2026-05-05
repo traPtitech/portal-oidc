@@ -134,3 +134,35 @@ DELETE FROM oidc_sessions WHERE authorize_code = $1;
 
 -- name: DeleteAllOIDCSessions :exec
 DELETE FROM oidc_sessions;
+
+-- Audit log queries
+
+-- name: CreateAuditLog :exec
+INSERT INTO audit_logs (
+    id,
+    event_type,
+    user_id,
+    client_id,
+    session_id,
+    ip_address,
+    user_agent,
+    details
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+
+-- name: ListAuditLogsByUser :many
+SELECT * FROM audit_logs
+WHERE user_id = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3;
+
+-- name: ListAuditLogsByClient :many
+SELECT * FROM audit_logs
+WHERE client_id = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3;
+
+-- name: ListAuditLogsByEventType :many
+SELECT * FROM audit_logs
+WHERE event_type = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3;

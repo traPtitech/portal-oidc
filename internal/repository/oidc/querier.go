@@ -12,6 +12,8 @@ import (
 )
 
 type Querier interface {
+	// Audit log queries
+	CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) error
 	// Authorization Code queries
 	CreateAuthorizationCode(ctx context.Context, arg CreateAuthorizationCodeParams) error
 	// Client queries
@@ -40,6 +42,9 @@ type Querier interface {
 	GetTokenByAccessToken(ctx context.Context, accessToken string) (Token, error)
 	GetTokenByID(ctx context.Context, id uuid.UUID) (Token, error)
 	GetTokenByRefreshToken(ctx context.Context, refreshToken sql.NullString) (Token, error)
+	ListAuditLogsByClient(ctx context.Context, arg ListAuditLogsByClientParams) ([]AuditLog, error)
+	ListAuditLogsByEventType(ctx context.Context, arg ListAuditLogsByEventTypeParams) ([]AuditLog, error)
+	ListAuditLogsByUser(ctx context.Context, arg ListAuditLogsByUserParams) ([]AuditLog, error)
 	ListClients(ctx context.Context) ([]Client, error)
 	MarkAuthorizationCodeUsed(ctx context.Context, code string) error
 	UpdateAuthorizationCodePKCE(ctx context.Context, arg UpdateAuthorizationCodePKCEParams) error

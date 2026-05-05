@@ -12,7 +12,48 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sqlc-dev/pqtype"
 )
+
+const createAuditLog = `-- name: CreateAuditLog :exec
+
+INSERT INTO audit_logs (
+    id,
+    event_type,
+    user_id,
+    client_id,
+    session_id,
+    ip_address,
+    user_agent,
+    details
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+`
+
+type CreateAuditLogParams struct {
+	ID        uuid.UUID             `json:"id"`
+	EventType string                `json:"event_type"`
+	UserID    uuid.NullUUID         `json:"user_id"`
+	ClientID  uuid.NullUUID         `json:"client_id"`
+	SessionID sql.NullString        `json:"session_id"`
+	IpAddress sql.NullString        `json:"ip_address"`
+	UserAgent sql.NullString        `json:"user_agent"`
+	Details   pqtype.NullRawMessage `json:"details"`
+}
+
+// Audit log queries
+func (q *Queries) CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) error {
+	_, err := q.exec(ctx, q.createAuditLogStmt, createAuditLog,
+		arg.ID,
+		arg.EventType,
+		arg.UserID,
+		arg.ClientID,
+		arg.SessionID,
+		arg.IpAddress,
+		arg.UserAgent,
+		arg.Details,
+	)
+	return err
+}
 
 const createAuthorizationCode = `-- name: CreateAuthorizationCode :exec
 
@@ -419,6 +460,144 @@ func (q *Queries) GetTokenByRefreshToken(ctx context.Context, refreshToken sql.N
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const listAuditLogsByClient = `-- name: ListAuditLogsByClient :many
+SELECT id, event_type, user_id, client_id, session_id, ip_address, user_agent, details, created_at FROM audit_logs
+WHERE client_id = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListAuditLogsByClientParams struct {
+	ClientID uuid.NullUUID `json:"client_id"`
+	Limit    int32         `json:"limit"`
+	Offset   int32         `json:"offset"`
+}
+
+func (q *Queries) ListAuditLogsByClient(ctx context.Context, arg ListAuditLogsByClientParams) ([]AuditLog, error) {
+	rows, err := q.query(ctx, q.listAuditLogsByClientStmt, listAuditLogsByClient, arg.ClientID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AuditLog{}
+	for rows.Next() {
+		var i AuditLog
+		if err := rows.Scan(
+			&i.ID,
+			&i.EventType,
+			&i.UserID,
+			&i.ClientID,
+			&i.SessionID,
+			&i.IpAddress,
+			&i.UserAgent,
+			&i.Details,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAuditLogsByEventType = `-- name: ListAuditLogsByEventType :many
+SELECT id, event_type, user_id, client_id, session_id, ip_address, user_agent, details, created_at FROM audit_logs
+WHERE event_type = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListAuditLogsByEventTypeParams struct {
+	EventType string `json:"event_type"`
+	Limit     int32  `json:"limit"`
+	Offset    int32  `json:"offset"`
+}
+
+func (q *Queries) ListAuditLogsByEventType(ctx context.Context, arg ListAuditLogsByEventTypeParams) ([]AuditLog, error) {
+	rows, err := q.query(ctx, q.listAuditLogsByEventTypeStmt, listAuditLogsByEventType, arg.EventType, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AuditLog{}
+	for rows.Next() {
+		var i AuditLog
+		if err := rows.Scan(
+			&i.ID,
+			&i.EventType,
+			&i.UserID,
+			&i.ClientID,
+			&i.SessionID,
+			&i.IpAddress,
+			&i.UserAgent,
+			&i.Details,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAuditLogsByUser = `-- name: ListAuditLogsByUser :many
+SELECT id, event_type, user_id, client_id, session_id, ip_address, user_agent, details, created_at FROM audit_logs
+WHERE user_id = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListAuditLogsByUserParams struct {
+	UserID uuid.NullUUID `json:"user_id"`
+	Limit  int32         `json:"limit"`
+	Offset int32         `json:"offset"`
+}
+
+func (q *Queries) ListAuditLogsByUser(ctx context.Context, arg ListAuditLogsByUserParams) ([]AuditLog, error) {
+	rows, err := q.query(ctx, q.listAuditLogsByUserStmt, listAuditLogsByUser, arg.UserID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AuditLog{}
+	for rows.Next() {
+		var i AuditLog
+		if err := rows.Scan(
+			&i.ID,
+			&i.EventType,
+			&i.UserID,
+			&i.ClientID,
+			&i.SessionID,
+			&i.IpAddress,
+			&i.UserAgent,
+			&i.Details,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listClients = `-- name: ListClients :many

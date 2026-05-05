@@ -10,7 +10,20 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sqlc-dev/pqtype"
 )
+
+type AuditLog struct {
+	ID        uuid.UUID             `json:"id"`
+	EventType string                `json:"event_type"`
+	UserID    uuid.NullUUID         `json:"user_id"`
+	ClientID  uuid.NullUUID         `json:"client_id"`
+	SessionID sql.NullString        `json:"session_id"`
+	IpAddress sql.NullString        `json:"ip_address"`
+	UserAgent sql.NullString        `json:"user_agent"`
+	Details   pqtype.NullRawMessage `json:"details"`
+	CreatedAt time.Time             `json:"created_at"`
+}
 
 type AuthorizationCode struct {
 	Code                string         `json:"code"`

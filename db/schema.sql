@@ -78,3 +78,27 @@ CREATE TABLE IF NOT EXISTS oidc_sessions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_oidc_sessions_client_id ON oidc_sessions (client_id);
+
+-- traPortal v2 spec §audit_logs
+-- Append-only event log for security-sensitive actions. user_id / client_id
+-- are nullable because not every event type has a subject (e.g. an
+-- unauthenticated token introspection still gets logged for forensics).
+-- details holds free-form JSON so new event types do not require schema
+-- changes.
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id UUID NOT NULL,
+  event_type TEXT NOT NULL,
+  user_id UUID NULL,
+  client_id UUID NULL,
+  session_id TEXT NULL,
+  ip_address TEXT NULL,
+  user_agent TEXT NULL,
+  details JSONB NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_event_type ON audit_logs (event_type);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs (user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_client_id ON audit_logs (client_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs (created_at);
