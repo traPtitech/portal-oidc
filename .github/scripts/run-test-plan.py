@@ -120,9 +120,11 @@ def follow_authorize(
 
     Conformance tests that exercise prompt=login or max_age cause portal-oidc
     to redirect to /login even when there is an existing session, so we may
-    bounce login → authorize → callback multiple times.
+    bounce login → authorize → callback multiple times. Location headers may
+    be relative URLs, so resolve them against the previous request URL on each
+    hop.
     """
-    current_url = auth_url
+    current_url = httpx.URL(auth_url)
     for _ in range(max_hops):
         try:
             resp = browser.get(current_url, follow_redirects=False)
@@ -131,9 +133,12 @@ def follow_authorize(
             return None
 
         if resp.status_code in (301, 302, 303, 307, 308):
-            current_url = resp.headers.get("location", "")
-            if not current_url:
+            location = resp.headers.get("location", "")
+            if not location:
                 return resp
+            current_url = httpx.URL(location)
+            if not current_url.host:
+                current_url = resp.url.join(current_url)
             continue
 
         if resp.status_code == 200 and "/login" in str(resp.url):
@@ -141,9 +146,12 @@ def follow_authorize(
             if not login_resp:
                 return None
             if login_resp.status_code in (301, 302, 303, 307, 308):
-                current_url = login_resp.headers.get("location", "")
-                if not current_url:
+                location = login_resp.headers.get("location", "")
+                if not location:
                     return login_resp
+                current_url = httpx.URL(location)
+                if not current_url.host:
+                    current_url = login_resp.url.join(current_url)
                 continue
             return login_resp
 
