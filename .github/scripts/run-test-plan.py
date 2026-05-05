@@ -180,25 +180,30 @@ def perform_browser_interaction(
     if resp is None:
         return
 
-    if resp.status_code not in (301, 302, 303, 307, 308):
-        print(f"  Browser: OP returned {resp.status_code} (no callback redirect)")
+    # follow_authorize already drives the authorize → (login →) callback chain
+    # all the way through, so resp is normally the 200 callback page served by
+    # the conformance suite. If we somehow stopped at a 30x without following,
+    # do one more GET to land on the callback page.
+    if resp.status_code in (301, 302, 303, 307, 308):
+        callback_url = resp.headers.get("location", "")
+        if not callback_url:
+            print("  Browser: redirect with no location header")
+            return
+        print("  Browser: following redirect to callback")
+        try:
+            resp = browser.get(callback_url)
+        except httpx.HTTPError as e:
+            print(f"  Browser: callback request failed: {e}")
+            return
+
+    if resp.status_code != 200:
+        print(f"  Browser: OP returned {resp.status_code} (expected callback page)")
         return
 
-    callback_url = resp.headers.get("location", "")
-    if not callback_url:
-        print("  Browser: redirect with no location header")
-        return
-
-    print("  Browser: following redirect to callback")
-    try:
-        cb_resp = browser.get(callback_url)
-    except httpx.HTTPError as e:
-        print(f"  Browser: callback request failed: {e}")
-        return
-
-    match = re.search(r"xhr\.open\('POST',\s*\"([^\"]+)\"", cb_resp.text)
+    match = re.search(r"xhr\.open\('POST',\s*\"([^\"]+)\"", resp.text)
     if not match:
-        print("  Browser: no implicit submit URL found in callback page")
+        # Some callback pages do not need a fragment submission step (e.g.
+        # response_mode=query), so the auth code is already in the test's hands.
         return
 
     implicit_url = match.group(1).replace("\\/", "/")
