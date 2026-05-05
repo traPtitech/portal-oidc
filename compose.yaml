@@ -27,7 +27,7 @@ services:
     stdin_open: true
 
   portal:
-    image: postgres:17
+    image: postgres:18
     environment:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: portal
@@ -47,7 +47,7 @@ services:
     restart: unless-stopped
 
   oidc:
-    image: postgres:17
+    image: postgres:18
     environment:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: oidc

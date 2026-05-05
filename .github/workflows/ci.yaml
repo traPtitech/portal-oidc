@@ -54,7 +54,7 @@ jobs:
       contents: read
     services:
       oidc-db:
-        image: postgres:17
+        image: postgres:18
         env:
           POSTGRES_PASSWORD: password
           POSTGRES_DB: oidc
@@ -67,7 +67,7 @@ jobs:
           --health-timeout=5s
           --health-retries=5
       portal-db:
-        image: postgres:17
+        image: postgres:18
         env:
           POSTGRES_PASSWORD: password
           POSTGRES_DB: portal
