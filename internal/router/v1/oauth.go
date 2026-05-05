@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
@@ -15,6 +16,7 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/ory/fosite"
 
+	"github.com/traPtitech/portal-oidc/internal/repository"
 	"github.com/traPtitech/portal-oidc/internal/repository/oauth"
 	"github.com/traPtitech/portal-oidc/internal/router/v1/gen"
 	"github.com/traPtitech/portal-oidc/internal/usecase"
@@ -77,7 +79,58 @@ func (h *Handler) authorize(ctx *echo.Context) error {
 		authTime = time.Now()
 	}
 
+	// Consent check is enforced only in production. Dev keeps the legacy
+	// auto-grant behaviour so the conformance suite (which does not yet drive
+	// a consent UI) still completes its flows.
+	if h.config.Environment == "production" && h.consents != nil {
+		needConsent, err := h.consentRequired(c, ar, userID)
+		if err != nil {
+			h.oauth2.WriteAuthorizeError(c, rw, ar, fosite.ErrServerError.WithDebug(err.Error()))
+			return nil
+		}
+		if needConsent {
+			if ar.GetRequestForm().Get("prompt") == "none" {
+				h.oauth2.WriteAuthorizeError(c, rw, ar, fosite.ErrConsentRequired)
+				return nil
+			}
+			return h.redirectToConsent(ctx, &returnURL)
+		}
+	}
+
 	return h.completeAuthorize(ctx, ar, userID, authTime)
+}
+
+// consentRequired returns true when no active consent exists for the
+// (user, client) pair that covers every scope being requested. prompt=consent
+// always forces a fresh consent screen per OIDC Core 1.0 §3.1.2.1.
+func (h *Handler) consentRequired(ctx context.Context, ar fosite.AuthorizeRequester, userIDStr string) (bool, error) {
+	if ar.GetRequestForm().Get("prompt") == "consent" {
+		return true, nil
+	}
+	userID, parseErr := uuid.Parse(userIDStr)
+	if parseErr != nil {
+		// Bad session subject ⇒ ask the user again rather than blindly trusting it.
+		return true, nil //nolint:nilerr // intentional: degrade to consent prompt
+	}
+	clientID, parseErr := uuid.Parse(ar.GetClient().GetID())
+	if parseErr != nil {
+		return true, nil //nolint:nilerr // intentional: unparseable client → re-prompt
+	}
+	consent, err := h.consents.Get(ctx, userID, clientID)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserConsentNotFound) {
+			return true, nil
+		}
+		return false, err
+	}
+	if !consent.IsActive(time.Now()) {
+		return true, nil
+	}
+	return !consent.Covers([]string(ar.GetRequestedScopes())), nil
+}
+
+func (h *Handler) redirectToConsent(ctx *echo.Context, returnURL *url.URL) error {
+	return ctx.Redirect(http.StatusFound, "/oauth2/consent?return_url="+url.QueryEscape(returnURL.String()))
 }
 
 func (h *Handler) completeAuthorize(ctx *echo.Context, ar fosite.AuthorizeRequester, userID string, authTime time.Time) error {

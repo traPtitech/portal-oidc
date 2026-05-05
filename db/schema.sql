@@ -78,3 +78,23 @@ CREATE TABLE IF NOT EXISTS oidc_sessions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_oidc_sessions_client_id ON oidc_sessions (client_id);
+
+-- traPortal v2 spec §user_consents
+-- Persists which scopes a user has granted to which client. The (user_id,
+-- client_id) UNIQUE constraint enforces a single live consent per pair: a new
+-- grant overwrites the prior set rather than accumulating duplicates.
+CREATE TABLE IF NOT EXISTS user_consents (
+  id UUID NOT NULL,
+  user_id UUID NOT NULL,
+  client_id UUID NOT NULL,
+  scopes JSONB NOT NULL,
+  granted_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  expires_at TIMESTAMPTZ NULL,
+  revoked_at TIMESTAMPTZ NULL,
+  PRIMARY KEY (id),
+  CONSTRAINT idx_user_consents_user_client UNIQUE (user_id, client_id),
+  CONSTRAINT fk_user_consents_client FOREIGN KEY (client_id)
+    REFERENCES clients (client_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_consents_user_id ON user_consents (user_id);

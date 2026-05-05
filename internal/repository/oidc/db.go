@@ -96,11 +96,20 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getTokenByRefreshTokenStmt, err = db.PrepareContext(ctx, getTokenByRefreshToken); err != nil {
 		return nil, fmt.Errorf("error preparing query GetTokenByRefreshToken: %w", err)
 	}
+	if q.getUserConsentStmt, err = db.PrepareContext(ctx, getUserConsent); err != nil {
+		return nil, fmt.Errorf("error preparing query GetUserConsent: %w", err)
+	}
 	if q.listClientsStmt, err = db.PrepareContext(ctx, listClients); err != nil {
 		return nil, fmt.Errorf("error preparing query ListClients: %w", err)
 	}
+	if q.listUserConsentsByUserStmt, err = db.PrepareContext(ctx, listUserConsentsByUser); err != nil {
+		return nil, fmt.Errorf("error preparing query ListUserConsentsByUser: %w", err)
+	}
 	if q.markAuthorizationCodeUsedStmt, err = db.PrepareContext(ctx, markAuthorizationCodeUsed); err != nil {
 		return nil, fmt.Errorf("error preparing query MarkAuthorizationCodeUsed: %w", err)
+	}
+	if q.revokeUserConsentStmt, err = db.PrepareContext(ctx, revokeUserConsent); err != nil {
+		return nil, fmt.Errorf("error preparing query RevokeUserConsent: %w", err)
 	}
 	if q.updateAuthorizationCodePKCEStmt, err = db.PrepareContext(ctx, updateAuthorizationCodePKCE); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateAuthorizationCodePKCE: %w", err)
@@ -110,6 +119,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateClientSecretStmt, err = db.PrepareContext(ctx, updateClientSecret); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateClientSecret: %w", err)
+	}
+	if q.upsertUserConsentStmt, err = db.PrepareContext(ctx, upsertUserConsent); err != nil {
+		return nil, fmt.Errorf("error preparing query UpsertUserConsent: %w", err)
 	}
 	return &q, nil
 }
@@ -236,14 +248,29 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getTokenByRefreshTokenStmt: %w", cerr)
 		}
 	}
+	if q.getUserConsentStmt != nil {
+		if cerr := q.getUserConsentStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getUserConsentStmt: %w", cerr)
+		}
+	}
 	if q.listClientsStmt != nil {
 		if cerr := q.listClientsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing listClientsStmt: %w", cerr)
 		}
 	}
+	if q.listUserConsentsByUserStmt != nil {
+		if cerr := q.listUserConsentsByUserStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listUserConsentsByUserStmt: %w", cerr)
+		}
+	}
 	if q.markAuthorizationCodeUsedStmt != nil {
 		if cerr := q.markAuthorizationCodeUsedStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing markAuthorizationCodeUsedStmt: %w", cerr)
+		}
+	}
+	if q.revokeUserConsentStmt != nil {
+		if cerr := q.revokeUserConsentStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing revokeUserConsentStmt: %w", cerr)
 		}
 	}
 	if q.updateAuthorizationCodePKCEStmt != nil {
@@ -259,6 +286,11 @@ func (q *Queries) Close() error {
 	if q.updateClientSecretStmt != nil {
 		if cerr := q.updateClientSecretStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateClientSecretStmt: %w", cerr)
+		}
+	}
+	if q.upsertUserConsentStmt != nil {
+		if cerr := q.upsertUserConsentStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing upsertUserConsentStmt: %w", cerr)
 		}
 	}
 	return err
@@ -324,11 +356,15 @@ type Queries struct {
 	getTokenByAccessTokenStmt           *sql.Stmt
 	getTokenByIDStmt                    *sql.Stmt
 	getTokenByRefreshTokenStmt          *sql.Stmt
+	getUserConsentStmt                  *sql.Stmt
 	listClientsStmt                     *sql.Stmt
+	listUserConsentsByUserStmt          *sql.Stmt
 	markAuthorizationCodeUsedStmt       *sql.Stmt
+	revokeUserConsentStmt               *sql.Stmt
 	updateAuthorizationCodePKCEStmt     *sql.Stmt
 	updateClientStmt                    *sql.Stmt
 	updateClientSecretStmt              *sql.Stmt
+	upsertUserConsentStmt               *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
@@ -359,10 +395,14 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getTokenByAccessTokenStmt:           q.getTokenByAccessTokenStmt,
 		getTokenByIDStmt:                    q.getTokenByIDStmt,
 		getTokenByRefreshTokenStmt:          q.getTokenByRefreshTokenStmt,
+		getUserConsentStmt:                  q.getUserConsentStmt,
 		listClientsStmt:                     q.listClientsStmt,
+		listUserConsentsByUserStmt:          q.listUserConsentsByUserStmt,
 		markAuthorizationCodeUsedStmt:       q.markAuthorizationCodeUsedStmt,
+		revokeUserConsentStmt:               q.revokeUserConsentStmt,
 		updateAuthorizationCodePKCEStmt:     q.updateAuthorizationCodePKCEStmt,
 		updateClientStmt:                    q.updateClientStmt,
 		updateClientSecretStmt:              q.updateClientSecretStmt,
+		upsertUserConsentStmt:               q.upsertUserConsentStmt,
 	}
 }

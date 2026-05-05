@@ -179,7 +179,9 @@ func setupTestHandler(t *testing.T) (*Handler, func()) {
 		compose.OAuth2TokenRevocationFactory,
 	)
 
-	handler := NewHandler(clientUseCase, oauthUsecase, oauth2Provider, nil, OAuthConfig{
+	consentRepo := repository.NewUserConsentRepository(queries)
+
+	handler := NewHandler(clientUseCase, oauthUsecase, oauth2Provider, nil, consentRepo, OAuthConfig{
 		Issuer:      "http://localhost:8080",
 		Environment: "development",
 		TestUserID:  "00000000-0000-0000-0000-000000000000",

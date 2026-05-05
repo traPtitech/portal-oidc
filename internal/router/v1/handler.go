@@ -8,6 +8,7 @@ import (
 	"github.com/gorilla/sessions"
 	"github.com/ory/fosite"
 
+	"github.com/traPtitech/portal-oidc/internal/repository"
 	"github.com/traPtitech/portal-oidc/internal/usecase"
 )
 
@@ -16,6 +17,7 @@ type Handler struct {
 	oauthUseCase  usecase.OAuthUseCase
 	oauth2        fosite.OAuth2Provider
 	userUseCase   usecase.UserUseCase
+	consents      repository.UserConsentRepository
 	sessions      *sessions.CookieStore
 	config        OAuthConfig
 }
@@ -33,6 +35,7 @@ func NewHandler(
 	oauthUseCase usecase.OAuthUseCase,
 	oauth2 fosite.OAuth2Provider,
 	userUseCase usecase.UserUseCase,
+	consents repository.UserConsentRepository,
 	config OAuthConfig,
 ) *Handler {
 	store := sessions.NewCookieStore(config.SessionSecret)
@@ -49,6 +52,7 @@ func NewHandler(
 		oauthUseCase:  oauthUseCase,
 		oauth2:        oauth2,
 		userUseCase:   userUseCase,
+		consents:      consents,
 		sessions:      store,
 		config:        config,
 	}

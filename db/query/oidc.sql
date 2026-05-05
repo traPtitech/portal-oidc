@@ -134,3 +134,29 @@ DELETE FROM oidc_sessions WHERE authorize_code = $1;
 
 -- name: DeleteAllOIDCSessions :exec
 DELETE FROM oidc_sessions;
+
+-- User consent queries
+
+-- name: UpsertUserConsent :exec
+-- Re-grant a user's consent to a client. Overwrites the existing scope set
+-- and clears any prior revocation so subsequent authorize requests succeed.
+INSERT INTO user_consents (id, user_id, client_id, scopes, granted_at, revoked_at)
+VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, NULL)
+ON CONFLICT (user_id, client_id)
+DO UPDATE SET
+    scopes = EXCLUDED.scopes,
+    granted_at = EXCLUDED.granted_at,
+    revoked_at = NULL;
+
+-- name: GetUserConsent :one
+SELECT * FROM user_consents
+WHERE user_id = $1 AND client_id = $2;
+
+-- name: ListUserConsentsByUser :many
+SELECT * FROM user_consents
+WHERE user_id = $1 AND revoked_at IS NULL;
+
+-- name: RevokeUserConsent :exec
+UPDATE user_consents
+SET revoked_at = CURRENT_TIMESTAMP
+WHERE user_id = $1 AND client_id = $2;
