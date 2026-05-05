@@ -3,7 +3,7 @@
 # ============================================================================
 # Base stage: Common setup for all stages
 # ============================================================================
-FROM golang:1.26-alpine AS base
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS base
 
 WORKDIR /app
 
@@ -12,14 +12,13 @@ WORKDIR /app
 # ============================================================================
 FROM base AS development
 
-# Install development tools
-RUN go install github.com/air-verse/air@latest
+# renovate: datasource=github-releases depName=air-verse/air
+ARG AIR_VERSION=v1.63.0
+RUN go install github.com/air-verse/air@${AIR_VERSION}
 
-# Copy dependency files first for better layer caching
 COPY go.mod go.sum ./
 RUN go mod download && go mod verify
 
-# Copy source code (will be overwritten by volume mount in compose)
 COPY . .
 
 EXPOSE 8080
@@ -31,31 +30,34 @@ CMD ["air", "-c", ".air.toml"]
 # ============================================================================
 FROM base AS builder
 
-# Build arguments for versioning
 ARG VERSION=dev
 ARG COMMIT=unknown
 ARG BUILD_DATE=unknown
+ARG TARGETOS
+ARG TARGETARCH
 
-# Copy dependency files first for better layer caching
 COPY go.mod go.sum ./
 RUN go mod download && go mod verify
 
-# Copy source code
 COPY . .
 
-# Build static binary with optimizations
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} go build \
     -trimpath \
     -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.buildDate=${BUILD_DATE}" \
-    -o /app/portal-oidc \
+    -o /out/portal-oidc \
     ./cmd
+
+# ============================================================================
+# Data stage: scaffold /app/data writable by the nonroot runtime user
+# ============================================================================
+FROM alpine:3.21 AS data
+RUN mkdir -p /out/data && chown -R 65532:65532 /out/data && chmod 700 /out/data
 
 # ============================================================================
 # Production stage: Distroless runtime image
 # ============================================================================
 FROM gcr.io/distroless/static-debian12:nonroot AS production
 
-# OCI labels
 LABEL org.opencontainers.image.title="portal-oidc" \
       org.opencontainers.image.description="traP Portal OIDC Provider" \
       org.opencontainers.image.source="https://github.com/traPtitech/portal-oidc" \
@@ -64,8 +66,10 @@ LABEL org.opencontainers.image.title="portal-oidc" \
 
 WORKDIR /app
 
-# Copy the binary
-COPY --from=builder /app/portal-oidc /app/portal-oidc
+COPY --from=builder --chown=65532:65532 /out/portal-oidc /app/portal-oidc
+COPY --from=data    --chown=65532:65532 /out/data        /app/data
+
+USER 65532:65532
 
 EXPOSE 8080
 
