@@ -80,8 +80,8 @@ LABEL org.opencontainers.image.title="portal-oidc" \
 
 WORKDIR /app
 
-COPY --from=builder --chown=65532:65532 /out/portal-oidc /app/portal-oidc
-COPY --from=builder --chown=65532:65532 /out/data        /app/data
+COPY --from=builder --link --chown=65532:65532 /out/portal-oidc /app/portal-oidc
+COPY --from=builder --link --chown=65532:65532 /out/data        /app/data
 
 USER 65532:65532
 STOPSIGNAL SIGTERM
