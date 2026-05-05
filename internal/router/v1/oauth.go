@@ -267,7 +267,9 @@ func (h *Handler) GetOpenIDConfiguration(ctx *echo.Context) error {
 	issuer := strings.TrimRight(h.config.Issuer, "/")
 	scopesSupported := []string{"openid", "profile", "email"}
 	claimsSupported := []string{"sub", "name", "preferred_username", "email", "email_verified"}
-	codeChallengeMethodsSupported := []string{"S256", "plain"}
+	// OAuth 2.1 §1.4.2 / fosite EnablePKCEPlainChallengeMethod=false: only S256 is
+	// honoured by the server, so advertising "plain" would only invite downgrades.
+	codeChallengeMethodsSupported := []string{"S256"}
 	tokenEndpointAuthMethodsSupported := []string{"client_secret_basic", "client_secret_post"}
 
 	return ctx.JSON(http.StatusOK, gen.OpenIDConfiguration{
@@ -302,7 +304,12 @@ func (h *Handler) GetOAuthAuthorizationServerMetadata(ctx *echo.Context) error {
 	scopesSupported := []string{"openid", "profile", "email"}
 	grantTypesSupported := []string{"authorization_code", "refresh_token"}
 	responseModesSupported := []string{"query"}
-	codeChallengeMethodsSupported := []string{"S256", "plain"}
+	// OAuth 2.1 (draft) §1.4.2: clients SHOULD use a code_challenge method that
+	// does not expose the verifier in the authorization request, and S256 is the
+	// only such method. fosite is configured with EnablePKCEPlainChallengeMethod=false
+	// in cmd/oauth.go so the server never accepts "plain" anyway; advertising it
+	// here would only invite downgrade attempts.
+	codeChallengeMethodsSupported := []string{"S256"}
 	tokenEndpointAuthMethodsSupported := []string{"client_secret_basic", "client_secret_post"}
 
 	return ctx.JSON(http.StatusOK, gen.OAuthAuthorizationServerMetadata{
