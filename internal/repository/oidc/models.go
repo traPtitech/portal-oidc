@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sqlc-dev/pqtype"
 )
 
 type AuthorizationCode struct {
@@ -57,4 +58,19 @@ type Token struct {
 	Scopes       string         `json:"scopes"`
 	ExpiresAt    time.Time      `json:"expires_at"`
 	CreatedAt    time.Time      `json:"created_at"`
+}
+
+type UserSession struct {
+	ID           uuid.UUID             `json:"id"`
+	SessionID    string                `json:"session_id"`
+	UserID       uuid.UUID             `json:"user_id"`
+	UserAgent    sql.NullString        `json:"user_agent"`
+	IpAddress    sql.NullString        `json:"ip_address"`
+	Acr          sql.NullString        `json:"acr"`
+	Amr          pqtype.NullRawMessage `json:"amr"`
+	AuthTime     time.Time             `json:"auth_time"`
+	LastActiveAt time.Time             `json:"last_active_at"`
+	ExpiresAt    time.Time             `json:"expires_at"`
+	RevokedAt    sql.NullTime          `json:"revoked_at"`
+	CreatedAt    time.Time             `json:"created_at"`
 }

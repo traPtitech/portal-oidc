@@ -134,3 +134,41 @@ DELETE FROM oidc_sessions WHERE authorize_code = $1;
 
 -- name: DeleteAllOIDCSessions :exec
 DELETE FROM oidc_sessions;
+
+-- User session queries
+
+-- name: CreateUserSession :exec
+INSERT INTO user_sessions (
+    id,
+    session_id,
+    user_id,
+    user_agent,
+    ip_address,
+    acr,
+    amr,
+    auth_time,
+    expires_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
+
+-- name: GetUserSessionBySessionID :one
+SELECT * FROM user_sessions WHERE session_id = $1;
+
+-- name: ListUserSessionsByUser :many
+SELECT * FROM user_sessions
+WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > CURRENT_TIMESTAMP
+ORDER BY last_active_at DESC;
+
+-- name: TouchUserSession :exec
+UPDATE user_sessions
+SET last_active_at = CURRENT_TIMESTAMP
+WHERE session_id = $1;
+
+-- name: RevokeUserSession :exec
+UPDATE user_sessions
+SET revoked_at = CURRENT_TIMESTAMP
+WHERE id = $1 AND user_id = $2;
+
+-- name: RevokeAllUserSessionsExcept :exec
+UPDATE user_sessions
+SET revoked_at = CURRENT_TIMESTAMP
+WHERE user_id = $1 AND session_id <> $2 AND revoked_at IS NULL;
