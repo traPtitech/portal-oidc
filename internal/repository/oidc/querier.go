@@ -29,22 +29,31 @@ type Querier interface {
 	DeleteExpiredAuthorizationCodes(ctx context.Context) error
 	DeleteExpiredTokens(ctx context.Context) error
 	DeleteOIDCSession(ctx context.Context, authorizeCode string) error
+	DeleteTOTPCredential(ctx context.Context, userID uuid.UUID) error
 	DeleteToken(ctx context.Context, id uuid.UUID) error
 	DeleteTokenByAccessToken(ctx context.Context, accessToken string) error
 	DeleteTokenByRefreshToken(ctx context.Context, refreshToken sql.NullString) error
 	DeleteTokensByRequestID(ctx context.Context, requestID string) error
 	DeleteTokensByUserAndClient(ctx context.Context, arg DeleteTokensByUserAndClientParams) error
+	EnableTOTPCredential(ctx context.Context, userID uuid.UUID) error
 	GetAuthorizationCode(ctx context.Context, code string) (AuthorizationCode, error)
 	GetClient(ctx context.Context, clientID uuid.UUID) (Client, error)
 	GetOIDCSession(ctx context.Context, authorizeCode string) (OidcSession, error)
+	GetTOTPCredential(ctx context.Context, userID uuid.UUID) (TotpCredential, error)
 	GetTokenByAccessToken(ctx context.Context, accessToken string) (Token, error)
 	GetTokenByID(ctx context.Context, id uuid.UUID) (Token, error)
 	GetTokenByRefreshToken(ctx context.Context, refreshToken sql.NullString) (Token, error)
 	ListClients(ctx context.Context) ([]Client, error)
 	MarkAuthorizationCodeUsed(ctx context.Context, code string) error
+	TouchTOTPCredential(ctx context.Context, userID uuid.UUID) error
 	UpdateAuthorizationCodePKCE(ctx context.Context, arg UpdateAuthorizationCodePKCEParams) error
 	UpdateClient(ctx context.Context, arg UpdateClientParams) error
 	UpdateClientSecret(ctx context.Context, arg UpdateClientSecretParams) error
+	// TOTP queries
+	// Insert a new secret or replace the existing one when the user re-enrols.
+	// enabled stays at the supplied value so we can distinguish "secret stored,
+	// waiting for first verification" from "secret in active use".
+	UpsertTOTPCredential(ctx context.Context, arg UpsertTOTPCredentialParams) error
 }
 
 var _ Querier = (*Queries)(nil)

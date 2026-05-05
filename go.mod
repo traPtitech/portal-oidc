@@ -16,6 +16,7 @@ require (
 	github.com/labstack/echo/v5 v5.1.1
 	github.com/oapi-codegen/runtime v1.4.0
 	github.com/ory/fosite v0.49.0
+	github.com/pquerna/otp v1.5.0
 	github.com/sqlc-dev/pqtype v0.3.0
 	golang.org/x/crypto v0.50.0
 )
@@ -23,6 +24,7 @@ require (
 require (
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
+	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cristalhq/jwt/v4 v4.0.2 // indirect

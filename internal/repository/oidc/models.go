@@ -58,3 +58,11 @@ type Token struct {
 	ExpiresAt    time.Time      `json:"expires_at"`
 	CreatedAt    time.Time      `json:"created_at"`
 }
+
+type TotpCredential struct {
+	UserID     uuid.UUID    `json:"user_id"`
+	Secret     string       `json:"secret"`
+	Enabled    bool         `json:"enabled"`
+	CreatedAt  time.Time    `json:"created_at"`
+	LastUsedAt sql.NullTime `json:"last_used_at"`
+}
