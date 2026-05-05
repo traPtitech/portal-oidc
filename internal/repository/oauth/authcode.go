@@ -75,6 +75,21 @@ func (s *Storage) GetAuthorizeCodeSession(ctx context.Context, code string, sess
 	req := newFositeRequest(code, authCode.CreatedAt, client, sess, authCode.Scopes, form)
 
 	if authCode.Used {
+		// RFC 6749 §4.1.2: on auth code reuse, revoke every token derived from
+		// the original exchange. The auth code is the fosite request_id (see
+		// newFositeRequest in storage.go), so request_id-keyed deletion covers
+		// every issued access and refresh token. Errors are joined with the
+		// invalidation error so fosite still detects the reuse via errors.Is.
+		var revokeErr error
+		if delErr := s.getAccessTokens(ctx).DeleteByRequestID(ctx, code); delErr != nil {
+			revokeErr = errors.Join(revokeErr, delErr)
+		}
+		if delErr := s.getRefreshTokens(ctx).DeleteByRequestID(ctx, code); delErr != nil {
+			revokeErr = errors.Join(revokeErr, delErr)
+		}
+		if revokeErr != nil {
+			return req, errors.Join(fosite.ErrInvalidatedAuthorizeCode, revokeErr)
+		}
 		return req, fosite.ErrInvalidatedAuthorizeCode
 	}
 

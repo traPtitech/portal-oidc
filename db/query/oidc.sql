@@ -69,49 +69,75 @@ DELETE FROM authorization_codes WHERE expires_at < NOW();
 -- name: DeleteAllAuthorizationCodes :exec
 DELETE FROM authorization_codes;
 
--- Token queries
+-- Access token queries
 
--- name: CreateToken :exec
-INSERT INTO tokens (
+-- name: CreateAccessToken :exec
+INSERT INTO access_tokens (
     id,
+    jti,
     request_id,
     client_id,
     user_id,
-    access_token,
-    refresh_token,
     scopes,
+    audience,
     expires_at
 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
 
--- name: GetTokenByAccessToken :one
-SELECT * FROM tokens WHERE access_token = $1;
+-- name: GetAccessTokenByJTI :one
+SELECT * FROM access_tokens WHERE jti = $1;
 
--- name: GetTokenByRefreshToken :one
-SELECT * FROM tokens WHERE refresh_token = $1;
+-- name: DeleteAccessTokenByJTI :exec
+DELETE FROM access_tokens WHERE jti = $1;
 
--- name: GetTokenByID :one
-SELECT * FROM tokens WHERE id = $1;
+-- name: DeleteAccessTokensByRequestID :exec
+DELETE FROM access_tokens WHERE request_id = $1;
 
--- name: DeleteToken :exec
-DELETE FROM tokens WHERE id = $1;
+-- name: RevokeAccessTokensByRequestID :exec
+UPDATE access_tokens SET revoked_at = CURRENT_TIMESTAMP
+WHERE request_id = $1 AND revoked_at IS NULL;
 
--- name: DeleteTokenByAccessToken :exec
-DELETE FROM tokens WHERE access_token = $1;
+-- name: DeleteExpiredAccessTokens :exec
+DELETE FROM access_tokens WHERE expires_at < NOW();
 
--- name: DeleteTokenByRefreshToken :exec
-DELETE FROM tokens WHERE refresh_token = $1;
+-- name: DeleteAllAccessTokens :exec
+DELETE FROM access_tokens;
 
--- name: DeleteExpiredTokens :exec
-DELETE FROM tokens WHERE expires_at < NOW();
+-- Refresh token queries
 
--- name: DeleteTokensByUserAndClient :exec
-DELETE FROM tokens WHERE user_id = $1 AND client_id = $2;
+-- name: CreateRefreshToken :exec
+INSERT INTO refresh_tokens (
+    id,
+    token_hash,
+    request_id,
+    client_id,
+    user_id,
+    scopes,
+    expires_at,
+    previous_token_id
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
 
--- name: DeleteTokensByRequestID :exec
-DELETE FROM tokens WHERE request_id = $1;
+-- name: GetRefreshTokenByHash :one
+SELECT * FROM refresh_tokens WHERE token_hash = $1;
 
--- name: DeleteAllTokens :exec
-DELETE FROM tokens;
+-- name: DeleteRefreshTokenByHash :exec
+DELETE FROM refresh_tokens WHERE token_hash = $1;
+
+-- name: MarkRefreshTokenRotated :exec
+UPDATE refresh_tokens SET rotated_at = CURRENT_TIMESTAMP
+WHERE token_hash = $1 AND rotated_at IS NULL;
+
+-- name: RevokeRefreshTokensByRequestID :exec
+UPDATE refresh_tokens SET revoked_at = CURRENT_TIMESTAMP
+WHERE request_id = $1 AND revoked_at IS NULL;
+
+-- name: DeleteRefreshTokensByRequestID :exec
+DELETE FROM refresh_tokens WHERE request_id = $1;
+
+-- name: DeleteExpiredRefreshTokens :exec
+DELETE FROM refresh_tokens WHERE expires_at < NOW();
+
+-- name: DeleteAllRefreshTokens :exec
+DELETE FROM refresh_tokens;
 
 -- OIDC Session queries
 

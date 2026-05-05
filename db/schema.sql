@@ -42,26 +42,60 @@ CREATE TABLE IF NOT EXISTS authorization_codes (
 CREATE INDEX IF NOT EXISTS idx_authorization_codes_client_id ON authorization_codes (client_id);
 CREATE INDEX IF NOT EXISTS idx_authorization_codes_expires_at ON authorization_codes (expires_at);
 
-CREATE TABLE IF NOT EXISTS tokens (
+-- traPortal v2 spec §access_tokens
+-- jti is the fosite-issued signature of the opaque access token and serves as
+-- the lookup key. user_id is nullable because the client_credentials grant
+-- (future) issues tokens without a subject. revoked_at is the source of truth
+-- for revocation; expired tokens are pruned by a separate sweep.
+CREATE TABLE IF NOT EXISTS access_tokens (
   id UUID NOT NULL,
+  jti TEXT NOT NULL,
+  request_id TEXT NOT NULL,
+  client_id UUID NOT NULL,
+  user_id UUID NULL,
+  scopes TEXT NOT NULL,
+  audience JSONB NULL,
+  issued_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  expires_at TIMESTAMPTZ NOT NULL,
+  revoked_at TIMESTAMPTZ NULL,
+  PRIMARY KEY (id),
+  CONSTRAINT idx_access_tokens_jti UNIQUE (jti),
+  CONSTRAINT fk_access_tokens_client FOREIGN KEY (client_id) REFERENCES clients (client_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_access_tokens_client_id ON access_tokens (client_id);
+CREATE INDEX IF NOT EXISTS idx_access_tokens_user_id ON access_tokens (user_id);
+CREATE INDEX IF NOT EXISTS idx_access_tokens_request_id ON access_tokens (request_id);
+CREATE INDEX IF NOT EXISTS idx_access_tokens_expires_at ON access_tokens (expires_at);
+
+-- traPortal v2 spec §refresh_tokens
+-- token_hash is the fosite signature. previous_token_id links rotation
+-- generations so OAuth 2.1 §4.13.2 family-revocation can walk the chain when
+-- a leaked refresh token is detected. revoked_at + rotated_at separate "we
+-- intentionally retired this token" from "the user explicitly revoked it".
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+  id UUID NOT NULL,
+  token_hash TEXT NOT NULL,
   request_id TEXT NOT NULL,
   client_id UUID NOT NULL,
   user_id UUID NOT NULL,
-  access_token TEXT NOT NULL,
-  refresh_token TEXT NULL,
   scopes TEXT NOT NULL,
+  issued_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   expires_at TIMESTAMPTZ NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  rotated_at TIMESTAMPTZ NULL,
+  previous_token_id UUID NULL,
+  revoked_at TIMESTAMPTZ NULL,
   PRIMARY KEY (id),
-  CONSTRAINT idx_tokens_access_token UNIQUE (access_token),
-  CONSTRAINT fk_tokens_client FOREIGN KEY (client_id) REFERENCES clients (client_id) ON DELETE CASCADE
+  CONSTRAINT idx_refresh_tokens_token_hash UNIQUE (token_hash),
+  CONSTRAINT fk_refresh_tokens_client FOREIGN KEY (client_id) REFERENCES clients (client_id) ON DELETE CASCADE,
+  CONSTRAINT fk_refresh_tokens_previous FOREIGN KEY (previous_token_id) REFERENCES refresh_tokens (id) ON DELETE SET NULL
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_tokens_refresh_token ON tokens (refresh_token);
-CREATE INDEX IF NOT EXISTS idx_tokens_client_id ON tokens (client_id);
-CREATE INDEX IF NOT EXISTS idx_tokens_user_id ON tokens (user_id);
-CREATE INDEX IF NOT EXISTS idx_tokens_request_id ON tokens (request_id);
-CREATE INDEX IF NOT EXISTS idx_tokens_expires_at ON tokens (expires_at);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_client_id ON refresh_tokens (client_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens (user_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_request_id ON refresh_tokens (request_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires_at ON refresh_tokens (expires_at);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_previous_token ON refresh_tokens (previous_token_id);
 
 CREATE TABLE IF NOT EXISTS oidc_sessions (
   authorize_code TEXT NOT NULL,
