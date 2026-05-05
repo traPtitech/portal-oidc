@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"encoding/gob"
 	"errors"
 	"html"
 	"net/http"
@@ -14,6 +15,10 @@ import (
 )
 
 const sessionName = "oidc_session"
+
+func init() {
+	gob.Register([]string{})
+}
 
 func (h *Handler) GetLogin(ctx *echo.Context) error {
 	returnURL := sanitizeReturnURL(ctx.QueryParam("return_url"))
@@ -84,6 +89,7 @@ func (h *Handler) PostLogin(ctx *echo.Context) error {
 	session.Values["user_id"] = userID
 	session.Values["authenticated"] = true
 	session.Values["auth_time"] = time.Now().Unix()
+	session.Values["amr"] = []string{"pwd"}
 
 	if err := session.Save(ctx.Request(), ctx.Response()); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to save session")
@@ -144,6 +150,8 @@ func sanitizeReturnURL(raw string) string {
 type authInfo struct {
 	UserID   string
 	AuthTime time.Time
+	AMR      []string
+	ACR      string
 }
 
 func (h *Handler) getAuthInfo(ctx *echo.Context) (authInfo, bool) {
@@ -167,5 +175,8 @@ func (h *Handler) getAuthInfo(ctx *echo.Context) (authInfo, bool) {
 		at = time.Unix(authTimeSec, 0)
 	}
 
-	return authInfo{UserID: userID, AuthTime: at}, true
+	amr, _ := session.Values["amr"].([]string) //nolint:errcheck
+	acr, _ := session.Values["acr"].(string)   //nolint:errcheck
+
+	return authInfo{UserID: userID, AuthTime: at, AMR: amr, ACR: acr}, true
 }
