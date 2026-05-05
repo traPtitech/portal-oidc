@@ -1,23 +1,29 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1.7
 
 # ============================================================================
-# Base stage: Common setup for all stages
+# Base stage
 # ============================================================================
-FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS base
+FROM --platform=$BUILDPLATFORM golang:1.26.2-alpine AS base
 
 WORKDIR /app
+ENV CGO_ENABLED=0 \
+    GOTOOLCHAIN=local \
+    GOFLAGS=-mod=readonly
 
 # ============================================================================
-# Development stage: Hot-reload with Air
+# Development stage: hot-reload with Air
 # ============================================================================
 FROM base AS development
 
 # renovate: datasource=github-releases depName=air-verse/air
 ARG AIR_VERSION=v1.63.0
-RUN go install github.com/air-verse/air@${AIR_VERSION}
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    GOFLAGS= go install github.com/air-verse/air@${AIR_VERSION}
 
 COPY go.mod go.sum ./
-RUN go mod download && go mod verify
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download && go mod verify
 
 COPY . .
 
@@ -26,7 +32,7 @@ EXPOSE 8080
 CMD ["air", "-c", ".air.toml"]
 
 # ============================================================================
-# Builder stage: Compile the application
+# Builder stage: compile the application
 # ============================================================================
 FROM base AS builder
 
@@ -36,40 +42,49 @@ ARG BUILD_DATE=unknown
 ARG TARGETOS
 ARG TARGETARCH
 
-COPY go.mod go.sum ./
-RUN go mod download && go mod verify
+RUN --mount=type=bind,source=go.mod,target=go.mod \
+    --mount=type=bind,source=go.sum,target=go.sum \
+    --mount=type=cache,target=/go/pkg/mod \
+    go mod download && go mod verify
 
-COPY . .
+RUN --mount=type=bind,target=. \
+    --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build,id=gobuild-${TARGETOS}-${TARGETARCH} \
+    GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} \
+    go build \
+      -trimpath \
+      -buildvcs=false \
+      -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.buildDate=${BUILD_DATE}" \
+      -o /out/portal-oidc \
+      ./cmd
 
-RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} go build \
-    -trimpath \
-    -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.buildDate=${BUILD_DATE}" \
-    -o /out/portal-oidc \
-    ./cmd
+RUN mkdir -p /out/data && chown 65532:65532 /out/data && chmod 700 /out/data
 
 # ============================================================================
-# Data stage: scaffold /app/data writable by the nonroot runtime user
-# ============================================================================
-FROM alpine:3.21 AS data
-RUN mkdir -p /out/data && chown -R 65532:65532 /out/data && chmod 700 /out/data
-
-# ============================================================================
-# Production stage: Distroless runtime image
+# Production stage: distroless runtime image
 # ============================================================================
 FROM gcr.io/distroless/static-debian12:nonroot AS production
+
+ARG VERSION=dev
+ARG COMMIT=unknown
+ARG BUILD_DATE=unknown
 
 LABEL org.opencontainers.image.title="portal-oidc" \
       org.opencontainers.image.description="traP Portal OIDC Provider" \
       org.opencontainers.image.source="https://github.com/traPtitech/portal-oidc" \
       org.opencontainers.image.vendor="traP" \
-      org.opencontainers.image.licenses="MIT"
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${COMMIT}" \
+      org.opencontainers.image.created="${BUILD_DATE}"
 
 WORKDIR /app
 
 COPY --from=builder --chown=65532:65532 /out/portal-oidc /app/portal-oidc
-COPY --from=data    --chown=65532:65532 /out/data        /app/data
+COPY --from=builder --chown=65532:65532 /out/data        /app/data
 
 USER 65532:65532
+STOPSIGNAL SIGTERM
 
 EXPOSE 8080
 
