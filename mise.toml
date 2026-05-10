@@ -1,5 +1,5 @@
 [tools]
-go = "1.26.2"
+go = "1.26.3"
 golangci-lint = "2.12.1"
 atlas = "1.2.0"
 tbls = "1.94.5"
