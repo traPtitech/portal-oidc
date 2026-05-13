@@ -100,21 +100,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Start conformance suite
-        run: docker compose -f .github/conformance/docker-compose.yml up -d
-
-      - name: Wait for conformance suite
-        run: |
-          for i in $(seq 1 60); do
-            if curl -sfk https://localhost:8443 > /dev/null 2>&1; then
-              echo "Conformance suite is ready"
-              exit 0
-            fi
-            echo "Waiting for conformance suite... ($i/60)"
-            sleep 5
-          done
-          echo "Conformance suite failed to start"
-          docker compose -f .github/conformance/docker-compose.yml logs
-          exit 1
+        run: docker compose -f .github/conformance/docker-compose.yml up -d --wait --wait-timeout 600
 
       - name: Run conformance tests
         working-directory: ${{ github.workspace }}

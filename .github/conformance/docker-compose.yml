@@ -6,7 +6,8 @@ services:
     ports:
       - "8443:8443"
     depends_on:
-      - server
+      server:
+        condition: service_healthy
   server:
     image: ${CONFORMANCE_SERVER_IMAGE}
     environment:
@@ -22,6 +23,12 @@ services:
       - "host.docker.internal:host-gateway"
     depends_on:
       - mongodb
+    healthcheck:
+      test: ["CMD", "curl", "-s", "http://localhost:8080/", "-o", "/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 40
+      start_period: 120s
     logging:
       driver: json-file
       options:
