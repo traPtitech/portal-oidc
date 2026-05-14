@@ -14,7 +14,7 @@ services:
       - CONFIG_FILE=/app/config.yaml
       - TZ=Asia/Tokyo
       - OIDC_DATABASE__HOST=oidc
-      - OIDC_DATABASE__PORT=5433
+      - OIDC_DATABASE__PORT=5432
       - OIDC_PORTAL__DATABASE__HOST=portal
       - OIDC_PORTAL__DATABASE__PORT=5432
     depends_on:
@@ -35,7 +35,7 @@ services:
       TZ: Asia/Tokyo
     volumes:
       - ./db/portal-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
-      - portal-pg-data:/var/lib/postgresql/data
+      - portal-pg-data:/var/lib/postgresql
     ports:
       - "5432:5432"
     healthcheck:
@@ -55,7 +55,7 @@ services:
       TZ: Asia/Tokyo
     volumes:
       - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
-      - oidc-pg-data:/var/lib/postgresql/data
+      - oidc-pg-data:/var/lib/postgresql
     ports:
       - "5433:5432"
     healthcheck:
