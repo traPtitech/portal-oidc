@@ -36,6 +36,21 @@ type Client struct {
 	UpdatedAt        time.Time       `json:"updated_at"`
 }
 
+type DeviceAuthorization struct {
+	ID           uuid.UUID     `json:"id"`
+	DeviceCode   string        `json:"device_code"`
+	UserCode     string        `json:"user_code"`
+	ClientID     uuid.UUID     `json:"client_id"`
+	UserID       uuid.NullUUID `json:"user_id"`
+	Scopes       string        `json:"scopes"`
+	Status       string        `json:"status"`
+	ExpiresAt    time.Time     `json:"expires_at"`
+	PollInterval int32         `json:"poll_interval"`
+	LastPolledAt sql.NullTime  `json:"last_polled_at"`
+	AuthorizedAt sql.NullTime  `json:"authorized_at"`
+	CreatedAt    time.Time     `json:"created_at"`
+}
+
 type OidcSession struct {
 	AuthorizeCode string         `json:"authorize_code"`
 	ClientID      uuid.UUID      `json:"client_id"`

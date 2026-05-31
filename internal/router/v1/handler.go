@@ -7,7 +7,9 @@ import (
 
 	"github.com/gorilla/sessions"
 	"github.com/ory/fosite"
+	"github.com/ory/fosite/handler/oauth2"
 
+	"github.com/traPtitech/portal-oidc/internal/repository"
 	"github.com/traPtitech/portal-oidc/internal/usecase"
 )
 
@@ -15,7 +17,10 @@ type Handler struct {
 	clientUseCase usecase.ClientUseCase
 	oauthUseCase  usecase.OAuthUseCase
 	oauth2        fosite.OAuth2Provider
+	tokenStrategy *oauth2.HMACSHAStrategy
 	userUseCase   usecase.UserUseCase
+	tokens        repository.TokenRepository
+	deviceAuths   repository.DeviceAuthorizationRepository
 	sessions      *sessions.CookieStore
 	config        OAuthConfig
 }
@@ -31,8 +36,11 @@ type OAuthConfig struct {
 func NewHandler(
 	clientUseCase usecase.ClientUseCase,
 	oauthUseCase usecase.OAuthUseCase,
-	oauth2 fosite.OAuth2Provider,
+	oauth2Provider fosite.OAuth2Provider,
+	tokenStrategy *oauth2.HMACSHAStrategy,
 	userUseCase usecase.UserUseCase,
+	tokens repository.TokenRepository,
+	deviceAuths repository.DeviceAuthorizationRepository,
 	config OAuthConfig,
 ) *Handler {
 	store := sessions.NewCookieStore(config.SessionSecret)
@@ -47,8 +55,11 @@ func NewHandler(
 	return &Handler{
 		clientUseCase: clientUseCase,
 		oauthUseCase:  oauthUseCase,
-		oauth2:        oauth2,
+		oauth2:        oauth2Provider,
+		tokenStrategy: tokenStrategy,
 		userUseCase:   userUseCase,
+		tokens:        tokens,
+		deviceAuths:   deviceAuths,
 		sessions:      store,
 		config:        config,
 	}

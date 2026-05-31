@@ -134,3 +134,42 @@ DELETE FROM oidc_sessions WHERE authorize_code = $1;
 
 -- name: DeleteAllOIDCSessions :exec
 DELETE FROM oidc_sessions;
+
+-- Device authorization queries (RFC 8628)
+
+-- name: CreateDeviceAuthorization :exec
+INSERT INTO device_authorizations (
+    id,
+    device_code,
+    user_code,
+    client_id,
+    scopes,
+    expires_at,
+    poll_interval
+) VALUES ($1, $2, $3, $4, $5, $6, $7);
+
+-- name: GetDeviceAuthorizationByDeviceCode :one
+SELECT * FROM device_authorizations WHERE device_code = $1;
+
+-- name: GetDeviceAuthorizationByUserCode :one
+SELECT * FROM device_authorizations WHERE user_code = $1;
+
+-- name: ApproveDeviceAuthorization :exec
+UPDATE device_authorizations
+SET status = 'authorized', user_id = $2, authorized_at = CURRENT_TIMESTAMP
+WHERE id = $1 AND status = 'pending';
+
+-- name: DenyDeviceAuthorization :exec
+UPDATE device_authorizations
+SET status = 'denied'
+WHERE id = $1 AND status = 'pending';
+
+-- name: TouchDeviceAuthorization :exec
+UPDATE device_authorizations
+SET last_polled_at = CURRENT_TIMESTAMP
+WHERE device_code = $1;
+
+-- name: ExpireDeviceAuthorizations :exec
+UPDATE device_authorizations
+SET status = 'expired'
+WHERE status = 'pending' AND expires_at < CURRENT_TIMESTAMP;
