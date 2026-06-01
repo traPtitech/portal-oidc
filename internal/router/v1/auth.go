@@ -8,10 +8,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-jose/go-jose/v4"
 	"github.com/labstack/echo/v5"
 
 	"github.com/traPtitech/portal-oidc/internal/usecase"
 )
+
+// idTokenSignatureAlgorithms lists the signing algorithms accepted on
+// id_token_hint. Mirrors id_token_signing_alg_values_supported in discovery
+// (currently RS256 only). go-jose v4 requires the caller to declare the
+// expected algorithms up-front to prevent algorithm-substitution attacks.
+var idTokenSignatureAlgorithms = []jose.SignatureAlgorithm{jose.RS256}
 
 const sessionName = "oidc_session"
 
@@ -114,6 +121,74 @@ func (h *Handler) authenticatePortalUser(ctx *echo.Context, trapID, password str
 }
 
 func (h *Handler) Logout(ctx *echo.Context) error {
+	if err := h.clearSession(ctx); err != nil {
+		return err
+	}
+	return ctx.Redirect(http.StatusFound, "/")
+}
+
+// RPInitiatedLogout implements OpenID Connect RP-Initiated Logout 1.0.
+//
+// Steps:
+//  1. Verify id_token_hint signature (if provided) using the OP's signing key.
+//  2. Terminate the End-User's session at the OP.
+//  3. If post_logout_redirect_uri was supplied AND it matches a URI registered
+//     for the client identified by id_token_hint.aud (or the explicit client_id
+//     query parameter), redirect there with the optional state echoed back.
+//  4. Otherwise render a simple confirmation page.
+//
+// post_logout_redirect_uri validation is intentionally strict: clients without
+// a pre-registered URI are not redirected to arbitrary external locations,
+// matching the open-redirect mitigation in the spec. The clients table does
+// not yet carry post_logout_uris (Phase 2.1), so for now any external URI is
+// rejected and the confirmation page is shown.
+//
+// Refs:
+//   - OpenID Connect RP-Initiated Logout 1.0 §2 (Logout Request)
+//     https://openid.net/specs/openid-connect-rpinitiated-1_0.html#RPLogout
+//   - OpenID Connect RP-Initiated Logout 1.0 §3 (Redirect URI Validation)
+//     https://openid.net/specs/openid-connect-rpinitiated-1_0.html#ValidationAndErrorHandling
+func (h *Handler) RPInitiatedLogout(ctx *echo.Context) error {
+	idTokenHint := ctx.QueryParam("id_token_hint")
+	postLogoutRedirectURI := ctx.QueryParam("post_logout_redirect_uri")
+	state := ctx.QueryParam("state")
+
+	if idTokenHint != "" && h.config.PrivateKey != nil {
+		// RP-Initiated Logout 1.0 §2: verify the supplied ID Token signature.
+		// Expired tokens are tolerated because §3 explicitly allows the OP to
+		// terminate the session even when the hint cannot be authoritatively
+		// validated as a current credential.
+		jws, err := jose.ParseSigned(idTokenHint, idTokenSignatureAlgorithms)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid id_token_hint")
+		}
+		if _, err := jws.Verify(&h.config.PrivateKey.PublicKey); err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid id_token_hint signature")
+		}
+	}
+
+	if err := h.clearSession(ctx); err != nil {
+		return err
+	}
+
+	if postLogoutRedirectURI != "" {
+		// TODO(Phase 2.1): once clients.post_logout_uris is added, look up the
+		// client by id_token_hint.aud or client_id and verify exact match here.
+		// For now we always render the confirmation page to avoid open redirects.
+		_ = state
+	}
+
+	return ctx.HTML(http.StatusOK, `<!DOCTYPE html>
+<html>
+<head><title>Logged out</title></head>
+<body>
+    <h1>Logged out</h1>
+    <p>You have been signed out.</p>
+</body>
+</html>`)
+}
+
+func (h *Handler) clearSession(ctx *echo.Context) error {
 	session, err := h.sessions.Get(ctx.Request(), sessionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get session")
@@ -126,8 +201,7 @@ func (h *Handler) Logout(ctx *echo.Context) error {
 	if err := session.Save(ctx.Request(), ctx.Response()); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to save session")
 	}
-
-	return ctx.Redirect(http.StatusFound, "/")
+	return nil
 }
 
 func sanitizeReturnURL(raw string) string {
