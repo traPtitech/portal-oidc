@@ -228,6 +228,9 @@ type OpenIDConfiguration struct {
 	IdTokenSigningAlgValuesSupported  []string  `json:"id_token_signing_alg_values_supported"`
 	Issuer                            string    `json:"issuer"`
 	JwksUri                           string    `json:"jwks_uri"`
+	RequestParameterSupported         *bool     `json:"request_parameter_supported,omitempty"`
+	RequestUriParameterSupported      *bool     `json:"request_uri_parameter_supported,omitempty"`
+	RequireRequestUriRegistration     *bool     `json:"require_request_uri_registration,omitempty"`
 	ResponseTypesSupported            []string  `json:"response_types_supported"`
 	ScopesSupported                   *[]string `json:"scopes_supported,omitempty"`
 	SubjectTypesSupported             []string  `json:"subject_types_supported"`
