@@ -33,6 +33,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createOIDCSessionStmt, err = db.PrepareContext(ctx, createOIDCSession); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateOIDCSession: %w", err)
 	}
+	if q.createSigningKeyStmt, err = db.PrepareContext(ctx, createSigningKey); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateSigningKey: %w", err)
+	}
 	if q.createTokenStmt, err = db.PrepareContext(ctx, createToken); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateToken: %w", err)
 	}
@@ -78,6 +81,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.deleteTokensByUserAndClientStmt, err = db.PrepareContext(ctx, deleteTokensByUserAndClient); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteTokensByUserAndClient: %w", err)
 	}
+	if q.getActiveSigningKeyStmt, err = db.PrepareContext(ctx, getActiveSigningKey); err != nil {
+		return nil, fmt.Errorf("error preparing query GetActiveSigningKey: %w", err)
+	}
 	if q.getAuthorizationCodeStmt, err = db.PrepareContext(ctx, getAuthorizationCode); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAuthorizationCode: %w", err)
 	}
@@ -86,6 +92,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getOIDCSessionStmt, err = db.PrepareContext(ctx, getOIDCSession); err != nil {
 		return nil, fmt.Errorf("error preparing query GetOIDCSession: %w", err)
+	}
+	if q.getSigningKeyStmt, err = db.PrepareContext(ctx, getSigningKey); err != nil {
+		return nil, fmt.Errorf("error preparing query GetSigningKey: %w", err)
+	}
+	if q.getSigningKeyByKIDStmt, err = db.PrepareContext(ctx, getSigningKeyByKID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetSigningKeyByKID: %w", err)
 	}
 	if q.getTokenByAccessTokenStmt, err = db.PrepareContext(ctx, getTokenByAccessToken); err != nil {
 		return nil, fmt.Errorf("error preparing query GetTokenByAccessToken: %w", err)
@@ -99,8 +111,17 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.listClientsStmt, err = db.PrepareContext(ctx, listClients); err != nil {
 		return nil, fmt.Errorf("error preparing query ListClients: %w", err)
 	}
+	if q.listPublishableSigningKeysStmt, err = db.PrepareContext(ctx, listPublishableSigningKeys); err != nil {
+		return nil, fmt.Errorf("error preparing query ListPublishableSigningKeys: %w", err)
+	}
 	if q.markAuthorizationCodeUsedStmt, err = db.PrepareContext(ctx, markAuthorizationCodeUsed); err != nil {
 		return nil, fmt.Errorf("error preparing query MarkAuthorizationCodeUsed: %w", err)
+	}
+	if q.markSigningKeyRotatedStmt, err = db.PrepareContext(ctx, markSigningKeyRotated); err != nil {
+		return nil, fmt.Errorf("error preparing query MarkSigningKeyRotated: %w", err)
+	}
+	if q.revokeSigningKeyStmt, err = db.PrepareContext(ctx, revokeSigningKey); err != nil {
+		return nil, fmt.Errorf("error preparing query RevokeSigningKey: %w", err)
 	}
 	if q.updateAuthorizationCodePKCEStmt, err = db.PrepareContext(ctx, updateAuthorizationCodePKCE); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateAuthorizationCodePKCE: %w", err)
@@ -129,6 +150,11 @@ func (q *Queries) Close() error {
 	if q.createOIDCSessionStmt != nil {
 		if cerr := q.createOIDCSessionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createOIDCSessionStmt: %w", cerr)
+		}
+	}
+	if q.createSigningKeyStmt != nil {
+		if cerr := q.createSigningKeyStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createSigningKeyStmt: %w", cerr)
 		}
 	}
 	if q.createTokenStmt != nil {
@@ -206,6 +232,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deleteTokensByUserAndClientStmt: %w", cerr)
 		}
 	}
+	if q.getActiveSigningKeyStmt != nil {
+		if cerr := q.getActiveSigningKeyStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getActiveSigningKeyStmt: %w", cerr)
+		}
+	}
 	if q.getAuthorizationCodeStmt != nil {
 		if cerr := q.getAuthorizationCodeStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getAuthorizationCodeStmt: %w", cerr)
@@ -219,6 +250,16 @@ func (q *Queries) Close() error {
 	if q.getOIDCSessionStmt != nil {
 		if cerr := q.getOIDCSessionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getOIDCSessionStmt: %w", cerr)
+		}
+	}
+	if q.getSigningKeyStmt != nil {
+		if cerr := q.getSigningKeyStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getSigningKeyStmt: %w", cerr)
+		}
+	}
+	if q.getSigningKeyByKIDStmt != nil {
+		if cerr := q.getSigningKeyByKIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getSigningKeyByKIDStmt: %w", cerr)
 		}
 	}
 	if q.getTokenByAccessTokenStmt != nil {
@@ -241,9 +282,24 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing listClientsStmt: %w", cerr)
 		}
 	}
+	if q.listPublishableSigningKeysStmt != nil {
+		if cerr := q.listPublishableSigningKeysStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listPublishableSigningKeysStmt: %w", cerr)
+		}
+	}
 	if q.markAuthorizationCodeUsedStmt != nil {
 		if cerr := q.markAuthorizationCodeUsedStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing markAuthorizationCodeUsedStmt: %w", cerr)
+		}
+	}
+	if q.markSigningKeyRotatedStmt != nil {
+		if cerr := q.markSigningKeyRotatedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing markSigningKeyRotatedStmt: %w", cerr)
+		}
+	}
+	if q.revokeSigningKeyStmt != nil {
+		if cerr := q.revokeSigningKeyStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing revokeSigningKeyStmt: %w", cerr)
 		}
 	}
 	if q.updateAuthorizationCodePKCEStmt != nil {
@@ -303,6 +359,7 @@ type Queries struct {
 	createAuthorizationCodeStmt         *sql.Stmt
 	createClientStmt                    *sql.Stmt
 	createOIDCSessionStmt               *sql.Stmt
+	createSigningKeyStmt                *sql.Stmt
 	createTokenStmt                     *sql.Stmt
 	deleteAllAuthorizationCodesStmt     *sql.Stmt
 	deleteAllClientsStmt                *sql.Stmt
@@ -318,14 +375,20 @@ type Queries struct {
 	deleteTokenByRefreshTokenStmt       *sql.Stmt
 	deleteTokensByRequestIDStmt         *sql.Stmt
 	deleteTokensByUserAndClientStmt     *sql.Stmt
+	getActiveSigningKeyStmt             *sql.Stmt
 	getAuthorizationCodeStmt            *sql.Stmt
 	getClientStmt                       *sql.Stmt
 	getOIDCSessionStmt                  *sql.Stmt
+	getSigningKeyStmt                   *sql.Stmt
+	getSigningKeyByKIDStmt              *sql.Stmt
 	getTokenByAccessTokenStmt           *sql.Stmt
 	getTokenByIDStmt                    *sql.Stmt
 	getTokenByRefreshTokenStmt          *sql.Stmt
 	listClientsStmt                     *sql.Stmt
+	listPublishableSigningKeysStmt      *sql.Stmt
 	markAuthorizationCodeUsedStmt       *sql.Stmt
+	markSigningKeyRotatedStmt           *sql.Stmt
+	revokeSigningKeyStmt                *sql.Stmt
 	updateAuthorizationCodePKCEStmt     *sql.Stmt
 	updateClientStmt                    *sql.Stmt
 	updateClientSecretStmt              *sql.Stmt
@@ -338,6 +401,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createAuthorizationCodeStmt:         q.createAuthorizationCodeStmt,
 		createClientStmt:                    q.createClientStmt,
 		createOIDCSessionStmt:               q.createOIDCSessionStmt,
+		createSigningKeyStmt:                q.createSigningKeyStmt,
 		createTokenStmt:                     q.createTokenStmt,
 		deleteAllAuthorizationCodesStmt:     q.deleteAllAuthorizationCodesStmt,
 		deleteAllClientsStmt:                q.deleteAllClientsStmt,
@@ -353,14 +417,20 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteTokenByRefreshTokenStmt:       q.deleteTokenByRefreshTokenStmt,
 		deleteTokensByRequestIDStmt:         q.deleteTokensByRequestIDStmt,
 		deleteTokensByUserAndClientStmt:     q.deleteTokensByUserAndClientStmt,
+		getActiveSigningKeyStmt:             q.getActiveSigningKeyStmt,
 		getAuthorizationCodeStmt:            q.getAuthorizationCodeStmt,
 		getClientStmt:                       q.getClientStmt,
 		getOIDCSessionStmt:                  q.getOIDCSessionStmt,
+		getSigningKeyStmt:                   q.getSigningKeyStmt,
+		getSigningKeyByKIDStmt:              q.getSigningKeyByKIDStmt,
 		getTokenByAccessTokenStmt:           q.getTokenByAccessTokenStmt,
 		getTokenByIDStmt:                    q.getTokenByIDStmt,
 		getTokenByRefreshTokenStmt:          q.getTokenByRefreshTokenStmt,
 		listClientsStmt:                     q.listClientsStmt,
+		listPublishableSigningKeysStmt:      q.listPublishableSigningKeysStmt,
 		markAuthorizationCodeUsedStmt:       q.markAuthorizationCodeUsedStmt,
+		markSigningKeyRotatedStmt:           q.markSigningKeyRotatedStmt,
+		revokeSigningKeyStmt:                q.revokeSigningKeyStmt,
 		updateAuthorizationCodePKCEStmt:     q.updateAuthorizationCodePKCEStmt,
 		updateClientStmt:                    q.updateClientStmt,
 		updateClientSecretStmt:              q.updateClientSecretStmt,

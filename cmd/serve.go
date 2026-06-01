@@ -13,6 +13,7 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
 
+	"github.com/traPtitech/portal-oidc/internal/keymanager"
 	"github.com/traPtitech/portal-oidc/internal/repository"
 	"github.com/traPtitech/portal-oidc/internal/repository/oauth"
 	"github.com/traPtitech/portal-oidc/internal/repository/oidc"
@@ -28,9 +29,9 @@ func newServer(cfg Config) (http.Handler, error) {
 		return nil, err
 	}
 
-	privateKey, err := loadOrGenerateKey(cfg.OAuth.KeyFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load/generate RSA key: %w", err)
+	keys := keymanager.New(repository.NewSigningKeyRepository(queries))
+	if err := keys.EnsureActiveKey(context.Background()); err != nil {
+		return nil, fmt.Errorf("failed to ensure active signing key: %w", err)
 	}
 
 	clientRepo := repository.NewClientRepository(queries)
@@ -50,7 +51,7 @@ func newServer(cfg Config) (http.Handler, error) {
 		AuthCodeLifespan:     defaults.AuthCodeLifespan,
 		IDTokenLifespan:      defaults.IDTokenLifespan,
 		Secret:               []byte(cfg.OAuth.Secret),
-	}, privateKey)
+	}, keys)
 
 	var userUseCase usecase.UserUseCase
 	if cfg.Environment == "production" {
@@ -65,10 +66,10 @@ func newServer(cfg Config) (http.Handler, error) {
 		usecase.NewOAuthUseCase(),
 		oauth2Provider,
 		userUseCase,
+		keys,
 		v1.OAuthConfig{
 			Issuer:        cfg.Host,
 			SessionSecret: []byte(cfg.OAuth.Secret),
-			PrivateKey:    privateKey,
 			Environment:   cfg.Environment,
 			TestUserID:    cfg.OAuth.TestUserID,
 		},

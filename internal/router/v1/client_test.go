@@ -23,6 +23,7 @@ import (
 	"github.com/ory/fosite"
 	"github.com/ory/fosite/compose"
 
+	"github.com/traPtitech/portal-oidc/internal/keymanager"
 	"github.com/traPtitech/portal-oidc/internal/repository"
 	"github.com/traPtitech/portal-oidc/internal/repository/oauth"
 	"github.com/traPtitech/portal-oidc/internal/repository/oidc"
@@ -179,7 +180,12 @@ func setupTestHandler(t *testing.T) (*Handler, func()) {
 		compose.OAuth2TokenRevocationFactory,
 	)
 
-	handler := NewHandler(clientUseCase, oauthUsecase, oauth2Provider, nil, OAuthConfig{
+	keys := keymanager.New(repository.NewSigningKeyRepository(queries))
+	if err := keys.EnsureActiveKey(ctx); err != nil {
+		t.Fatalf("failed to ensure active signing key: %v", err)
+	}
+
+	handler := NewHandler(clientUseCase, oauthUsecase, oauth2Provider, nil, keys, OAuthConfig{
 		Issuer:      "http://localhost:8080",
 		Environment: "development",
 		TestUserID:  "00000000-0000-0000-0000-000000000000",
