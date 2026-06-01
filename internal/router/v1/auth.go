@@ -131,11 +131,14 @@ func (h *Handler) Logout(ctx *echo.Context) error {
 }
 
 func sanitizeReturnURL(raw string) string {
-	if raw == "" {
+	if raw == "" || !strings.HasPrefix(raw, "/") {
+		return "/"
+	}
+	if strings.HasPrefix(raw, "//") || strings.HasPrefix(raw, "/\\") {
 		return "/"
 	}
 	parsed, err := url.Parse(raw)
-	if err != nil || parsed.Host != "" || strings.HasPrefix(raw, "//") {
+	if err != nil || parsed.Scheme != "" || parsed.Host != "" || parsed.Opaque != "" {
 		return "/"
 	}
 	return parsed.RequestURI()
