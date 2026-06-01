@@ -78,3 +78,16 @@ CREATE TABLE IF NOT EXISTS oidc_sessions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_oidc_sessions_client_id ON oidc_sessions (client_id);
+
+-- traPortal v2 spec §TOTP
+-- One TOTP shared secret per user. enabled flips to true only after the user
+-- has proven possession by typing back a valid code, so a half-finished
+-- enrolment never blocks login.
+CREATE TABLE IF NOT EXISTS totp_credentials (
+  user_id UUID NOT NULL,
+  secret TEXT NOT NULL,
+  enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_used_at TIMESTAMPTZ NULL,
+  PRIMARY KEY (user_id)
+);

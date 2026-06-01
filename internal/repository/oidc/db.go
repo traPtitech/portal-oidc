@@ -63,6 +63,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.deleteOIDCSessionStmt, err = db.PrepareContext(ctx, deleteOIDCSession); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteOIDCSession: %w", err)
 	}
+	if q.deleteTOTPCredentialStmt, err = db.PrepareContext(ctx, deleteTOTPCredential); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteTOTPCredential: %w", err)
+	}
 	if q.deleteTokenStmt, err = db.PrepareContext(ctx, deleteToken); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteToken: %w", err)
 	}
@@ -78,6 +81,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.deleteTokensByUserAndClientStmt, err = db.PrepareContext(ctx, deleteTokensByUserAndClient); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteTokensByUserAndClient: %w", err)
 	}
+	if q.enableTOTPCredentialStmt, err = db.PrepareContext(ctx, enableTOTPCredential); err != nil {
+		return nil, fmt.Errorf("error preparing query EnableTOTPCredential: %w", err)
+	}
 	if q.getAuthorizationCodeStmt, err = db.PrepareContext(ctx, getAuthorizationCode); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAuthorizationCode: %w", err)
 	}
@@ -86,6 +92,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getOIDCSessionStmt, err = db.PrepareContext(ctx, getOIDCSession); err != nil {
 		return nil, fmt.Errorf("error preparing query GetOIDCSession: %w", err)
+	}
+	if q.getTOTPCredentialStmt, err = db.PrepareContext(ctx, getTOTPCredential); err != nil {
+		return nil, fmt.Errorf("error preparing query GetTOTPCredential: %w", err)
 	}
 	if q.getTokenByAccessTokenStmt, err = db.PrepareContext(ctx, getTokenByAccessToken); err != nil {
 		return nil, fmt.Errorf("error preparing query GetTokenByAccessToken: %w", err)
@@ -102,6 +111,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.markAuthorizationCodeUsedStmt, err = db.PrepareContext(ctx, markAuthorizationCodeUsed); err != nil {
 		return nil, fmt.Errorf("error preparing query MarkAuthorizationCodeUsed: %w", err)
 	}
+	if q.touchTOTPCredentialStmt, err = db.PrepareContext(ctx, touchTOTPCredential); err != nil {
+		return nil, fmt.Errorf("error preparing query TouchTOTPCredential: %w", err)
+	}
 	if q.updateAuthorizationCodePKCEStmt, err = db.PrepareContext(ctx, updateAuthorizationCodePKCE); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateAuthorizationCodePKCE: %w", err)
 	}
@@ -110,6 +122,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateClientSecretStmt, err = db.PrepareContext(ctx, updateClientSecret); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateClientSecret: %w", err)
+	}
+	if q.upsertTOTPCredentialStmt, err = db.PrepareContext(ctx, upsertTOTPCredential); err != nil {
+		return nil, fmt.Errorf("error preparing query UpsertTOTPCredential: %w", err)
 	}
 	return &q, nil
 }
@@ -181,6 +196,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deleteOIDCSessionStmt: %w", cerr)
 		}
 	}
+	if q.deleteTOTPCredentialStmt != nil {
+		if cerr := q.deleteTOTPCredentialStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteTOTPCredentialStmt: %w", cerr)
+		}
+	}
 	if q.deleteTokenStmt != nil {
 		if cerr := q.deleteTokenStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteTokenStmt: %w", cerr)
@@ -206,6 +226,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deleteTokensByUserAndClientStmt: %w", cerr)
 		}
 	}
+	if q.enableTOTPCredentialStmt != nil {
+		if cerr := q.enableTOTPCredentialStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing enableTOTPCredentialStmt: %w", cerr)
+		}
+	}
 	if q.getAuthorizationCodeStmt != nil {
 		if cerr := q.getAuthorizationCodeStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getAuthorizationCodeStmt: %w", cerr)
@@ -219,6 +244,11 @@ func (q *Queries) Close() error {
 	if q.getOIDCSessionStmt != nil {
 		if cerr := q.getOIDCSessionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getOIDCSessionStmt: %w", cerr)
+		}
+	}
+	if q.getTOTPCredentialStmt != nil {
+		if cerr := q.getTOTPCredentialStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getTOTPCredentialStmt: %w", cerr)
 		}
 	}
 	if q.getTokenByAccessTokenStmt != nil {
@@ -246,6 +276,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing markAuthorizationCodeUsedStmt: %w", cerr)
 		}
 	}
+	if q.touchTOTPCredentialStmt != nil {
+		if cerr := q.touchTOTPCredentialStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing touchTOTPCredentialStmt: %w", cerr)
+		}
+	}
 	if q.updateAuthorizationCodePKCEStmt != nil {
 		if cerr := q.updateAuthorizationCodePKCEStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateAuthorizationCodePKCEStmt: %w", cerr)
@@ -259,6 +294,11 @@ func (q *Queries) Close() error {
 	if q.updateClientSecretStmt != nil {
 		if cerr := q.updateClientSecretStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateClientSecretStmt: %w", cerr)
+		}
+	}
+	if q.upsertTOTPCredentialStmt != nil {
+		if cerr := q.upsertTOTPCredentialStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing upsertTOTPCredentialStmt: %w", cerr)
 		}
 	}
 	return err
@@ -313,22 +353,27 @@ type Queries struct {
 	deleteExpiredAuthorizationCodesStmt *sql.Stmt
 	deleteExpiredTokensStmt             *sql.Stmt
 	deleteOIDCSessionStmt               *sql.Stmt
+	deleteTOTPCredentialStmt            *sql.Stmt
 	deleteTokenStmt                     *sql.Stmt
 	deleteTokenByAccessTokenStmt        *sql.Stmt
 	deleteTokenByRefreshTokenStmt       *sql.Stmt
 	deleteTokensByRequestIDStmt         *sql.Stmt
 	deleteTokensByUserAndClientStmt     *sql.Stmt
+	enableTOTPCredentialStmt            *sql.Stmt
 	getAuthorizationCodeStmt            *sql.Stmt
 	getClientStmt                       *sql.Stmt
 	getOIDCSessionStmt                  *sql.Stmt
+	getTOTPCredentialStmt               *sql.Stmt
 	getTokenByAccessTokenStmt           *sql.Stmt
 	getTokenByIDStmt                    *sql.Stmt
 	getTokenByRefreshTokenStmt          *sql.Stmt
 	listClientsStmt                     *sql.Stmt
 	markAuthorizationCodeUsedStmt       *sql.Stmt
+	touchTOTPCredentialStmt             *sql.Stmt
 	updateAuthorizationCodePKCEStmt     *sql.Stmt
 	updateClientStmt                    *sql.Stmt
 	updateClientSecretStmt              *sql.Stmt
+	upsertTOTPCredentialStmt            *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
@@ -348,21 +393,26 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteExpiredAuthorizationCodesStmt: q.deleteExpiredAuthorizationCodesStmt,
 		deleteExpiredTokensStmt:             q.deleteExpiredTokensStmt,
 		deleteOIDCSessionStmt:               q.deleteOIDCSessionStmt,
+		deleteTOTPCredentialStmt:            q.deleteTOTPCredentialStmt,
 		deleteTokenStmt:                     q.deleteTokenStmt,
 		deleteTokenByAccessTokenStmt:        q.deleteTokenByAccessTokenStmt,
 		deleteTokenByRefreshTokenStmt:       q.deleteTokenByRefreshTokenStmt,
 		deleteTokensByRequestIDStmt:         q.deleteTokensByRequestIDStmt,
 		deleteTokensByUserAndClientStmt:     q.deleteTokensByUserAndClientStmt,
+		enableTOTPCredentialStmt:            q.enableTOTPCredentialStmt,
 		getAuthorizationCodeStmt:            q.getAuthorizationCodeStmt,
 		getClientStmt:                       q.getClientStmt,
 		getOIDCSessionStmt:                  q.getOIDCSessionStmt,
+		getTOTPCredentialStmt:               q.getTOTPCredentialStmt,
 		getTokenByAccessTokenStmt:           q.getTokenByAccessTokenStmt,
 		getTokenByIDStmt:                    q.getTokenByIDStmt,
 		getTokenByRefreshTokenStmt:          q.getTokenByRefreshTokenStmt,
 		listClientsStmt:                     q.listClientsStmt,
 		markAuthorizationCodeUsedStmt:       q.markAuthorizationCodeUsedStmt,
+		touchTOTPCredentialStmt:             q.touchTOTPCredentialStmt,
 		updateAuthorizationCodePKCEStmt:     q.updateAuthorizationCodePKCEStmt,
 		updateClientStmt:                    q.updateClientStmt,
 		updateClientSecretStmt:              q.updateClientSecretStmt,
+		upsertTOTPCredentialStmt:            q.upsertTOTPCredentialStmt,
 	}
 }

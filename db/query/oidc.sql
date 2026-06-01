@@ -134,3 +134,31 @@ DELETE FROM oidc_sessions WHERE authorize_code = $1;
 
 -- name: DeleteAllOIDCSessions :exec
 DELETE FROM oidc_sessions;
+
+-- TOTP queries
+
+-- name: UpsertTOTPCredential :exec
+-- Insert a new secret or replace the existing one when the user re-enrols.
+-- enabled stays at the supplied value so we can distinguish "secret stored,
+-- waiting for first verification" from "secret in active use".
+INSERT INTO totp_credentials (user_id, secret, enabled)
+VALUES ($1, $2, $3)
+ON CONFLICT (user_id) DO UPDATE SET
+    secret = EXCLUDED.secret,
+    enabled = EXCLUDED.enabled,
+    created_at = CURRENT_TIMESTAMP,
+    last_used_at = NULL;
+
+-- name: GetTOTPCredential :one
+SELECT * FROM totp_credentials WHERE user_id = $1;
+
+-- name: EnableTOTPCredential :exec
+UPDATE totp_credentials SET enabled = TRUE, last_used_at = CURRENT_TIMESTAMP
+WHERE user_id = $1;
+
+-- name: TouchTOTPCredential :exec
+UPDATE totp_credentials SET last_used_at = CURRENT_TIMESTAMP
+WHERE user_id = $1;
+
+-- name: DeleteTOTPCredential :exec
+DELETE FROM totp_credentials WHERE user_id = $1;

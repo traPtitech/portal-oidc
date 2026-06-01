@@ -246,6 +246,15 @@ func (q *Queries) DeleteOIDCSession(ctx context.Context, authorizeCode string) e
 	return err
 }
 
+const deleteTOTPCredential = `-- name: DeleteTOTPCredential :exec
+DELETE FROM totp_credentials WHERE user_id = $1
+`
+
+func (q *Queries) DeleteTOTPCredential(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.exec(ctx, q.deleteTOTPCredentialStmt, deleteTOTPCredential, userID)
+	return err
+}
+
 const deleteToken = `-- name: DeleteToken :exec
 DELETE FROM tokens WHERE id = $1
 `
@@ -293,6 +302,16 @@ type DeleteTokensByUserAndClientParams struct {
 
 func (q *Queries) DeleteTokensByUserAndClient(ctx context.Context, arg DeleteTokensByUserAndClientParams) error {
 	_, err := q.exec(ctx, q.deleteTokensByUserAndClientStmt, deleteTokensByUserAndClient, arg.UserID, arg.ClientID)
+	return err
+}
+
+const enableTOTPCredential = `-- name: EnableTOTPCredential :exec
+UPDATE totp_credentials SET enabled = TRUE, last_used_at = CURRENT_TIMESTAMP
+WHERE user_id = $1
+`
+
+func (q *Queries) EnableTOTPCredential(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.exec(ctx, q.enableTOTPCredentialStmt, enableTOTPCredential, userID)
 	return err
 }
 
@@ -354,6 +373,23 @@ func (q *Queries) GetOIDCSession(ctx context.Context, authorizeCode string) (Oid
 		&i.AuthTime,
 		&i.RequestedAt,
 		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getTOTPCredential = `-- name: GetTOTPCredential :one
+SELECT user_id, secret, enabled, created_at, last_used_at FROM totp_credentials WHERE user_id = $1
+`
+
+func (q *Queries) GetTOTPCredential(ctx context.Context, userID uuid.UUID) (TotpCredential, error) {
+	row := q.queryRow(ctx, q.getTOTPCredentialStmt, getTOTPCredential, userID)
+	var i TotpCredential
+	err := row.Scan(
+		&i.UserID,
+		&i.Secret,
+		&i.Enabled,
+		&i.CreatedAt,
+		&i.LastUsedAt,
 	)
 	return i, err
 }
@@ -465,6 +501,16 @@ func (q *Queries) MarkAuthorizationCodeUsed(ctx context.Context, code string) er
 	return err
 }
 
+const touchTOTPCredential = `-- name: TouchTOTPCredential :exec
+UPDATE totp_credentials SET last_used_at = CURRENT_TIMESTAMP
+WHERE user_id = $1
+`
+
+func (q *Queries) TouchTOTPCredential(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.exec(ctx, q.touchTOTPCredentialStmt, touchTOTPCredential, userID)
+	return err
+}
+
 const updateAuthorizationCodePKCE = `-- name: UpdateAuthorizationCodePKCE :exec
 UPDATE authorization_codes SET
     code_challenge = $1,
@@ -521,5 +567,31 @@ type UpdateClientSecretParams struct {
 
 func (q *Queries) UpdateClientSecret(ctx context.Context, arg UpdateClientSecretParams) error {
 	_, err := q.exec(ctx, q.updateClientSecretStmt, updateClientSecret, arg.ClientSecretHash, arg.ClientID)
+	return err
+}
+
+const upsertTOTPCredential = `-- name: UpsertTOTPCredential :exec
+
+INSERT INTO totp_credentials (user_id, secret, enabled)
+VALUES ($1, $2, $3)
+ON CONFLICT (user_id) DO UPDATE SET
+    secret = EXCLUDED.secret,
+    enabled = EXCLUDED.enabled,
+    created_at = CURRENT_TIMESTAMP,
+    last_used_at = NULL
+`
+
+type UpsertTOTPCredentialParams struct {
+	UserID  uuid.UUID `json:"user_id"`
+	Secret  string    `json:"secret"`
+	Enabled bool      `json:"enabled"`
+}
+
+// TOTP queries
+// Insert a new secret or replace the existing one when the user re-enrols.
+// enabled stays at the supplied value so we can distinguish "secret stored,
+// waiting for first verification" from "secret in active use".
+func (q *Queries) UpsertTOTPCredential(ctx context.Context, arg UpsertTOTPCredentialParams) error {
+	_, err := q.exec(ctx, q.upsertTOTPCredentialStmt, upsertTOTPCredential, arg.UserID, arg.Secret, arg.Enabled)
 	return err
 }
