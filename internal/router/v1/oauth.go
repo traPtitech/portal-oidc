@@ -267,7 +267,9 @@ func (h *Handler) GetOpenIDConfiguration(ctx *echo.Context) error {
 	issuer := strings.TrimRight(h.config.Issuer, "/")
 	scopesSupported := []string{"openid", "profile", "email"}
 	claimsSupported := []string{"sub", "name", "preferred_username", "email", "email_verified"}
-	codeChallengeMethodsSupported := []string{"S256", "plain"}
+	// OAuth 2.1 §1.4.2 / fosite EnablePKCEPlainChallengeMethod=false: only S256 is
+	// honoured by the server, so advertising "plain" would only invite downgrades.
+	codeChallengeMethodsSupported := []string{"S256"}
 	tokenEndpointAuthMethodsSupported := []string{"client_secret_basic", "client_secret_post"}
 
 	return ctx.JSON(http.StatusOK, gen.OpenIDConfiguration{
@@ -281,6 +283,44 @@ func (h *Handler) GetOpenIDConfiguration(ctx *echo.Context) error {
 		IdTokenSigningAlgValuesSupported:  []string{"RS256"},
 		ScopesSupported:                   &scopesSupported,
 		ClaimsSupported:                   &claimsSupported,
+		CodeChallengeMethodsSupported:     &codeChallengeMethodsSupported,
+		TokenEndpointAuthMethodsSupported: &tokenEndpointAuthMethodsSupported,
+	})
+}
+
+// GetOAuthAuthorizationServerMetadata serves the RFC 8414 metadata document.
+// Compared to OIDC discovery this strips OIDC-only fields (subject_types_supported,
+// id_token_signing_alg_values_supported, claims_supported) and adds OAuth-only ones
+// (response_modes_supported, grant_types_supported).
+//
+// Refs:
+//   - RFC 8414 §2 (Authorization Server Metadata)
+//     https://datatracker.ietf.org/doc/html/rfc8414#section-2
+//   - RFC 8414 §3.1 (.well-known/oauth-authorization-server)
+//     https://datatracker.ietf.org/doc/html/rfc8414#section-3.1
+func (h *Handler) GetOAuthAuthorizationServerMetadata(ctx *echo.Context) error {
+	issuer := strings.TrimRight(h.config.Issuer, "/")
+	jwksURI := issuer + "/.well-known/jwks.json"
+	scopesSupported := []string{"openid", "profile", "email"}
+	grantTypesSupported := []string{"authorization_code", "refresh_token"}
+	responseModesSupported := []string{"query"}
+	// OAuth 2.1 (draft) §1.4.2: clients SHOULD use a code_challenge method that
+	// does not expose the verifier in the authorization request, and S256 is the
+	// only such method. fosite is configured with EnablePKCEPlainChallengeMethod=false
+	// in cmd/oauth.go so the server never accepts "plain" anyway; advertising it
+	// here would only invite downgrade attempts.
+	codeChallengeMethodsSupported := []string{"S256"}
+	tokenEndpointAuthMethodsSupported := []string{"client_secret_basic", "client_secret_post"}
+
+	return ctx.JSON(http.StatusOK, gen.OAuthAuthorizationServerMetadata{
+		Issuer:                            issuer,
+		AuthorizationEndpoint:             issuer + "/oauth2/authorize",
+		TokenEndpoint:                     issuer + "/oauth2/token",
+		JwksUri:                           &jwksURI,
+		ResponseTypesSupported:            []string{"code"},
+		ResponseModesSupported:            &responseModesSupported,
+		GrantTypesSupported:               &grantTypesSupported,
+		ScopesSupported:                   &scopesSupported,
 		CodeChallengeMethodsSupported:     &codeChallengeMethodsSupported,
 		TokenEndpointAuthMethodsSupported: &tokenEndpointAuthMethodsSupported,
 	})
