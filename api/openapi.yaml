@@ -170,6 +170,36 @@ paths:
               schema:
                 $ref: "#/components/schemas/JWKS"
 
+  /oauth2/register:
+    post:
+      operationId: registerClient
+      summary: Dynamic Client Registration (RFC 7591)
+      description: |
+        OAuth 2.0 Dynamic Client Registration Protocol (RFC 7591) endpoint.
+        Anyone with network access may register a new client; the response
+        contains the issued client_id and client_secret per §3.2.1.
+      tags:
+        - oauth2/oidc
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientRegistrationRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientRegistrationResponse"
+        "400":
+          description: Bad Request (invalid_redirect_uri / invalid_client_metadata)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthError"
+
   /oauth2/userinfo:
     get:
       operationId: getUserInfo
@@ -512,6 +542,90 @@ components:
         code_verifier:
           type: string
           description: PKCE code_verifier
+
+    ClientRegistrationRequest:
+      type: object
+      description: |
+        RFC 7591 §2.0 Client Metadata. Fields not listed here are silently
+        ignored; unknown extensions do not cause registration failure.
+      required:
+        - redirect_uris
+      properties:
+        redirect_uris:
+          type: array
+          items:
+            type: string
+            format: uri
+        client_name:
+          type: string
+        client_uri:
+          type: string
+          format: uri
+        logo_uri:
+          type: string
+          format: uri
+        token_endpoint_auth_method:
+          type: string
+          enum:
+            - client_secret_basic
+            - client_secret_post
+            - none
+        grant_types:
+          type: array
+          items:
+            type: string
+        response_types:
+          type: array
+          items:
+            type: string
+        scope:
+          type: string
+          description: スペース区切りスコープ
+
+    ClientRegistrationResponse:
+      type: object
+      description: |
+        RFC 7591 §3.2.1 Client Information Response. Echoes back the registered
+        metadata along with the issued client_id and (for confidential
+        clients) client_secret.
+      required:
+        - client_id
+        - client_id_issued_at
+        - redirect_uris
+      properties:
+        client_id:
+          type: string
+          format: uuid
+        client_secret:
+          type: string
+          description: Confidential client にのみ返却
+        client_id_issued_at:
+          type: integer
+          format: int64
+          description: Unix epoch seconds
+        client_secret_expires_at:
+          type: integer
+          format: int64
+          description: 0 で無期限 (RFC 7591 §3.2.1)
+        client_name:
+          type: string
+        redirect_uris:
+          type: array
+          items:
+            type: string
+            format: uri
+        token_endpoint_auth_method:
+          type: string
+        grant_types:
+          type: array
+          items:
+            type: string
+        response_types:
+          type: array
+          items:
+            type: string
+        scope:
+          type: string
 
     TokenResponse:
       type: object
