@@ -30,14 +30,14 @@ type Querier interface {
 	DeleteExpiredTokens(ctx context.Context) error
 	DeleteOIDCSession(ctx context.Context, authorizeCode string) error
 	DeleteToken(ctx context.Context, id uuid.UUID) error
-	DeleteTokenByAccessToken(ctx context.Context, accessToken string) error
+	DeleteTokenByAccessToken(ctx context.Context, accessToken sql.NullString) error
 	DeleteTokenByRefreshToken(ctx context.Context, refreshToken sql.NullString) error
 	DeleteTokensByRequestID(ctx context.Context, requestID string) error
 	DeleteTokensByUserAndClient(ctx context.Context, arg DeleteTokensByUserAndClientParams) error
 	GetAuthorizationCode(ctx context.Context, code string) (AuthorizationCode, error)
 	GetClient(ctx context.Context, clientID uuid.UUID) (Client, error)
 	GetOIDCSession(ctx context.Context, authorizeCode string) (OidcSession, error)
-	GetTokenByAccessToken(ctx context.Context, accessToken string) (Token, error)
+	GetTokenByAccessToken(ctx context.Context, accessToken sql.NullString) (Token, error)
 	GetTokenByID(ctx context.Context, id uuid.UUID) (Token, error)
 	GetTokenByRefreshToken(ctx context.Context, refreshToken sql.NullString) (Token, error)
 	ListClients(ctx context.Context) ([]Client, error)
