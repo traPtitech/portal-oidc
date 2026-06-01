@@ -17,15 +17,6 @@ func TestOAuthUseCase_DecideAuthorize(t *testing.T) {
 		want  AuthorizeAction
 	}{
 		{
-			name: "non-prod always proceeds",
-			input: AuthorizeInput{
-				Prompt:        "",
-				Authenticated: false,
-				IsNonProd:     true,
-			},
-			want: AuthorizeActionProceed,
-		},
-		{
 			name: "prompt=none with authenticated user proceeds",
 			input: AuthorizeInput{
 				Prompt:        "none",

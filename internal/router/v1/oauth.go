@@ -59,7 +59,6 @@ func (h *Handler) authorize(ctx *echo.Context) error {
 		AuthTime:        info.AuthTime,
 		MaxAge:          maxAge,
 		ReauthCompleted: h.isReauthCompleted(ctx, info.AuthTime),
-		IsNonProd:       h.config.Environment != "production",
 	})
 
 	if action == usecase.AuthorizeActionLoginError {
@@ -70,14 +69,7 @@ func (h *Handler) authorize(ctx *echo.Context) error {
 		return h.redirectToLogin(ctx, &returnURL)
 	}
 
-	userID := info.UserID
-	authTime := info.AuthTime
-	if h.config.Environment != "production" {
-		userID = h.config.TestUserID
-		authTime = time.Now()
-	}
-
-	return h.completeAuthorize(ctx, ar, userID, authTime)
+	return h.completeAuthorize(ctx, ar, info.UserID, info.AuthTime)
 }
 
 func (h *Handler) completeAuthorize(ctx *echo.Context, ar fosite.AuthorizeRequester, userID string, authTime time.Time) error {
