@@ -150,7 +150,8 @@ func setupTestHandler(t *testing.T) (*Handler, func()) {
 		queries,
 		clientRepo,
 		repository.NewAuthCodeRepository(queries),
-		repository.NewTokenRepository(queries),
+		repository.NewAccessTokenRepository(queries),
+		repository.NewRefreshTokenRepository(queries),
 		repository.NewOIDCSessionRepository(queries),
 	)
 	fositeConfig := &fosite.Config{ //nolint:gosec // test credentials

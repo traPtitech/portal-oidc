@@ -39,7 +39,8 @@ func newServer(cfg Config) (http.Handler, error) {
 		queries,
 		clientRepo,
 		repository.NewAuthCodeRepository(queries),
-		repository.NewTokenRepository(queries),
+		repository.NewAccessTokenRepository(queries),
+		repository.NewRefreshTokenRepository(queries),
 		repository.NewOIDCSessionRepository(queries),
 	)
 	defaults := defaultOAuthProviderConfig()
