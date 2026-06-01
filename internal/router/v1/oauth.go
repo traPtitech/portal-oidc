@@ -72,19 +72,25 @@ func (h *Handler) authorize(ctx *echo.Context) error {
 
 	userID := info.UserID
 	authTime := info.AuthTime
+	amr := info.AMR
+	acr := info.ACR
 	if h.config.Environment != "production" {
 		userID = h.config.TestUserID
 		authTime = time.Now()
+		if len(amr) == 0 {
+			amr = []string{"pwd"}
+		}
 	}
 
-	return h.completeAuthorize(ctx, ar, userID, authTime)
+	return h.completeAuthorize(ctx, ar, userID, authTime, acr, amr)
 }
 
-func (h *Handler) completeAuthorize(ctx *echo.Context, ar fosite.AuthorizeRequester, userID string, authTime time.Time) error {
+func (h *Handler) completeAuthorize(ctx *echo.Context, ar fosite.AuthorizeRequester, userID string, authTime time.Time, acr string, amr []string) error {
 	c := ctx.Request().Context()
 	rw := ctx.Response()
 
 	session := oauth.NewSession(userID, authTime)
+	session.SetAuthenticationContext(acr, amr)
 	for _, scope := range ar.GetRequestedScopes() {
 		ar.GrantScope(scope)
 	}
