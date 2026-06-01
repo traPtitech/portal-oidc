@@ -36,6 +36,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createTokenStmt, err = db.PrepareContext(ctx, createToken); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateToken: %w", err)
 	}
+	if q.createUserSessionStmt, err = db.PrepareContext(ctx, createUserSession); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateUserSession: %w", err)
+	}
 	if q.deleteAllAuthorizationCodesStmt, err = db.PrepareContext(ctx, deleteAllAuthorizationCodes); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteAllAuthorizationCodes: %w", err)
 	}
@@ -96,11 +99,26 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getTokenByRefreshTokenStmt, err = db.PrepareContext(ctx, getTokenByRefreshToken); err != nil {
 		return nil, fmt.Errorf("error preparing query GetTokenByRefreshToken: %w", err)
 	}
+	if q.getUserSessionBySessionIDStmt, err = db.PrepareContext(ctx, getUserSessionBySessionID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetUserSessionBySessionID: %w", err)
+	}
 	if q.listClientsStmt, err = db.PrepareContext(ctx, listClients); err != nil {
 		return nil, fmt.Errorf("error preparing query ListClients: %w", err)
 	}
+	if q.listUserSessionsByUserStmt, err = db.PrepareContext(ctx, listUserSessionsByUser); err != nil {
+		return nil, fmt.Errorf("error preparing query ListUserSessionsByUser: %w", err)
+	}
 	if q.markAuthorizationCodeUsedStmt, err = db.PrepareContext(ctx, markAuthorizationCodeUsed); err != nil {
 		return nil, fmt.Errorf("error preparing query MarkAuthorizationCodeUsed: %w", err)
+	}
+	if q.revokeAllUserSessionsExceptStmt, err = db.PrepareContext(ctx, revokeAllUserSessionsExcept); err != nil {
+		return nil, fmt.Errorf("error preparing query RevokeAllUserSessionsExcept: %w", err)
+	}
+	if q.revokeUserSessionStmt, err = db.PrepareContext(ctx, revokeUserSession); err != nil {
+		return nil, fmt.Errorf("error preparing query RevokeUserSession: %w", err)
+	}
+	if q.touchUserSessionStmt, err = db.PrepareContext(ctx, touchUserSession); err != nil {
+		return nil, fmt.Errorf("error preparing query TouchUserSession: %w", err)
 	}
 	if q.updateAuthorizationCodePKCEStmt, err = db.PrepareContext(ctx, updateAuthorizationCodePKCE); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateAuthorizationCodePKCE: %w", err)
@@ -134,6 +152,11 @@ func (q *Queries) Close() error {
 	if q.createTokenStmt != nil {
 		if cerr := q.createTokenStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createTokenStmt: %w", cerr)
+		}
+	}
+	if q.createUserSessionStmt != nil {
+		if cerr := q.createUserSessionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createUserSessionStmt: %w", cerr)
 		}
 	}
 	if q.deleteAllAuthorizationCodesStmt != nil {
@@ -236,14 +259,39 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getTokenByRefreshTokenStmt: %w", cerr)
 		}
 	}
+	if q.getUserSessionBySessionIDStmt != nil {
+		if cerr := q.getUserSessionBySessionIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getUserSessionBySessionIDStmt: %w", cerr)
+		}
+	}
 	if q.listClientsStmt != nil {
 		if cerr := q.listClientsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing listClientsStmt: %w", cerr)
 		}
 	}
+	if q.listUserSessionsByUserStmt != nil {
+		if cerr := q.listUserSessionsByUserStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listUserSessionsByUserStmt: %w", cerr)
+		}
+	}
 	if q.markAuthorizationCodeUsedStmt != nil {
 		if cerr := q.markAuthorizationCodeUsedStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing markAuthorizationCodeUsedStmt: %w", cerr)
+		}
+	}
+	if q.revokeAllUserSessionsExceptStmt != nil {
+		if cerr := q.revokeAllUserSessionsExceptStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing revokeAllUserSessionsExceptStmt: %w", cerr)
+		}
+	}
+	if q.revokeUserSessionStmt != nil {
+		if cerr := q.revokeUserSessionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing revokeUserSessionStmt: %w", cerr)
+		}
+	}
+	if q.touchUserSessionStmt != nil {
+		if cerr := q.touchUserSessionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing touchUserSessionStmt: %w", cerr)
 		}
 	}
 	if q.updateAuthorizationCodePKCEStmt != nil {
@@ -304,6 +352,7 @@ type Queries struct {
 	createClientStmt                    *sql.Stmt
 	createOIDCSessionStmt               *sql.Stmt
 	createTokenStmt                     *sql.Stmt
+	createUserSessionStmt               *sql.Stmt
 	deleteAllAuthorizationCodesStmt     *sql.Stmt
 	deleteAllClientsStmt                *sql.Stmt
 	deleteAllOIDCSessionsStmt           *sql.Stmt
@@ -324,8 +373,13 @@ type Queries struct {
 	getTokenByAccessTokenStmt           *sql.Stmt
 	getTokenByIDStmt                    *sql.Stmt
 	getTokenByRefreshTokenStmt          *sql.Stmt
+	getUserSessionBySessionIDStmt       *sql.Stmt
 	listClientsStmt                     *sql.Stmt
+	listUserSessionsByUserStmt          *sql.Stmt
 	markAuthorizationCodeUsedStmt       *sql.Stmt
+	revokeAllUserSessionsExceptStmt     *sql.Stmt
+	revokeUserSessionStmt               *sql.Stmt
+	touchUserSessionStmt                *sql.Stmt
 	updateAuthorizationCodePKCEStmt     *sql.Stmt
 	updateClientStmt                    *sql.Stmt
 	updateClientSecretStmt              *sql.Stmt
@@ -339,6 +393,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createClientStmt:                    q.createClientStmt,
 		createOIDCSessionStmt:               q.createOIDCSessionStmt,
 		createTokenStmt:                     q.createTokenStmt,
+		createUserSessionStmt:               q.createUserSessionStmt,
 		deleteAllAuthorizationCodesStmt:     q.deleteAllAuthorizationCodesStmt,
 		deleteAllClientsStmt:                q.deleteAllClientsStmt,
 		deleteAllOIDCSessionsStmt:           q.deleteAllOIDCSessionsStmt,
@@ -359,8 +414,13 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getTokenByAccessTokenStmt:           q.getTokenByAccessTokenStmt,
 		getTokenByIDStmt:                    q.getTokenByIDStmt,
 		getTokenByRefreshTokenStmt:          q.getTokenByRefreshTokenStmt,
+		getUserSessionBySessionIDStmt:       q.getUserSessionBySessionIDStmt,
 		listClientsStmt:                     q.listClientsStmt,
+		listUserSessionsByUserStmt:          q.listUserSessionsByUserStmt,
 		markAuthorizationCodeUsedStmt:       q.markAuthorizationCodeUsedStmt,
+		revokeAllUserSessionsExceptStmt:     q.revokeAllUserSessionsExceptStmt,
+		revokeUserSessionStmt:               q.revokeUserSessionStmt,
+		touchUserSessionStmt:                q.touchUserSessionStmt,
 		updateAuthorizationCodePKCEStmt:     q.updateAuthorizationCodePKCEStmt,
 		updateClientStmt:                    q.updateClientStmt,
 		updateClientSecretStmt:              q.updateClientSecretStmt,
