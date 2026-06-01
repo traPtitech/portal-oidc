@@ -23,6 +23,7 @@ import (
 	"github.com/ory/fosite"
 	"github.com/ory/fosite/compose"
 
+	"github.com/traPtitech/portal-oidc/internal/audit"
 	"github.com/traPtitech/portal-oidc/internal/repository"
 	"github.com/traPtitech/portal-oidc/internal/repository/oauth"
 	"github.com/traPtitech/portal-oidc/internal/repository/oidc"
@@ -179,7 +180,9 @@ func setupTestHandler(t *testing.T) (*Handler, func()) {
 		compose.OAuth2TokenRevocationFactory,
 	)
 
-	handler := NewHandler(clientUseCase, oauthUsecase, oauth2Provider, nil, OAuthConfig{
+	auditLogger := audit.NewLogger(repository.NewAuditLogRepository(queries))
+
+	handler := NewHandler(clientUseCase, oauthUsecase, oauth2Provider, nil, auditLogger, OAuthConfig{
 		Issuer:      "http://localhost:8080",
 		Environment: "development",
 		TestUserID:  "00000000-0000-0000-0000-000000000000",

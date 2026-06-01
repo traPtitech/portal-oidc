@@ -13,6 +13,7 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
 
+	"github.com/traPtitech/portal-oidc/internal/audit"
 	"github.com/traPtitech/portal-oidc/internal/repository"
 	"github.com/traPtitech/portal-oidc/internal/repository/oauth"
 	"github.com/traPtitech/portal-oidc/internal/repository/oidc"
@@ -60,11 +61,13 @@ func newServer(cfg Config) (http.Handler, error) {
 		}
 		userUseCase = usecase.NewUserUseCase(repository.NewUserRepository(portalQueries))
 	}
+	auditLogger := audit.NewLogger(repository.NewAuditLogRepository(queries))
 	handler := v1.NewHandler(
 		usecase.NewClientUseCase(clientRepo),
 		usecase.NewOAuthUseCase(),
 		oauth2Provider,
 		userUseCase,
+		auditLogger,
 		v1.OAuthConfig{
 			Issuer:        cfg.Host,
 			SessionSecret: []byte(cfg.OAuth.Secret),

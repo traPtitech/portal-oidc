@@ -8,8 +8,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 
+	"github.com/traPtitech/portal-oidc/internal/audit"
+	"github.com/traPtitech/portal-oidc/internal/domain"
 	"github.com/traPtitech/portal-oidc/internal/usecase"
 )
 
@@ -64,7 +67,15 @@ func (h *Handler) PostLogin(ctx *echo.Context) error {
 		userID, err = h.authenticatePortalUser(ctx, username, password)
 	}
 
+	ip, ua := audit.FromRequest(ctx.Request())
+
 	if err != nil {
+		h.auditLogger.Record(ctx.Request().Context(), audit.Event{
+			Type:      domain.AuditEventLoginFailure,
+			IPAddress: ip,
+			UserAgent: ua,
+			Details:   map[string]any{"username": username, "reason": err.Error()},
+		})
 		return ctx.HTML(http.StatusUnauthorized, `<!DOCTYPE html>
 <html>
 <head><title>Login Failed</title></head>
@@ -75,6 +86,18 @@ func (h *Handler) PostLogin(ctx *echo.Context) error {
 </body>
 </html>`)
 	}
+
+	uid, parseErr := uuid.Parse(userID)
+	var uidPtr *uuid.UUID
+	if parseErr == nil {
+		uidPtr = &uid
+	}
+	h.auditLogger.Record(ctx.Request().Context(), audit.Event{
+		Type:      domain.AuditEventLoginSuccess,
+		UserID:    uidPtr,
+		IPAddress: ip,
+		UserAgent: ua,
+	})
 
 	session, err := h.sessions.Get(ctx.Request(), sessionName)
 	if err != nil {

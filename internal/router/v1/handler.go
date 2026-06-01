@@ -8,6 +8,7 @@ import (
 	"github.com/gorilla/sessions"
 	"github.com/ory/fosite"
 
+	"github.com/traPtitech/portal-oidc/internal/audit"
 	"github.com/traPtitech/portal-oidc/internal/usecase"
 )
 
@@ -17,6 +18,7 @@ type Handler struct {
 	oauth2        fosite.OAuth2Provider
 	userUseCase   usecase.UserUseCase
 	sessions      *sessions.CookieStore
+	auditLogger   *audit.Logger
 	config        OAuthConfig
 }
 
@@ -33,6 +35,7 @@ func NewHandler(
 	oauthUseCase usecase.OAuthUseCase,
 	oauth2 fosite.OAuth2Provider,
 	userUseCase usecase.UserUseCase,
+	auditLogger *audit.Logger,
 	config OAuthConfig,
 ) *Handler {
 	store := sessions.NewCookieStore(config.SessionSecret)
@@ -50,6 +53,7 @@ func NewHandler(
 		oauth2:        oauth2,
 		userUseCase:   userUseCase,
 		sessions:      store,
+		auditLogger:   auditLogger,
 		config:        config,
 	}
 }

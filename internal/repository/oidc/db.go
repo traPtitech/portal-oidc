@@ -24,6 +24,9 @@ func New(db DBTX) *Queries {
 func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	q := Queries{db: db}
 	var err error
+	if q.createAuditLogStmt, err = db.PrepareContext(ctx, createAuditLog); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateAuditLog: %w", err)
+	}
 	if q.createAuthorizationCodeStmt, err = db.PrepareContext(ctx, createAuthorizationCode); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateAuthorizationCode: %w", err)
 	}
@@ -96,6 +99,15 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getTokenByRefreshTokenStmt, err = db.PrepareContext(ctx, getTokenByRefreshToken); err != nil {
 		return nil, fmt.Errorf("error preparing query GetTokenByRefreshToken: %w", err)
 	}
+	if q.listAuditLogsByClientStmt, err = db.PrepareContext(ctx, listAuditLogsByClient); err != nil {
+		return nil, fmt.Errorf("error preparing query ListAuditLogsByClient: %w", err)
+	}
+	if q.listAuditLogsByEventTypeStmt, err = db.PrepareContext(ctx, listAuditLogsByEventType); err != nil {
+		return nil, fmt.Errorf("error preparing query ListAuditLogsByEventType: %w", err)
+	}
+	if q.listAuditLogsByUserStmt, err = db.PrepareContext(ctx, listAuditLogsByUser); err != nil {
+		return nil, fmt.Errorf("error preparing query ListAuditLogsByUser: %w", err)
+	}
 	if q.listClientsStmt, err = db.PrepareContext(ctx, listClients); err != nil {
 		return nil, fmt.Errorf("error preparing query ListClients: %w", err)
 	}
@@ -116,6 +128,11 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 
 func (q *Queries) Close() error {
 	var err error
+	if q.createAuditLogStmt != nil {
+		if cerr := q.createAuditLogStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createAuditLogStmt: %w", cerr)
+		}
+	}
 	if q.createAuthorizationCodeStmt != nil {
 		if cerr := q.createAuthorizationCodeStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createAuthorizationCodeStmt: %w", cerr)
@@ -236,6 +253,21 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getTokenByRefreshTokenStmt: %w", cerr)
 		}
 	}
+	if q.listAuditLogsByClientStmt != nil {
+		if cerr := q.listAuditLogsByClientStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listAuditLogsByClientStmt: %w", cerr)
+		}
+	}
+	if q.listAuditLogsByEventTypeStmt != nil {
+		if cerr := q.listAuditLogsByEventTypeStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listAuditLogsByEventTypeStmt: %w", cerr)
+		}
+	}
+	if q.listAuditLogsByUserStmt != nil {
+		if cerr := q.listAuditLogsByUserStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listAuditLogsByUserStmt: %w", cerr)
+		}
+	}
 	if q.listClientsStmt != nil {
 		if cerr := q.listClientsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing listClientsStmt: %w", cerr)
@@ -300,6 +332,7 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 type Queries struct {
 	db                                  DBTX
 	tx                                  *sql.Tx
+	createAuditLogStmt                  *sql.Stmt
 	createAuthorizationCodeStmt         *sql.Stmt
 	createClientStmt                    *sql.Stmt
 	createOIDCSessionStmt               *sql.Stmt
@@ -324,6 +357,9 @@ type Queries struct {
 	getTokenByAccessTokenStmt           *sql.Stmt
 	getTokenByIDStmt                    *sql.Stmt
 	getTokenByRefreshTokenStmt          *sql.Stmt
+	listAuditLogsByClientStmt           *sql.Stmt
+	listAuditLogsByEventTypeStmt        *sql.Stmt
+	listAuditLogsByUserStmt             *sql.Stmt
 	listClientsStmt                     *sql.Stmt
 	markAuthorizationCodeUsedStmt       *sql.Stmt
 	updateAuthorizationCodePKCEStmt     *sql.Stmt
@@ -335,6 +371,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
 		db:                                  tx,
 		tx:                                  tx,
+		createAuditLogStmt:                  q.createAuditLogStmt,
 		createAuthorizationCodeStmt:         q.createAuthorizationCodeStmt,
 		createClientStmt:                    q.createClientStmt,
 		createOIDCSessionStmt:               q.createOIDCSessionStmt,
@@ -359,6 +396,9 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getTokenByAccessTokenStmt:           q.getTokenByAccessTokenStmt,
 		getTokenByIDStmt:                    q.getTokenByIDStmt,
 		getTokenByRefreshTokenStmt:          q.getTokenByRefreshTokenStmt,
+		listAuditLogsByClientStmt:           q.listAuditLogsByClientStmt,
+		listAuditLogsByEventTypeStmt:        q.listAuditLogsByEventTypeStmt,
+		listAuditLogsByUserStmt:             q.listAuditLogsByUserStmt,
 		listClientsStmt:                     q.listClientsStmt,
 		markAuthorizationCodeUsedStmt:       q.markAuthorizationCodeUsedStmt,
 		updateAuthorizationCodePKCEStmt:     q.updateAuthorizationCodePKCEStmt,
