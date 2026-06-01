@@ -58,3 +58,13 @@ type Token struct {
 	ExpiresAt    time.Time      `json:"expires_at"`
 	CreatedAt    time.Time      `json:"created_at"`
 }
+
+type UserConsent struct {
+	ID        uuid.UUID       `json:"id"`
+	UserID    uuid.UUID       `json:"user_id"`
+	ClientID  uuid.UUID       `json:"client_id"`
+	Scopes    json.RawMessage `json:"scopes"`
+	GrantedAt time.Time       `json:"granted_at"`
+	ExpiresAt sql.NullTime    `json:"expires_at"`
+	RevokedAt sql.NullTime    `json:"revoked_at"`
+}

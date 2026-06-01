@@ -421,6 +421,31 @@ func (q *Queries) GetTokenByRefreshToken(ctx context.Context, refreshToken sql.N
 	return i, err
 }
 
+const getUserConsent = `-- name: GetUserConsent :one
+SELECT id, user_id, client_id, scopes, granted_at, expires_at, revoked_at FROM user_consents
+WHERE user_id = $1 AND client_id = $2
+`
+
+type GetUserConsentParams struct {
+	UserID   uuid.UUID `json:"user_id"`
+	ClientID uuid.UUID `json:"client_id"`
+}
+
+func (q *Queries) GetUserConsent(ctx context.Context, arg GetUserConsentParams) (UserConsent, error) {
+	row := q.queryRow(ctx, q.getUserConsentStmt, getUserConsent, arg.UserID, arg.ClientID)
+	var i UserConsent
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.ClientID,
+		&i.Scopes,
+		&i.GrantedAt,
+		&i.ExpiresAt,
+		&i.RevokedAt,
+	)
+	return i, err
+}
+
 const listClients = `-- name: ListClients :many
 SELECT client_id, client_secret_hash, name, client_type, redirect_uris, created_at, updated_at FROM clients
 `
@@ -456,12 +481,64 @@ func (q *Queries) ListClients(ctx context.Context) ([]Client, error) {
 	return items, nil
 }
 
+const listUserConsentsByUser = `-- name: ListUserConsentsByUser :many
+SELECT id, user_id, client_id, scopes, granted_at, expires_at, revoked_at FROM user_consents
+WHERE user_id = $1 AND revoked_at IS NULL
+`
+
+func (q *Queries) ListUserConsentsByUser(ctx context.Context, userID uuid.UUID) ([]UserConsent, error) {
+	rows, err := q.query(ctx, q.listUserConsentsByUserStmt, listUserConsentsByUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []UserConsent{}
+	for rows.Next() {
+		var i UserConsent
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.ClientID,
+			&i.Scopes,
+			&i.GrantedAt,
+			&i.ExpiresAt,
+			&i.RevokedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markAuthorizationCodeUsed = `-- name: MarkAuthorizationCodeUsed :exec
 UPDATE authorization_codes SET used = TRUE WHERE code = $1
 `
 
 func (q *Queries) MarkAuthorizationCodeUsed(ctx context.Context, code string) error {
 	_, err := q.exec(ctx, q.markAuthorizationCodeUsedStmt, markAuthorizationCodeUsed, code)
+	return err
+}
+
+const revokeUserConsent = `-- name: RevokeUserConsent :exec
+UPDATE user_consents
+SET revoked_at = CURRENT_TIMESTAMP
+WHERE user_id = $1 AND client_id = $2
+`
+
+type RevokeUserConsentParams struct {
+	UserID   uuid.UUID `json:"user_id"`
+	ClientID uuid.UUID `json:"client_id"`
+}
+
+func (q *Queries) RevokeUserConsent(ctx context.Context, arg RevokeUserConsentParams) error {
+	_, err := q.exec(ctx, q.revokeUserConsentStmt, revokeUserConsent, arg.UserID, arg.ClientID)
 	return err
 }
 
@@ -521,5 +598,36 @@ type UpdateClientSecretParams struct {
 
 func (q *Queries) UpdateClientSecret(ctx context.Context, arg UpdateClientSecretParams) error {
 	_, err := q.exec(ctx, q.updateClientSecretStmt, updateClientSecret, arg.ClientSecretHash, arg.ClientID)
+	return err
+}
+
+const upsertUserConsent = `-- name: UpsertUserConsent :exec
+
+INSERT INTO user_consents (id, user_id, client_id, scopes, granted_at, revoked_at)
+VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, NULL)
+ON CONFLICT (user_id, client_id)
+DO UPDATE SET
+    scopes = EXCLUDED.scopes,
+    granted_at = EXCLUDED.granted_at,
+    revoked_at = NULL
+`
+
+type UpsertUserConsentParams struct {
+	ID       uuid.UUID       `json:"id"`
+	UserID   uuid.UUID       `json:"user_id"`
+	ClientID uuid.UUID       `json:"client_id"`
+	Scopes   json.RawMessage `json:"scopes"`
+}
+
+// User consent queries
+// Re-grant a user's consent to a client. Overwrites the existing scope set
+// and clears any prior revocation so subsequent authorize requests succeed.
+func (q *Queries) UpsertUserConsent(ctx context.Context, arg UpsertUserConsentParams) error {
+	_, err := q.exec(ctx, q.upsertUserConsentStmt, upsertUserConsent,
+		arg.ID,
+		arg.UserID,
+		arg.ClientID,
+		arg.Scopes,
+	)
 	return err
 }
