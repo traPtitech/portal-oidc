@@ -12,6 +12,13 @@ import (
 )
 
 type Querier interface {
+	// Atomically delete and return the most recent active challenge for the given
+	// (session_id, type). DELETE ... RETURNING removes the SELECT-then-DELETE race
+	// so a challenge is guaranteed one-shot even under concurrent requests.
+	// FOR UPDATE SKIP LOCKED prevents two concurrent transactions from queuing on
+	// the same row; the loser sees zero rows and reports "no pending challenge"
+	// which the handler treats as an authentication failure.
+	ConsumeWebAuthnChallenge(ctx context.Context, arg ConsumeWebAuthnChallengeParams) (WebauthnChallenge, error)
 	// Authorization Code queries
 	CreateAuthorizationCode(ctx context.Context, arg CreateAuthorizationCodeParams) error
 	// Client queries
@@ -20,6 +27,10 @@ type Querier interface {
 	CreateOIDCSession(ctx context.Context, arg CreateOIDCSessionParams) error
 	// Token queries
 	CreateToken(ctx context.Context, arg CreateTokenParams) error
+	// WebAuthn challenge queries
+	CreateWebAuthnChallenge(ctx context.Context, arg CreateWebAuthnChallengeParams) error
+	// WebAuthn credential queries
+	CreateWebAuthnCredential(ctx context.Context, arg CreateWebAuthnCredentialParams) error
 	DeleteAllAuthorizationCodes(ctx context.Context) error
 	DeleteAllClients(ctx context.Context) error
 	DeleteAllOIDCSessions(ctx context.Context) error
@@ -28,23 +39,29 @@ type Querier interface {
 	DeleteClient(ctx context.Context, clientID uuid.UUID) error
 	DeleteExpiredAuthorizationCodes(ctx context.Context) error
 	DeleteExpiredTokens(ctx context.Context) error
+	DeleteExpiredWebAuthnChallenges(ctx context.Context) error
 	DeleteOIDCSession(ctx context.Context, authorizeCode string) error
 	DeleteToken(ctx context.Context, id uuid.UUID) error
 	DeleteTokenByAccessToken(ctx context.Context, accessToken string) error
 	DeleteTokenByRefreshToken(ctx context.Context, refreshToken sql.NullString) error
 	DeleteTokensByRequestID(ctx context.Context, requestID string) error
 	DeleteTokensByUserAndClient(ctx context.Context, arg DeleteTokensByUserAndClientParams) error
+	DeleteWebAuthnCredential(ctx context.Context, arg DeleteWebAuthnCredentialParams) error
 	GetAuthorizationCode(ctx context.Context, code string) (AuthorizationCode, error)
 	GetClient(ctx context.Context, clientID uuid.UUID) (Client, error)
 	GetOIDCSession(ctx context.Context, authorizeCode string) (OidcSession, error)
 	GetTokenByAccessToken(ctx context.Context, accessToken string) (Token, error)
 	GetTokenByID(ctx context.Context, id uuid.UUID) (Token, error)
 	GetTokenByRefreshToken(ctx context.Context, refreshToken sql.NullString) (Token, error)
+	GetWebAuthnCredentialByCredentialID(ctx context.Context, credentialID []byte) (WebauthnCredential, error)
 	ListClients(ctx context.Context) ([]Client, error)
+	ListWebAuthnCredentialsByUser(ctx context.Context, userID uuid.UUID) ([]WebauthnCredential, error)
 	MarkAuthorizationCodeUsed(ctx context.Context, code string) error
 	UpdateAuthorizationCodePKCE(ctx context.Context, arg UpdateAuthorizationCodePKCEParams) error
 	UpdateClient(ctx context.Context, arg UpdateClientParams) error
 	UpdateClientSecret(ctx context.Context, arg UpdateClientSecretParams) error
+	UpdateWebAuthnCredentialDeviceName(ctx context.Context, arg UpdateWebAuthnCredentialDeviceNameParams) error
+	UpdateWebAuthnCredentialSignCount(ctx context.Context, arg UpdateWebAuthnCredentialSignCountParams) error
 }
 
 var _ Querier = (*Queries)(nil)

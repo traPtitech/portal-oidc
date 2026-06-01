@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sqlc-dev/pqtype"
 )
 
 type AuthorizationCode struct {
@@ -57,4 +58,31 @@ type Token struct {
 	Scopes       string         `json:"scopes"`
 	ExpiresAt    time.Time      `json:"expires_at"`
 	CreatedAt    time.Time      `json:"created_at"`
+}
+
+type WebauthnChallenge struct {
+	ID        uuid.UUID       `json:"id"`
+	Challenge []byte          `json:"challenge"`
+	UserID    uuid.NullUUID   `json:"user_id"`
+	SessionID sql.NullString  `json:"session_id"`
+	Type      string          `json:"type"`
+	Data      json.RawMessage `json:"data"`
+	ExpiresAt time.Time       `json:"expires_at"`
+	CreatedAt time.Time       `json:"created_at"`
+}
+
+type WebauthnCredential struct {
+	ID                uuid.UUID             `json:"id"`
+	UserID            uuid.UUID             `json:"user_id"`
+	CredentialID      []byte                `json:"credential_id"`
+	PublicKey         []byte                `json:"public_key"`
+	PublicKeyAlg      int32                 `json:"public_key_alg"`
+	AttestationFormat sql.NullString        `json:"attestation_format"`
+	Aaguid            uuid.NullUUID         `json:"aaguid"`
+	SignCount         int64                 `json:"sign_count"`
+	Transports        pqtype.NullRawMessage `json:"transports"`
+	DeviceName        sql.NullString        `json:"device_name"`
+	BackedUp          bool                  `json:"backed_up"`
+	CreatedAt         time.Time             `json:"created_at"`
+	LastUsedAt        sql.NullTime          `json:"last_used_at"`
 }
