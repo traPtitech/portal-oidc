@@ -42,11 +42,11 @@ jobs:
     steps:
       - name: Generate a token
         id: generate-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           app-id: ${{ secrets.RENOVATE_APP_ID }}
           private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: Override default config from dispatch variables
         shell: bash
         env:
@@ -56,7 +56,7 @@ jobs:
           echo "RENOVATE_DRY_RUN=${INPUT_DRY_RUN:-$RENOVATE_DRY_RUN}" >> "${GITHUB_ENV}"
           echo "LOG_LEVEL=${INPUT_LOG_LEVEL:-$LOG_LEVEL}" >> "${GITHUB_ENV}"
       - name: Renovate
-        uses: renovatebot/github-action@v46.1.14
+        uses: renovatebot/github-action@693b9ef15eec82123529a37c782242f091365961 # v46.1.14
         with:
           renovate-image: "ghcr.io/renovatebot/renovate"
           renovate-version: "latest"

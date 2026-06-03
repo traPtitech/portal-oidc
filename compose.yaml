@@ -27,7 +27,7 @@ services:
     stdin_open: true
 
   portal:
-    image: postgres:18
+    image: postgres:18@sha256:8ff36f3c66371cba71d20ceedccfc3de9669a68737607888c4ef0af93abe8e39
     environment:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: portal
@@ -47,7 +47,7 @@ services:
     restart: unless-stopped
 
   oidc:
-    image: postgres:18
+    image: postgres:18@sha256:8ff36f3c66371cba71d20ceedccfc3de9669a68737607888c4ef0af93abe8e39
     environment:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: oidc
@@ -67,7 +67,7 @@ services:
     restart: unless-stopped
 
   adminer:
-    image: adminer:5.4.2-standalone
+    image: adminer:5.4.2-standalone@sha256:cc64d253db4f016cbcff2ff2f01e60ed07e74f38b4398f84d3c4fae4b5ce0e07
     environment:
       ADMINER_DEFAULT_SERVER: portal
       ADMINER_DESIGN: pepa-linha
