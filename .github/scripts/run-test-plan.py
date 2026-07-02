@@ -153,7 +153,14 @@ def follow_authorize(
                 if not current_url.host:
                     current_url = login_resp.url.join(current_url)
                 continue
-            return login_resp
+            # A successful login always answers with a redirect back to the
+            # authorize URL; anything else (401 failure page, re-rendered
+            # form) means the credentials were rejected.
+            print(
+                f"  Browser: login failed: status {login_resp.status_code}"
+                f" at {login_resp.url}"
+            )
+            return None
 
         return resp
 
