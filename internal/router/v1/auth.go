@@ -162,10 +162,10 @@ func (h *Handler) getAuthInfo(ctx *echo.Context) (authInfo, bool) {
 		return authInfo{}, false
 	}
 
-	at := time.Now()
-	if authTimeSec, ok := session.Values["auth_time"].(int64); ok {
-		at = time.Unix(authTimeSec, 0)
+	authTimeSec, ok := session.Values["auth_time"].(int64)
+	if !ok || authTimeSec <= 0 {
+		return authInfo{}, false
 	}
 
-	return authInfo{UserID: userID, AuthTime: at}, true
+	return authInfo{UserID: userID, AuthTime: time.Unix(authTimeSec, 0)}, true
 }

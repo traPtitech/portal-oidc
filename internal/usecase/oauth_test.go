@@ -17,15 +17,6 @@ func TestOAuthUseCase_DecideAuthorize(t *testing.T) {
 		want  AuthorizeAction
 	}{
 		{
-			name: "non-prod always proceeds",
-			input: AuthorizeInput{
-				Prompt:        "",
-				Authenticated: false,
-				IsNonProd:     true,
-			},
-			want: AuthorizeActionProceed,
-		},
-		{
 			name: "prompt=none with authenticated user proceeds",
 			input: AuthorizeInput{
 				Prompt:        "none",
@@ -127,6 +118,45 @@ func TestOAuthUseCase_DecideAuthorize(t *testing.T) {
 				AuthTime:      now.Add(-2 * time.Hour),
 			},
 			want: AuthorizeActionProceed,
+		},
+		{
+			name: "prompt=none with expired max_age returns error instead of showing UI",
+			input: AuthorizeInput{
+				Prompt:          "none",
+				Authenticated:   true,
+				AuthTime:        now.Add(-2 * time.Hour),
+				MaxAge:          int64Ptr(3600),
+				ReauthCompleted: false,
+			},
+			want: AuthorizeActionLoginError,
+		},
+		{
+			name: "space-delimited prompt list containing login forces reauth",
+			input: AuthorizeInput{
+				Prompt:          "login consent",
+				Authenticated:   true,
+				AuthTime:        now,
+				ReauthCompleted: false,
+			},
+			want: AuthorizeActionLogin,
+		},
+		{
+			name: "prompt combining none with another value returns invalid_request",
+			input: AuthorizeInput{
+				Prompt:        "consent none",
+				Authenticated: false,
+			},
+			want: AuthorizeActionInvalidRequest,
+		},
+		{
+			name: "prompt combining none with another value returns invalid_request even when authenticated",
+			input: AuthorizeInput{
+				Prompt:          "none login",
+				Authenticated:   true,
+				AuthTime:        now,
+				ReauthCompleted: true,
+			},
+			want: AuthorizeActionInvalidRequest,
 		},
 	}
 
