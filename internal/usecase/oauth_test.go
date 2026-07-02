@@ -141,12 +141,22 @@ func TestOAuthUseCase_DecideAuthorize(t *testing.T) {
 			want: AuthorizeActionLogin,
 		},
 		{
-			name: "space-delimited prompt list containing none with unauthenticated user returns error",
+			name: "prompt combining none with another value returns invalid_request",
 			input: AuthorizeInput{
 				Prompt:        "consent none",
 				Authenticated: false,
 			},
-			want: AuthorizeActionLoginError,
+			want: AuthorizeActionInvalidRequest,
+		},
+		{
+			name: "prompt combining none with another value returns invalid_request even when authenticated",
+			input: AuthorizeInput{
+				Prompt:          "none login",
+				Authenticated:   true,
+				AuthTime:        now,
+				ReauthCompleted: true,
+			},
+			want: AuthorizeActionInvalidRequest,
 		},
 	}
 

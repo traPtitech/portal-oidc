@@ -10,9 +10,10 @@ import (
 type AuthorizeAction int
 
 const (
-	AuthorizeActionProceed    AuthorizeAction = iota // Proceed with authorization
-	AuthorizeActionLogin                             // Redirect to login
-	AuthorizeActionLoginError                        // Return login_required error (prompt=none)
+	AuthorizeActionProceed        AuthorizeAction = iota // Proceed with authorization
+	AuthorizeActionLogin                                 // Redirect to login
+	AuthorizeActionLoginError                            // Return login_required error (prompt=none)
+	AuthorizeActionInvalidRequest                        // Return invalid_request error (malformed prompt)
 )
 
 // AuthorizeInput contains the parameters needed to decide the authorization action.
@@ -47,6 +48,13 @@ func (u *oauthUseCase) EvaluateAuthorize(input AuthorizeInput) AuthorizeAction {
 	prompts := strings.Fields(input.Prompt)
 	promptNone := slices.Contains(prompts, "none")
 	promptLogin := slices.Contains(prompts, "login")
+
+	// OIDC Core §3.1.2.1: "If this parameter contains none with any other
+	// value, an error is returned." Same condition as fosite's openid
+	// validator, which also rejects duplicated tokens alongside none.
+	if promptNone && len(prompts) > 1 {
+		return AuthorizeActionInvalidRequest
+	}
 
 	switch {
 	case promptNone:

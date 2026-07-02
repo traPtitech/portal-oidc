@@ -61,6 +61,10 @@ func (h *Handler) authorize(ctx *echo.Context) error {
 		ReauthCompleted: h.isReauthCompleted(ctx, info.AuthTime),
 	})
 
+	if action == usecase.AuthorizeActionInvalidRequest {
+		h.oauth2.WriteAuthorizeError(c, rw, ar, fosite.ErrInvalidRequest.WithHint("Parameter 'prompt' was set to 'none', but contains other values as well which is not allowed."))
+		return nil
+	}
 	if action == usecase.AuthorizeActionLoginError {
 		h.oauth2.WriteAuthorizeError(c, rw, ar, fosite.ErrLoginRequired)
 		return nil
