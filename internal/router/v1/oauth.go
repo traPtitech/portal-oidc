@@ -112,8 +112,7 @@ func (h *Handler) isReauthCompleted(ctx *echo.Context, authTime time.Time) bool 
 func (h *Handler) clearReauthRequest(ctx *echo.Context) error {
 	session, err := h.sessions.Get(ctx.Request(), sessionName)
 	if err != nil {
-		// No readable session, so there is no marker to clear.
-		return nil
+		return err
 	}
 
 	if _, ok := session.Values["reauth_requested_at"]; !ok {
