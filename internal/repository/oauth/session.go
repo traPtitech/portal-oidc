@@ -37,6 +37,18 @@ func NewSession(subject string, authTime time.Time) *Session {
 	}
 }
 
+func (s *Session) SetAuthenticationContext(acr string, amr []string) {
+	if s.idTokenClaims == nil {
+		s.idTokenClaims = &jwt.IDTokenClaims{Subject: s.subject}
+	}
+	s.idTokenClaims.AuthenticationContextClassReference = acr
+	if len(amr) > 0 {
+		copied := make([]string, len(amr))
+		copy(copied, amr)
+		s.idTokenClaims.AuthenticationMethodsReferences = copied
+	}
+}
+
 func (s *Session) SetExpiresAt(key fosite.TokenType, exp time.Time) {
 	if s.expiresAt == nil {
 		s.expiresAt = make(map[fosite.TokenType]time.Time)
