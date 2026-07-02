@@ -76,6 +76,10 @@ func (h *Handler) completeAuthorize(ctx *echo.Context, ar fosite.AuthorizeReques
 	c := ctx.Request().Context()
 	rw := ctx.Response()
 
+	if err := h.clearReauthRequest(ctx); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to save session")
+	}
+
 	session := oauth.NewSession(userID, authTime)
 	for _, scope := range ar.GetRequestedScopes() {
 		ar.GrantScope(scope)
@@ -103,6 +107,21 @@ func (h *Handler) isReauthCompleted(ctx *echo.Context, authTime time.Time) bool 
 	}
 
 	return authTime.Unix() > reqAt
+}
+
+func (h *Handler) clearReauthRequest(ctx *echo.Context) error {
+	session, err := h.sessions.Get(ctx.Request(), sessionName)
+	if err != nil {
+		// No readable session, so there is no marker to clear.
+		return nil
+	}
+
+	if _, ok := session.Values["reauth_requested_at"]; !ok {
+		return nil
+	}
+
+	delete(session.Values, "reauth_requested_at")
+	return session.Save(ctx.Request(), ctx.Response())
 }
 
 func (h *Handler) redirectToLogin(ctx *echo.Context, returnURL *url.URL) error {

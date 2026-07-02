@@ -1,6 +1,10 @@
 package usecase
 
-import "time"
+import (
+	"slices"
+	"strings"
+	"time"
+)
 
 // AuthorizeAction represents the result of authorization decision logic.
 type AuthorizeAction int
@@ -37,14 +41,21 @@ func NewOAuthUseCase() OAuthUseCase {
 // OpenID Connect Core 1.0 §3.1.2.3 (Authorization Server Authenticates End-User)
 // and §3.1.2.6 (Authentication Error Response).
 func (u *oauthUseCase) EvaluateAuthorize(input AuthorizeInput) AuthorizeAction {
-	switch input.Prompt {
-	case "none":
+	// OIDC Core §3.1.2.1: prompt is a space-delimited, case-sensitive list of
+	// ASCII values (e.g. "login consent"), so match individual tokens rather
+	// than the raw string.
+	prompts := strings.Fields(input.Prompt)
+	promptNone := slices.Contains(prompts, "none")
+	promptLogin := slices.Contains(prompts, "login")
+
+	switch {
+	case promptNone:
 		// OIDC Core §3.1.2.1: prompt=none MUST NOT prompt the user.
 		// If no authenticated session exists, return login_required.
 		if !input.Authenticated {
 			return AuthorizeActionLoginError
 		}
-	case "login":
+	case promptLogin:
 		// OIDC Core §3.1.2.1: prompt=login SHOULD reauthenticate the user.
 		if !input.Authenticated || !input.ReauthCompleted {
 			return AuthorizeActionLogin
@@ -58,6 +69,11 @@ func (u *oauthUseCase) EvaluateAuthorize(input AuthorizeInput) AuthorizeAction {
 	// OIDC Core §3.1.2.1: max_age requires reauth when the elapsed time since
 	// the last authentication exceeds the supplied number of seconds.
 	if input.MaxAge != nil && time.Since(input.AuthTime) > time.Duration(*input.MaxAge)*time.Second && !input.ReauthCompleted {
+		// Under prompt=none no UI may be shown (§3.1.2.1), so report
+		// login_required (§3.1.2.6) instead of redirecting to login.
+		if promptNone {
+			return AuthorizeActionLoginError
+		}
 		return AuthorizeActionLogin
 	}
 

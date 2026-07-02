@@ -119,6 +119,35 @@ func TestOAuthUseCase_DecideAuthorize(t *testing.T) {
 			},
 			want: AuthorizeActionProceed,
 		},
+		{
+			name: "prompt=none with expired max_age returns error instead of showing UI",
+			input: AuthorizeInput{
+				Prompt:          "none",
+				Authenticated:   true,
+				AuthTime:        now.Add(-2 * time.Hour),
+				MaxAge:          int64Ptr(3600),
+				ReauthCompleted: false,
+			},
+			want: AuthorizeActionLoginError,
+		},
+		{
+			name: "space-delimited prompt list containing login forces reauth",
+			input: AuthorizeInput{
+				Prompt:          "login consent",
+				Authenticated:   true,
+				AuthTime:        now,
+				ReauthCompleted: false,
+			},
+			want: AuthorizeActionLogin,
+		},
+		{
+			name: "space-delimited prompt list containing none with unauthenticated user returns error",
+			input: AuthorizeInput{
+				Prompt:        "consent none",
+				Authenticated: false,
+			},
+			want: AuthorizeActionLoginError,
+		},
 	}
 
 	for _, tt := range tests {
