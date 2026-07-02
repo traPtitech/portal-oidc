@@ -1,7 +1,7 @@
 [tools]
-go = "1.26.3"
+go = "1.26.4"
 golangci-lint = "2.12.2"
-atlas = "1.2.0"
+atlas = "1.2.3"
 tbls = "1.94.5"
 pre-commit = "4.6.0"
 "go:github.com/sqlc-dev/sqlc/cmd/sqlc" = "1.31.1"
