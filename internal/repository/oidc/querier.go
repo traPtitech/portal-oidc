@@ -40,11 +40,18 @@ type Querier interface {
 	GetTokenByAccessToken(ctx context.Context, accessToken string) (Token, error)
 	GetTokenByID(ctx context.Context, id uuid.UUID) (Token, error)
 	GetTokenByRefreshToken(ctx context.Context, refreshToken sql.NullString) (Token, error)
+	GetUserConsent(ctx context.Context, arg GetUserConsentParams) (UserConsent, error)
 	ListClients(ctx context.Context) ([]Client, error)
+	ListUserConsentsByUser(ctx context.Context, userID uuid.UUID) ([]UserConsent, error)
 	MarkAuthorizationCodeUsed(ctx context.Context, code string) error
+	RevokeUserConsent(ctx context.Context, arg RevokeUserConsentParams) error
 	UpdateAuthorizationCodePKCE(ctx context.Context, arg UpdateAuthorizationCodePKCEParams) error
 	UpdateClient(ctx context.Context, arg UpdateClientParams) error
 	UpdateClientSecret(ctx context.Context, arg UpdateClientSecretParams) error
+	// User consent queries
+	// Re-grant a user's consent to a client. Overwrites the existing scope set
+	// and clears any prior revocation so subsequent authorize requests succeed.
+	UpsertUserConsent(ctx context.Context, arg UpsertUserConsentParams) error
 }
 
 var _ Querier = (*Queries)(nil)
