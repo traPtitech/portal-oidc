@@ -59,9 +59,12 @@ func (h *Handler) authorize(ctx *echo.Context) error {
 		AuthTime:        info.AuthTime,
 		MaxAge:          maxAge,
 		ReauthCompleted: h.isReauthCompleted(ctx, info.AuthTime),
-		IsNonProd:       h.config.Environment != "production",
 	})
 
+	if action == usecase.AuthorizeActionInvalidRequest {
+		h.oauth2.WriteAuthorizeError(c, rw, ar, fosite.ErrInvalidRequest.WithHint("Parameter 'prompt' was set to 'none', but contains other values as well which is not allowed."))
+		return nil
+	}
 	if action == usecase.AuthorizeActionLoginError {
 		h.oauth2.WriteAuthorizeError(c, rw, ar, fosite.ErrLoginRequired)
 		return nil
@@ -70,19 +73,16 @@ func (h *Handler) authorize(ctx *echo.Context) error {
 		return h.redirectToLogin(ctx, &returnURL)
 	}
 
-	userID := info.UserID
-	authTime := info.AuthTime
-	if h.config.Environment != "production" {
-		userID = h.config.TestUserID
-		authTime = time.Now()
-	}
-
-	return h.completeAuthorize(ctx, ar, userID, authTime)
+	return h.completeAuthorize(ctx, ar, info.UserID, info.AuthTime)
 }
 
 func (h *Handler) completeAuthorize(ctx *echo.Context, ar fosite.AuthorizeRequester, userID string, authTime time.Time) error {
 	c := ctx.Request().Context()
 	rw := ctx.Response()
+
+	if err := h.clearReauthRequest(ctx); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to save session")
+	}
 
 	session := oauth.NewSession(userID, authTime)
 	for _, scope := range ar.GetRequestedScopes() {
@@ -111,6 +111,20 @@ func (h *Handler) isReauthCompleted(ctx *echo.Context, authTime time.Time) bool 
 	}
 
 	return authTime.Unix() > reqAt
+}
+
+func (h *Handler) clearReauthRequest(ctx *echo.Context) error {
+	session, err := h.sessions.Get(ctx.Request(), sessionName)
+	if err != nil {
+		return err
+	}
+
+	if _, ok := session.Values["reauth_requested_at"]; !ok {
+		return nil
+	}
+
+	delete(session.Values, "reauth_requested_at")
+	return session.Save(ctx.Request(), ctx.Response())
 }
 
 func (h *Handler) redirectToLogin(ctx *echo.Context, returnURL *url.URL) error {
