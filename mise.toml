@@ -2,7 +2,7 @@
 go = "1.26.5"
 golangci-lint = "2.12.2"
 atlas = "1.2.3"
-tbls = "1.94.5"
+tbls = "1.95.0"
 pre-commit = "4.6.0"
 "go:github.com/sqlc-dev/sqlc/cmd/sqlc" = "1.31.1"
 "go:github.com/securego/gosec/v2/cmd/gosec" = "2.27.1"
