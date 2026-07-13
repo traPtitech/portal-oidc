@@ -14,7 +14,7 @@ require (
 	github.com/knadh/koanf/providers/file v1.2.1
 	github.com/knadh/koanf/v2 v2.3.5
 	github.com/labstack/echo/v5 v5.3.0
-	github.com/oapi-codegen/runtime v1.4.2
+	github.com/oapi-codegen/runtime v1.5.0
 	github.com/ory/fosite v0.49.0
 	github.com/sqlc-dev/pqtype v0.3.0
 	golang.org/x/crypto v0.54.0
