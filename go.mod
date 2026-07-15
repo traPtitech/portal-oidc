@@ -3,7 +3,7 @@ module github.com/traPtitech/portal-oidc
 go 1.26.4
 
 require (
-	github.com/alecthomas/kong v1.15.0
+	github.com/alecthomas/kong v1.16.0
 	github.com/go-jose/go-jose/v4 v4.1.4
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/sessions v1.4.0
