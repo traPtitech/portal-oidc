@@ -14,6 +14,22 @@ import (
 	"github.com/google/uuid"
 )
 
+const approveDeviceAuthorization = `-- name: ApproveDeviceAuthorization :exec
+UPDATE device_authorizations
+SET status = 'authorized', user_id = $2, authorized_at = CURRENT_TIMESTAMP
+WHERE id = $1 AND status = 'pending'
+`
+
+type ApproveDeviceAuthorizationParams struct {
+	ID     uuid.UUID     `json:"id"`
+	UserID uuid.NullUUID `json:"user_id"`
+}
+
+func (q *Queries) ApproveDeviceAuthorization(ctx context.Context, arg ApproveDeviceAuthorizationParams) error {
+	_, err := q.exec(ctx, q.approveDeviceAuthorizationStmt, approveDeviceAuthorization, arg.ID, arg.UserID)
+	return err
+}
+
 const createAuthorizationCode = `-- name: CreateAuthorizationCode :exec
 
 INSERT INTO authorization_codes (
@@ -84,6 +100,43 @@ func (q *Queries) CreateClient(ctx context.Context, arg CreateClientParams) erro
 		arg.Name,
 		arg.ClientType,
 		arg.RedirectUris,
+	)
+	return err
+}
+
+const createDeviceAuthorization = `-- name: CreateDeviceAuthorization :exec
+
+INSERT INTO device_authorizations (
+    id,
+    device_code,
+    user_code,
+    client_id,
+    scopes,
+    expires_at,
+    poll_interval
+) VALUES ($1, $2, $3, $4, $5, $6, $7)
+`
+
+type CreateDeviceAuthorizationParams struct {
+	ID           uuid.UUID `json:"id"`
+	DeviceCode   string    `json:"device_code"`
+	UserCode     string    `json:"user_code"`
+	ClientID     uuid.UUID `json:"client_id"`
+	Scopes       string    `json:"scopes"`
+	ExpiresAt    time.Time `json:"expires_at"`
+	PollInterval int32     `json:"poll_interval"`
+}
+
+// Device authorization queries (RFC 8628)
+func (q *Queries) CreateDeviceAuthorization(ctx context.Context, arg CreateDeviceAuthorizationParams) error {
+	_, err := q.exec(ctx, q.createDeviceAuthorizationStmt, createDeviceAuthorization,
+		arg.ID,
+		arg.DeviceCode,
+		arg.UserCode,
+		arg.ClientID,
+		arg.Scopes,
+		arg.ExpiresAt,
+		arg.PollInterval,
 	)
 	return err
 }
@@ -296,6 +349,28 @@ func (q *Queries) DeleteTokensByUserAndClient(ctx context.Context, arg DeleteTok
 	return err
 }
 
+const denyDeviceAuthorization = `-- name: DenyDeviceAuthorization :exec
+UPDATE device_authorizations
+SET status = 'denied'
+WHERE id = $1 AND status = 'pending'
+`
+
+func (q *Queries) DenyDeviceAuthorization(ctx context.Context, id uuid.UUID) error {
+	_, err := q.exec(ctx, q.denyDeviceAuthorizationStmt, denyDeviceAuthorization, id)
+	return err
+}
+
+const expireDeviceAuthorizations = `-- name: ExpireDeviceAuthorizations :exec
+UPDATE device_authorizations
+SET status = 'expired'
+WHERE status = 'pending' AND expires_at < CURRENT_TIMESTAMP
+`
+
+func (q *Queries) ExpireDeviceAuthorizations(ctx context.Context) error {
+	_, err := q.exec(ctx, q.expireDeviceAuthorizationsStmt, expireDeviceAuthorizations)
+	return err
+}
+
 const getAuthorizationCode = `-- name: GetAuthorizationCode :one
 SELECT code, client_id, user_id, redirect_uri, scopes, code_challenge, code_challenge_method, nonce, used, expires_at, created_at FROM authorization_codes WHERE code = $1
 `
@@ -334,6 +409,54 @@ func (q *Queries) GetClient(ctx context.Context, clientID uuid.UUID) (Client, er
 		&i.RedirectUris,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getDeviceAuthorizationByDeviceCode = `-- name: GetDeviceAuthorizationByDeviceCode :one
+SELECT id, device_code, user_code, client_id, user_id, scopes, status, expires_at, poll_interval, last_polled_at, authorized_at, created_at FROM device_authorizations WHERE device_code = $1
+`
+
+func (q *Queries) GetDeviceAuthorizationByDeviceCode(ctx context.Context, deviceCode string) (DeviceAuthorization, error) {
+	row := q.queryRow(ctx, q.getDeviceAuthorizationByDeviceCodeStmt, getDeviceAuthorizationByDeviceCode, deviceCode)
+	var i DeviceAuthorization
+	err := row.Scan(
+		&i.ID,
+		&i.DeviceCode,
+		&i.UserCode,
+		&i.ClientID,
+		&i.UserID,
+		&i.Scopes,
+		&i.Status,
+		&i.ExpiresAt,
+		&i.PollInterval,
+		&i.LastPolledAt,
+		&i.AuthorizedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getDeviceAuthorizationByUserCode = `-- name: GetDeviceAuthorizationByUserCode :one
+SELECT id, device_code, user_code, client_id, user_id, scopes, status, expires_at, poll_interval, last_polled_at, authorized_at, created_at FROM device_authorizations WHERE user_code = $1
+`
+
+func (q *Queries) GetDeviceAuthorizationByUserCode(ctx context.Context, userCode string) (DeviceAuthorization, error) {
+	row := q.queryRow(ctx, q.getDeviceAuthorizationByUserCodeStmt, getDeviceAuthorizationByUserCode, userCode)
+	var i DeviceAuthorization
+	err := row.Scan(
+		&i.ID,
+		&i.DeviceCode,
+		&i.UserCode,
+		&i.ClientID,
+		&i.UserID,
+		&i.Scopes,
+		&i.Status,
+		&i.ExpiresAt,
+		&i.PollInterval,
+		&i.LastPolledAt,
+		&i.AuthorizedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -462,6 +585,17 @@ UPDATE authorization_codes SET used = TRUE WHERE code = $1
 
 func (q *Queries) MarkAuthorizationCodeUsed(ctx context.Context, code string) error {
 	_, err := q.exec(ctx, q.markAuthorizationCodeUsedStmt, markAuthorizationCodeUsed, code)
+	return err
+}
+
+const touchDeviceAuthorization = `-- name: TouchDeviceAuthorization :exec
+UPDATE device_authorizations
+SET last_polled_at = CURRENT_TIMESTAMP
+WHERE device_code = $1
+`
+
+func (q *Queries) TouchDeviceAuthorization(ctx context.Context, deviceCode string) error {
+	_, err := q.exec(ctx, q.touchDeviceAuthorizationStmt, touchDeviceAuthorization, deviceCode)
 	return err
 }
 

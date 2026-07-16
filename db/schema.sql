@@ -80,3 +80,31 @@ CREATE TABLE IF NOT EXISTS oidc_sessions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_oidc_sessions_client_id ON oidc_sessions (client_id);
+
+-- traPortal v2 spec §device_authorizations
+-- Persistent state for the OAuth 2.0 Device Authorization Grant (RFC 8628).
+-- A row is created when a device requests user authentication; its status
+-- transitions pending → authorized | denied | expired. user_id stays NULL
+-- until the human user completes the verification ceremony.
+CREATE TABLE IF NOT EXISTS device_authorizations (
+  id UUID NOT NULL,
+  device_code TEXT NOT NULL,
+  user_code TEXT NOT NULL,
+  client_id UUID NOT NULL,
+  user_id UUID NULL,
+  scopes TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  expires_at TIMESTAMPTZ NOT NULL,
+  poll_interval INT NOT NULL DEFAULT 5,
+  last_polled_at TIMESTAMPTZ NULL,
+  authorized_at TIMESTAMPTZ NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT idx_device_authorizations_device_code UNIQUE (device_code),
+  CONSTRAINT idx_device_authorizations_user_code UNIQUE (user_code),
+  CONSTRAINT chk_device_authorizations_status CHECK (status IN ('pending', 'authorized', 'denied', 'expired')),
+  CONSTRAINT fk_device_authorizations_client FOREIGN KEY (client_id) REFERENCES clients (client_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_device_authorizations_status ON device_authorizations (status);
+CREATE INDEX IF NOT EXISTS idx_device_authorizations_expires_at ON device_authorizations (expires_at);

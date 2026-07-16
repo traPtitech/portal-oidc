@@ -24,11 +24,17 @@ func New(db DBTX) *Queries {
 func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	q := Queries{db: db}
 	var err error
+	if q.approveDeviceAuthorizationStmt, err = db.PrepareContext(ctx, approveDeviceAuthorization); err != nil {
+		return nil, fmt.Errorf("error preparing query ApproveDeviceAuthorization: %w", err)
+	}
 	if q.createAuthorizationCodeStmt, err = db.PrepareContext(ctx, createAuthorizationCode); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateAuthorizationCode: %w", err)
 	}
 	if q.createClientStmt, err = db.PrepareContext(ctx, createClient); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateClient: %w", err)
+	}
+	if q.createDeviceAuthorizationStmt, err = db.PrepareContext(ctx, createDeviceAuthorization); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateDeviceAuthorization: %w", err)
 	}
 	if q.createOIDCSessionStmt, err = db.PrepareContext(ctx, createOIDCSession); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateOIDCSession: %w", err)
@@ -78,11 +84,23 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.deleteTokensByUserAndClientStmt, err = db.PrepareContext(ctx, deleteTokensByUserAndClient); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteTokensByUserAndClient: %w", err)
 	}
+	if q.denyDeviceAuthorizationStmt, err = db.PrepareContext(ctx, denyDeviceAuthorization); err != nil {
+		return nil, fmt.Errorf("error preparing query DenyDeviceAuthorization: %w", err)
+	}
+	if q.expireDeviceAuthorizationsStmt, err = db.PrepareContext(ctx, expireDeviceAuthorizations); err != nil {
+		return nil, fmt.Errorf("error preparing query ExpireDeviceAuthorizations: %w", err)
+	}
 	if q.getAuthorizationCodeStmt, err = db.PrepareContext(ctx, getAuthorizationCode); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAuthorizationCode: %w", err)
 	}
 	if q.getClientStmt, err = db.PrepareContext(ctx, getClient); err != nil {
 		return nil, fmt.Errorf("error preparing query GetClient: %w", err)
+	}
+	if q.getDeviceAuthorizationByDeviceCodeStmt, err = db.PrepareContext(ctx, getDeviceAuthorizationByDeviceCode); err != nil {
+		return nil, fmt.Errorf("error preparing query GetDeviceAuthorizationByDeviceCode: %w", err)
+	}
+	if q.getDeviceAuthorizationByUserCodeStmt, err = db.PrepareContext(ctx, getDeviceAuthorizationByUserCode); err != nil {
+		return nil, fmt.Errorf("error preparing query GetDeviceAuthorizationByUserCode: %w", err)
 	}
 	if q.getOIDCSessionStmt, err = db.PrepareContext(ctx, getOIDCSession); err != nil {
 		return nil, fmt.Errorf("error preparing query GetOIDCSession: %w", err)
@@ -102,6 +120,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.markAuthorizationCodeUsedStmt, err = db.PrepareContext(ctx, markAuthorizationCodeUsed); err != nil {
 		return nil, fmt.Errorf("error preparing query MarkAuthorizationCodeUsed: %w", err)
 	}
+	if q.touchDeviceAuthorizationStmt, err = db.PrepareContext(ctx, touchDeviceAuthorization); err != nil {
+		return nil, fmt.Errorf("error preparing query TouchDeviceAuthorization: %w", err)
+	}
 	if q.updateAuthorizationCodePKCEStmt, err = db.PrepareContext(ctx, updateAuthorizationCodePKCE); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateAuthorizationCodePKCE: %w", err)
 	}
@@ -116,6 +137,11 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 
 func (q *Queries) Close() error {
 	var err error
+	if q.approveDeviceAuthorizationStmt != nil {
+		if cerr := q.approveDeviceAuthorizationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing approveDeviceAuthorizationStmt: %w", cerr)
+		}
+	}
 	if q.createAuthorizationCodeStmt != nil {
 		if cerr := q.createAuthorizationCodeStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createAuthorizationCodeStmt: %w", cerr)
@@ -124,6 +150,11 @@ func (q *Queries) Close() error {
 	if q.createClientStmt != nil {
 		if cerr := q.createClientStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createClientStmt: %w", cerr)
+		}
+	}
+	if q.createDeviceAuthorizationStmt != nil {
+		if cerr := q.createDeviceAuthorizationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createDeviceAuthorizationStmt: %w", cerr)
 		}
 	}
 	if q.createOIDCSessionStmt != nil {
@@ -206,6 +237,16 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deleteTokensByUserAndClientStmt: %w", cerr)
 		}
 	}
+	if q.denyDeviceAuthorizationStmt != nil {
+		if cerr := q.denyDeviceAuthorizationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing denyDeviceAuthorizationStmt: %w", cerr)
+		}
+	}
+	if q.expireDeviceAuthorizationsStmt != nil {
+		if cerr := q.expireDeviceAuthorizationsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing expireDeviceAuthorizationsStmt: %w", cerr)
+		}
+	}
 	if q.getAuthorizationCodeStmt != nil {
 		if cerr := q.getAuthorizationCodeStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getAuthorizationCodeStmt: %w", cerr)
@@ -214,6 +255,16 @@ func (q *Queries) Close() error {
 	if q.getClientStmt != nil {
 		if cerr := q.getClientStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getClientStmt: %w", cerr)
+		}
+	}
+	if q.getDeviceAuthorizationByDeviceCodeStmt != nil {
+		if cerr := q.getDeviceAuthorizationByDeviceCodeStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getDeviceAuthorizationByDeviceCodeStmt: %w", cerr)
+		}
+	}
+	if q.getDeviceAuthorizationByUserCodeStmt != nil {
+		if cerr := q.getDeviceAuthorizationByUserCodeStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getDeviceAuthorizationByUserCodeStmt: %w", cerr)
 		}
 	}
 	if q.getOIDCSessionStmt != nil {
@@ -244,6 +295,11 @@ func (q *Queries) Close() error {
 	if q.markAuthorizationCodeUsedStmt != nil {
 		if cerr := q.markAuthorizationCodeUsedStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing markAuthorizationCodeUsedStmt: %w", cerr)
+		}
+	}
+	if q.touchDeviceAuthorizationStmt != nil {
+		if cerr := q.touchDeviceAuthorizationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing touchDeviceAuthorizationStmt: %w", cerr)
 		}
 	}
 	if q.updateAuthorizationCodePKCEStmt != nil {
@@ -298,71 +354,85 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 }
 
 type Queries struct {
-	db                                  DBTX
-	tx                                  *sql.Tx
-	createAuthorizationCodeStmt         *sql.Stmt
-	createClientStmt                    *sql.Stmt
-	createOIDCSessionStmt               *sql.Stmt
-	createTokenStmt                     *sql.Stmt
-	deleteAllAuthorizationCodesStmt     *sql.Stmt
-	deleteAllClientsStmt                *sql.Stmt
-	deleteAllOIDCSessionsStmt           *sql.Stmt
-	deleteAllTokensStmt                 *sql.Stmt
-	deleteAuthorizationCodeStmt         *sql.Stmt
-	deleteClientStmt                    *sql.Stmt
-	deleteExpiredAuthorizationCodesStmt *sql.Stmt
-	deleteExpiredTokensStmt             *sql.Stmt
-	deleteOIDCSessionStmt               *sql.Stmt
-	deleteTokenStmt                     *sql.Stmt
-	deleteTokenByAccessTokenStmt        *sql.Stmt
-	deleteTokenByRefreshTokenStmt       *sql.Stmt
-	deleteTokensByRequestIDStmt         *sql.Stmt
-	deleteTokensByUserAndClientStmt     *sql.Stmt
-	getAuthorizationCodeStmt            *sql.Stmt
-	getClientStmt                       *sql.Stmt
-	getOIDCSessionStmt                  *sql.Stmt
-	getTokenByAccessTokenStmt           *sql.Stmt
-	getTokenByIDStmt                    *sql.Stmt
-	getTokenByRefreshTokenStmt          *sql.Stmt
-	listClientsStmt                     *sql.Stmt
-	markAuthorizationCodeUsedStmt       *sql.Stmt
-	updateAuthorizationCodePKCEStmt     *sql.Stmt
-	updateClientStmt                    *sql.Stmt
-	updateClientSecretStmt              *sql.Stmt
+	db                                     DBTX
+	tx                                     *sql.Tx
+	approveDeviceAuthorizationStmt         *sql.Stmt
+	createAuthorizationCodeStmt            *sql.Stmt
+	createClientStmt                       *sql.Stmt
+	createDeviceAuthorizationStmt          *sql.Stmt
+	createOIDCSessionStmt                  *sql.Stmt
+	createTokenStmt                        *sql.Stmt
+	deleteAllAuthorizationCodesStmt        *sql.Stmt
+	deleteAllClientsStmt                   *sql.Stmt
+	deleteAllOIDCSessionsStmt              *sql.Stmt
+	deleteAllTokensStmt                    *sql.Stmt
+	deleteAuthorizationCodeStmt            *sql.Stmt
+	deleteClientStmt                       *sql.Stmt
+	deleteExpiredAuthorizationCodesStmt    *sql.Stmt
+	deleteExpiredTokensStmt                *sql.Stmt
+	deleteOIDCSessionStmt                  *sql.Stmt
+	deleteTokenStmt                        *sql.Stmt
+	deleteTokenByAccessTokenStmt           *sql.Stmt
+	deleteTokenByRefreshTokenStmt          *sql.Stmt
+	deleteTokensByRequestIDStmt            *sql.Stmt
+	deleteTokensByUserAndClientStmt        *sql.Stmt
+	denyDeviceAuthorizationStmt            *sql.Stmt
+	expireDeviceAuthorizationsStmt         *sql.Stmt
+	getAuthorizationCodeStmt               *sql.Stmt
+	getClientStmt                          *sql.Stmt
+	getDeviceAuthorizationByDeviceCodeStmt *sql.Stmt
+	getDeviceAuthorizationByUserCodeStmt   *sql.Stmt
+	getOIDCSessionStmt                     *sql.Stmt
+	getTokenByAccessTokenStmt              *sql.Stmt
+	getTokenByIDStmt                       *sql.Stmt
+	getTokenByRefreshTokenStmt             *sql.Stmt
+	listClientsStmt                        *sql.Stmt
+	markAuthorizationCodeUsedStmt          *sql.Stmt
+	touchDeviceAuthorizationStmt           *sql.Stmt
+	updateAuthorizationCodePKCEStmt        *sql.Stmt
+	updateClientStmt                       *sql.Stmt
+	updateClientSecretStmt                 *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
-		db:                                  tx,
-		tx:                                  tx,
-		createAuthorizationCodeStmt:         q.createAuthorizationCodeStmt,
-		createClientStmt:                    q.createClientStmt,
-		createOIDCSessionStmt:               q.createOIDCSessionStmt,
-		createTokenStmt:                     q.createTokenStmt,
-		deleteAllAuthorizationCodesStmt:     q.deleteAllAuthorizationCodesStmt,
-		deleteAllClientsStmt:                q.deleteAllClientsStmt,
-		deleteAllOIDCSessionsStmt:           q.deleteAllOIDCSessionsStmt,
-		deleteAllTokensStmt:                 q.deleteAllTokensStmt,
-		deleteAuthorizationCodeStmt:         q.deleteAuthorizationCodeStmt,
-		deleteClientStmt:                    q.deleteClientStmt,
-		deleteExpiredAuthorizationCodesStmt: q.deleteExpiredAuthorizationCodesStmt,
-		deleteExpiredTokensStmt:             q.deleteExpiredTokensStmt,
-		deleteOIDCSessionStmt:               q.deleteOIDCSessionStmt,
-		deleteTokenStmt:                     q.deleteTokenStmt,
-		deleteTokenByAccessTokenStmt:        q.deleteTokenByAccessTokenStmt,
-		deleteTokenByRefreshTokenStmt:       q.deleteTokenByRefreshTokenStmt,
-		deleteTokensByRequestIDStmt:         q.deleteTokensByRequestIDStmt,
-		deleteTokensByUserAndClientStmt:     q.deleteTokensByUserAndClientStmt,
-		getAuthorizationCodeStmt:            q.getAuthorizationCodeStmt,
-		getClientStmt:                       q.getClientStmt,
-		getOIDCSessionStmt:                  q.getOIDCSessionStmt,
-		getTokenByAccessTokenStmt:           q.getTokenByAccessTokenStmt,
-		getTokenByIDStmt:                    q.getTokenByIDStmt,
-		getTokenByRefreshTokenStmt:          q.getTokenByRefreshTokenStmt,
-		listClientsStmt:                     q.listClientsStmt,
-		markAuthorizationCodeUsedStmt:       q.markAuthorizationCodeUsedStmt,
-		updateAuthorizationCodePKCEStmt:     q.updateAuthorizationCodePKCEStmt,
-		updateClientStmt:                    q.updateClientStmt,
-		updateClientSecretStmt:              q.updateClientSecretStmt,
+		db:                                     tx,
+		tx:                                     tx,
+		approveDeviceAuthorizationStmt:         q.approveDeviceAuthorizationStmt,
+		createAuthorizationCodeStmt:            q.createAuthorizationCodeStmt,
+		createClientStmt:                       q.createClientStmt,
+		createDeviceAuthorizationStmt:          q.createDeviceAuthorizationStmt,
+		createOIDCSessionStmt:                  q.createOIDCSessionStmt,
+		createTokenStmt:                        q.createTokenStmt,
+		deleteAllAuthorizationCodesStmt:        q.deleteAllAuthorizationCodesStmt,
+		deleteAllClientsStmt:                   q.deleteAllClientsStmt,
+		deleteAllOIDCSessionsStmt:              q.deleteAllOIDCSessionsStmt,
+		deleteAllTokensStmt:                    q.deleteAllTokensStmt,
+		deleteAuthorizationCodeStmt:            q.deleteAuthorizationCodeStmt,
+		deleteClientStmt:                       q.deleteClientStmt,
+		deleteExpiredAuthorizationCodesStmt:    q.deleteExpiredAuthorizationCodesStmt,
+		deleteExpiredTokensStmt:                q.deleteExpiredTokensStmt,
+		deleteOIDCSessionStmt:                  q.deleteOIDCSessionStmt,
+		deleteTokenStmt:                        q.deleteTokenStmt,
+		deleteTokenByAccessTokenStmt:           q.deleteTokenByAccessTokenStmt,
+		deleteTokenByRefreshTokenStmt:          q.deleteTokenByRefreshTokenStmt,
+		deleteTokensByRequestIDStmt:            q.deleteTokensByRequestIDStmt,
+		deleteTokensByUserAndClientStmt:        q.deleteTokensByUserAndClientStmt,
+		denyDeviceAuthorizationStmt:            q.denyDeviceAuthorizationStmt,
+		expireDeviceAuthorizationsStmt:         q.expireDeviceAuthorizationsStmt,
+		getAuthorizationCodeStmt:               q.getAuthorizationCodeStmt,
+		getClientStmt:                          q.getClientStmt,
+		getDeviceAuthorizationByDeviceCodeStmt: q.getDeviceAuthorizationByDeviceCodeStmt,
+		getDeviceAuthorizationByUserCodeStmt:   q.getDeviceAuthorizationByUserCodeStmt,
+		getOIDCSessionStmt:                     q.getOIDCSessionStmt,
+		getTokenByAccessTokenStmt:              q.getTokenByAccessTokenStmt,
+		getTokenByIDStmt:                       q.getTokenByIDStmt,
+		getTokenByRefreshTokenStmt:             q.getTokenByRefreshTokenStmt,
+		listClientsStmt:                        q.listClientsStmt,
+		markAuthorizationCodeUsedStmt:          q.markAuthorizationCodeUsedStmt,
+		touchDeviceAuthorizationStmt:           q.touchDeviceAuthorizationStmt,
+		updateAuthorizationCodePKCEStmt:        q.updateAuthorizationCodePKCEStmt,
+		updateClientStmt:                       q.updateClientStmt,
+		updateClientSecretStmt:                 q.updateClientSecretStmt,
 	}
 }

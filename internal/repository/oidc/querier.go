@@ -12,10 +12,13 @@ import (
 )
 
 type Querier interface {
+	ApproveDeviceAuthorization(ctx context.Context, arg ApproveDeviceAuthorizationParams) error
 	// Authorization Code queries
 	CreateAuthorizationCode(ctx context.Context, arg CreateAuthorizationCodeParams) error
 	// Client queries
 	CreateClient(ctx context.Context, arg CreateClientParams) error
+	// Device authorization queries (RFC 8628)
+	CreateDeviceAuthorization(ctx context.Context, arg CreateDeviceAuthorizationParams) error
 	// OIDC Session queries
 	CreateOIDCSession(ctx context.Context, arg CreateOIDCSessionParams) error
 	// Token queries
@@ -34,14 +37,19 @@ type Querier interface {
 	DeleteTokenByRefreshToken(ctx context.Context, refreshToken sql.NullString) error
 	DeleteTokensByRequestID(ctx context.Context, requestID string) error
 	DeleteTokensByUserAndClient(ctx context.Context, arg DeleteTokensByUserAndClientParams) error
+	DenyDeviceAuthorization(ctx context.Context, id uuid.UUID) error
+	ExpireDeviceAuthorizations(ctx context.Context) error
 	GetAuthorizationCode(ctx context.Context, code string) (AuthorizationCode, error)
 	GetClient(ctx context.Context, clientID uuid.UUID) (Client, error)
+	GetDeviceAuthorizationByDeviceCode(ctx context.Context, deviceCode string) (DeviceAuthorization, error)
+	GetDeviceAuthorizationByUserCode(ctx context.Context, userCode string) (DeviceAuthorization, error)
 	GetOIDCSession(ctx context.Context, authorizeCode string) (OidcSession, error)
 	GetTokenByAccessToken(ctx context.Context, accessToken string) (Token, error)
 	GetTokenByID(ctx context.Context, id uuid.UUID) (Token, error)
 	GetTokenByRefreshToken(ctx context.Context, refreshToken sql.NullString) (Token, error)
 	ListClients(ctx context.Context) ([]Client, error)
 	MarkAuthorizationCodeUsed(ctx context.Context, code string) error
+	TouchDeviceAuthorization(ctx context.Context, deviceCode string) error
 	UpdateAuthorizationCodePKCE(ctx context.Context, arg UpdateAuthorizationCodePKCEParams) error
 	UpdateClient(ctx context.Context, arg UpdateClientParams) error
 	UpdateClientSecret(ctx context.Context, arg UpdateClientSecretParams) error

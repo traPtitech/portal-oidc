@@ -179,11 +179,19 @@ func setupTestHandler(t *testing.T) (*Handler, func()) {
 		compose.OAuth2TokenRevocationFactory,
 	)
 
-	handler := NewHandler(clientUseCase, oauthUsecase, oauth2Provider, nil, OAuthConfig{
-		Issuer:      "http://localhost:8080",
-		Environment: "development",
-		TestUserID:  "00000000-0000-0000-0000-000000000000",
-	})
+	tokenRepo := repository.NewTokenRepository(queries)
+	deviceAuthRepo := repository.NewDeviceAuthorizationRepository(queries)
+	tokenStrategy := compose.NewOAuth2HMACStrategy(fositeConfig)
+
+	handler := NewHandler(
+		clientUseCase, oauthUsecase, oauth2Provider, tokenStrategy, nil,
+		tokenRepo, deviceAuthRepo,
+		OAuthConfig{
+			Issuer:      "http://localhost:8080",
+			Environment: "development",
+			TestUserID:  "00000000-0000-0000-0000-000000000000",
+		},
+	)
 
 	cleanup := func() {
 		_ = queries.DeleteAllClients(ctx)
