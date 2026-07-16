@@ -15,6 +15,8 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/ory/fosite"
 
+	"github.com/traPtitech/portal-oidc/internal/audit"
+	"github.com/traPtitech/portal-oidc/internal/domain"
 	"github.com/traPtitech/portal-oidc/internal/repository/oauth"
 	"github.com/traPtitech/portal-oidc/internal/router/v1/gen"
 	"github.com/traPtitech/portal-oidc/internal/usecase"
@@ -190,8 +192,37 @@ func (h *Handler) Token(ctx *echo.Context) error {
 		return nil
 	}
 
+	ip, ua := audit.FromRequest(req)
+	grantTypes := accessRequest.GetGrantTypes()
+	var grantType string
+	if len(grantTypes) > 0 {
+		grantType = grantTypes[0]
+	}
+	h.auditLogger.Record(c, audit.Event{
+		Type:      domain.AuditEventTokenIssued,
+		UserID:    parseAuditUUID(accessRequest.GetSession().GetSubject()),
+		ClientID:  parseAuditUUID(accessRequest.GetClient().GetID()),
+		IPAddress: ip,
+		UserAgent: ua,
+		Details: map[string]any{
+			"grant_type": grantType,
+			"scopes":     accessRequest.GetGrantedScopes(),
+		},
+	})
+
 	h.oauth2.WriteAccessResponse(c, rw, accessRequest, response)
 	return nil
+}
+
+// parseAuditUUID returns a *uuid.UUID for audit attribution. Anything that
+// fails to parse (anonymous client, missing subject, ...) becomes nil so the
+// audit_logs row records "no subject" rather than fabricating uuid.Nil.
+func parseAuditUUID(s string) *uuid.UUID {
+	id, err := uuid.Parse(s)
+	if err != nil || id == uuid.Nil {
+		return nil
+	}
+	return &id
 }
 
 func (h *Handler) GetUserInfo(ctx *echo.Context) error {
