@@ -134,3 +134,74 @@ DELETE FROM oidc_sessions WHERE authorize_code = $1;
 
 -- name: DeleteAllOIDCSessions :exec
 DELETE FROM oidc_sessions;
+
+-- WebAuthn credential queries
+
+-- name: CreateWebAuthnCredential :exec
+INSERT INTO webauthn_credentials (
+    id,
+    user_id,
+    credential_id,
+    public_key,
+    public_key_alg,
+    attestation_format,
+    aaguid,
+    sign_count,
+    transports,
+    device_name,
+    backed_up
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
+
+-- name: GetWebAuthnCredentialByCredentialID :one
+SELECT * FROM webauthn_credentials WHERE credential_id = $1;
+
+-- name: ListWebAuthnCredentialsByUser :many
+SELECT * FROM webauthn_credentials WHERE user_id = $1 ORDER BY created_at;
+
+-- name: UpdateWebAuthnCredentialSignCount :exec
+UPDATE webauthn_credentials
+SET sign_count = $1, last_used_at = CURRENT_TIMESTAMP
+WHERE id = $2;
+
+-- name: UpdateWebAuthnCredentialDeviceName :exec
+UPDATE webauthn_credentials SET device_name = $1 WHERE id = $2 AND user_id = $3;
+
+-- name: DeleteWebAuthnCredential :exec
+DELETE FROM webauthn_credentials WHERE id = $1 AND user_id = $2;
+
+-- WebAuthn challenge queries
+
+-- name: CreateWebAuthnChallenge :exec
+INSERT INTO webauthn_challenges (
+    id,
+    challenge,
+    user_id,
+    session_id,
+    type,
+    data,
+    expires_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7);
+
+-- name: ConsumeWebAuthnChallenge :one
+-- Atomically delete and return the most recent active challenge for the given
+-- (session_id, type). DELETE ... RETURNING removes the SELECT-then-DELETE race
+-- so a challenge is guaranteed one-shot even under concurrent requests.
+-- FOR UPDATE SKIP LOCKED prevents two concurrent transactions from queuing on
+-- the same row; the loser sees zero rows and reports "no pending challenge"
+-- which the handler treats as an authentication failure.
+WITH latest AS (
+    SELECT id
+    FROM webauthn_challenges
+    WHERE webauthn_challenges.session_id = $1
+      AND webauthn_challenges.type = $2
+      AND webauthn_challenges.expires_at > CURRENT_TIMESTAMP
+    ORDER BY webauthn_challenges.created_at DESC
+    LIMIT 1
+    FOR UPDATE SKIP LOCKED
+)
+DELETE FROM webauthn_challenges
+WHERE webauthn_challenges.id = (SELECT id FROM latest)
+RETURNING *;
+
+-- name: DeleteExpiredWebAuthnChallenges :exec
+DELETE FROM webauthn_challenges WHERE expires_at < CURRENT_TIMESTAMP;

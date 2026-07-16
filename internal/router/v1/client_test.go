@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-webauthn/webauthn/webauthn"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/knadh/koanf/providers/confmap"
 	"github.com/knadh/koanf/providers/env/v2"
@@ -179,11 +180,26 @@ func setupTestHandler(t *testing.T) (*Handler, func()) {
 		compose.OAuth2TokenRevocationFactory,
 	)
 
-	handler := NewHandler(clientUseCase, oauthUsecase, oauth2Provider, nil, OAuthConfig{
-		Issuer:      "http://localhost:8080",
-		Environment: "development",
-		TestUserID:  "00000000-0000-0000-0000-000000000000",
+	wa, waErr := webauthn.New(&webauthn.Config{
+		RPDisplayName: "test",
+		RPID:          "localhost",
+		RPOrigins:     []string{"http://localhost:8080"},
 	})
+	if waErr != nil {
+		t.Fatalf("failed to initialize webauthn: %v", waErr)
+	}
+
+	handler := NewHandler(
+		clientUseCase, oauthUsecase, oauth2Provider, nil,
+		wa,
+		repository.NewWebAuthnCredentialRepository(queries),
+		repository.NewWebAuthnChallengeRepository(queries),
+		OAuthConfig{
+			Issuer:      "http://localhost:8080",
+			Environment: "development",
+			TestUserID:  "00000000-0000-0000-0000-000000000000",
+		},
+	)
 
 	cleanup := func() {
 		_ = queries.DeleteAllClients(ctx)

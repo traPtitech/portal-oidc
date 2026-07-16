@@ -24,6 +24,9 @@ func New(db DBTX) *Queries {
 func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	q := Queries{db: db}
 	var err error
+	if q.consumeWebAuthnChallengeStmt, err = db.PrepareContext(ctx, consumeWebAuthnChallenge); err != nil {
+		return nil, fmt.Errorf("error preparing query ConsumeWebAuthnChallenge: %w", err)
+	}
 	if q.createAuthorizationCodeStmt, err = db.PrepareContext(ctx, createAuthorizationCode); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateAuthorizationCode: %w", err)
 	}
@@ -35,6 +38,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.createTokenStmt, err = db.PrepareContext(ctx, createToken); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateToken: %w", err)
+	}
+	if q.createWebAuthnChallengeStmt, err = db.PrepareContext(ctx, createWebAuthnChallenge); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateWebAuthnChallenge: %w", err)
+	}
+	if q.createWebAuthnCredentialStmt, err = db.PrepareContext(ctx, createWebAuthnCredential); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateWebAuthnCredential: %w", err)
 	}
 	if q.deleteAllAuthorizationCodesStmt, err = db.PrepareContext(ctx, deleteAllAuthorizationCodes); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteAllAuthorizationCodes: %w", err)
@@ -60,6 +69,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.deleteExpiredTokensStmt, err = db.PrepareContext(ctx, deleteExpiredTokens); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteExpiredTokens: %w", err)
 	}
+	if q.deleteExpiredWebAuthnChallengesStmt, err = db.PrepareContext(ctx, deleteExpiredWebAuthnChallenges); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteExpiredWebAuthnChallenges: %w", err)
+	}
 	if q.deleteOIDCSessionStmt, err = db.PrepareContext(ctx, deleteOIDCSession); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteOIDCSession: %w", err)
 	}
@@ -77,6 +89,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.deleteTokensByUserAndClientStmt, err = db.PrepareContext(ctx, deleteTokensByUserAndClient); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteTokensByUserAndClient: %w", err)
+	}
+	if q.deleteWebAuthnCredentialStmt, err = db.PrepareContext(ctx, deleteWebAuthnCredential); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteWebAuthnCredential: %w", err)
 	}
 	if q.getAuthorizationCodeStmt, err = db.PrepareContext(ctx, getAuthorizationCode); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAuthorizationCode: %w", err)
@@ -96,8 +111,14 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getTokenByRefreshTokenStmt, err = db.PrepareContext(ctx, getTokenByRefreshToken); err != nil {
 		return nil, fmt.Errorf("error preparing query GetTokenByRefreshToken: %w", err)
 	}
+	if q.getWebAuthnCredentialByCredentialIDStmt, err = db.PrepareContext(ctx, getWebAuthnCredentialByCredentialID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetWebAuthnCredentialByCredentialID: %w", err)
+	}
 	if q.listClientsStmt, err = db.PrepareContext(ctx, listClients); err != nil {
 		return nil, fmt.Errorf("error preparing query ListClients: %w", err)
+	}
+	if q.listWebAuthnCredentialsByUserStmt, err = db.PrepareContext(ctx, listWebAuthnCredentialsByUser); err != nil {
+		return nil, fmt.Errorf("error preparing query ListWebAuthnCredentialsByUser: %w", err)
 	}
 	if q.markAuthorizationCodeUsedStmt, err = db.PrepareContext(ctx, markAuthorizationCodeUsed); err != nil {
 		return nil, fmt.Errorf("error preparing query MarkAuthorizationCodeUsed: %w", err)
@@ -111,11 +132,22 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateClientSecretStmt, err = db.PrepareContext(ctx, updateClientSecret); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateClientSecret: %w", err)
 	}
+	if q.updateWebAuthnCredentialDeviceNameStmt, err = db.PrepareContext(ctx, updateWebAuthnCredentialDeviceName); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateWebAuthnCredentialDeviceName: %w", err)
+	}
+	if q.updateWebAuthnCredentialSignCountStmt, err = db.PrepareContext(ctx, updateWebAuthnCredentialSignCount); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateWebAuthnCredentialSignCount: %w", err)
+	}
 	return &q, nil
 }
 
 func (q *Queries) Close() error {
 	var err error
+	if q.consumeWebAuthnChallengeStmt != nil {
+		if cerr := q.consumeWebAuthnChallengeStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing consumeWebAuthnChallengeStmt: %w", cerr)
+		}
+	}
 	if q.createAuthorizationCodeStmt != nil {
 		if cerr := q.createAuthorizationCodeStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createAuthorizationCodeStmt: %w", cerr)
@@ -134,6 +166,16 @@ func (q *Queries) Close() error {
 	if q.createTokenStmt != nil {
 		if cerr := q.createTokenStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createTokenStmt: %w", cerr)
+		}
+	}
+	if q.createWebAuthnChallengeStmt != nil {
+		if cerr := q.createWebAuthnChallengeStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createWebAuthnChallengeStmt: %w", cerr)
+		}
+	}
+	if q.createWebAuthnCredentialStmt != nil {
+		if cerr := q.createWebAuthnCredentialStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createWebAuthnCredentialStmt: %w", cerr)
 		}
 	}
 	if q.deleteAllAuthorizationCodesStmt != nil {
@@ -176,6 +218,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deleteExpiredTokensStmt: %w", cerr)
 		}
 	}
+	if q.deleteExpiredWebAuthnChallengesStmt != nil {
+		if cerr := q.deleteExpiredWebAuthnChallengesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteExpiredWebAuthnChallengesStmt: %w", cerr)
+		}
+	}
 	if q.deleteOIDCSessionStmt != nil {
 		if cerr := q.deleteOIDCSessionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteOIDCSessionStmt: %w", cerr)
@@ -204,6 +251,11 @@ func (q *Queries) Close() error {
 	if q.deleteTokensByUserAndClientStmt != nil {
 		if cerr := q.deleteTokensByUserAndClientStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteTokensByUserAndClientStmt: %w", cerr)
+		}
+	}
+	if q.deleteWebAuthnCredentialStmt != nil {
+		if cerr := q.deleteWebAuthnCredentialStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteWebAuthnCredentialStmt: %w", cerr)
 		}
 	}
 	if q.getAuthorizationCodeStmt != nil {
@@ -236,9 +288,19 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getTokenByRefreshTokenStmt: %w", cerr)
 		}
 	}
+	if q.getWebAuthnCredentialByCredentialIDStmt != nil {
+		if cerr := q.getWebAuthnCredentialByCredentialIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getWebAuthnCredentialByCredentialIDStmt: %w", cerr)
+		}
+	}
 	if q.listClientsStmt != nil {
 		if cerr := q.listClientsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing listClientsStmt: %w", cerr)
+		}
+	}
+	if q.listWebAuthnCredentialsByUserStmt != nil {
+		if cerr := q.listWebAuthnCredentialsByUserStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listWebAuthnCredentialsByUserStmt: %w", cerr)
 		}
 	}
 	if q.markAuthorizationCodeUsedStmt != nil {
@@ -259,6 +321,16 @@ func (q *Queries) Close() error {
 	if q.updateClientSecretStmt != nil {
 		if cerr := q.updateClientSecretStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateClientSecretStmt: %w", cerr)
+		}
+	}
+	if q.updateWebAuthnCredentialDeviceNameStmt != nil {
+		if cerr := q.updateWebAuthnCredentialDeviceNameStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateWebAuthnCredentialDeviceNameStmt: %w", cerr)
+		}
+	}
+	if q.updateWebAuthnCredentialSignCountStmt != nil {
+		if cerr := q.updateWebAuthnCredentialSignCountStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateWebAuthnCredentialSignCountStmt: %w", cerr)
 		}
 	}
 	return err
@@ -298,71 +370,89 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 }
 
 type Queries struct {
-	db                                  DBTX
-	tx                                  *sql.Tx
-	createAuthorizationCodeStmt         *sql.Stmt
-	createClientStmt                    *sql.Stmt
-	createOIDCSessionStmt               *sql.Stmt
-	createTokenStmt                     *sql.Stmt
-	deleteAllAuthorizationCodesStmt     *sql.Stmt
-	deleteAllClientsStmt                *sql.Stmt
-	deleteAllOIDCSessionsStmt           *sql.Stmt
-	deleteAllTokensStmt                 *sql.Stmt
-	deleteAuthorizationCodeStmt         *sql.Stmt
-	deleteClientStmt                    *sql.Stmt
-	deleteExpiredAuthorizationCodesStmt *sql.Stmt
-	deleteExpiredTokensStmt             *sql.Stmt
-	deleteOIDCSessionStmt               *sql.Stmt
-	deleteTokenStmt                     *sql.Stmt
-	deleteTokenByAccessTokenStmt        *sql.Stmt
-	deleteTokenByRefreshTokenStmt       *sql.Stmt
-	deleteTokensByRequestIDStmt         *sql.Stmt
-	deleteTokensByUserAndClientStmt     *sql.Stmt
-	getAuthorizationCodeStmt            *sql.Stmt
-	getClientStmt                       *sql.Stmt
-	getOIDCSessionStmt                  *sql.Stmt
-	getTokenByAccessTokenStmt           *sql.Stmt
-	getTokenByIDStmt                    *sql.Stmt
-	getTokenByRefreshTokenStmt          *sql.Stmt
-	listClientsStmt                     *sql.Stmt
-	markAuthorizationCodeUsedStmt       *sql.Stmt
-	updateAuthorizationCodePKCEStmt     *sql.Stmt
-	updateClientStmt                    *sql.Stmt
-	updateClientSecretStmt              *sql.Stmt
+	db                                      DBTX
+	tx                                      *sql.Tx
+	consumeWebAuthnChallengeStmt            *sql.Stmt
+	createAuthorizationCodeStmt             *sql.Stmt
+	createClientStmt                        *sql.Stmt
+	createOIDCSessionStmt                   *sql.Stmt
+	createTokenStmt                         *sql.Stmt
+	createWebAuthnChallengeStmt             *sql.Stmt
+	createWebAuthnCredentialStmt            *sql.Stmt
+	deleteAllAuthorizationCodesStmt         *sql.Stmt
+	deleteAllClientsStmt                    *sql.Stmt
+	deleteAllOIDCSessionsStmt               *sql.Stmt
+	deleteAllTokensStmt                     *sql.Stmt
+	deleteAuthorizationCodeStmt             *sql.Stmt
+	deleteClientStmt                        *sql.Stmt
+	deleteExpiredAuthorizationCodesStmt     *sql.Stmt
+	deleteExpiredTokensStmt                 *sql.Stmt
+	deleteExpiredWebAuthnChallengesStmt     *sql.Stmt
+	deleteOIDCSessionStmt                   *sql.Stmt
+	deleteTokenStmt                         *sql.Stmt
+	deleteTokenByAccessTokenStmt            *sql.Stmt
+	deleteTokenByRefreshTokenStmt           *sql.Stmt
+	deleteTokensByRequestIDStmt             *sql.Stmt
+	deleteTokensByUserAndClientStmt         *sql.Stmt
+	deleteWebAuthnCredentialStmt            *sql.Stmt
+	getAuthorizationCodeStmt                *sql.Stmt
+	getClientStmt                           *sql.Stmt
+	getOIDCSessionStmt                      *sql.Stmt
+	getTokenByAccessTokenStmt               *sql.Stmt
+	getTokenByIDStmt                        *sql.Stmt
+	getTokenByRefreshTokenStmt              *sql.Stmt
+	getWebAuthnCredentialByCredentialIDStmt *sql.Stmt
+	listClientsStmt                         *sql.Stmt
+	listWebAuthnCredentialsByUserStmt       *sql.Stmt
+	markAuthorizationCodeUsedStmt           *sql.Stmt
+	updateAuthorizationCodePKCEStmt         *sql.Stmt
+	updateClientStmt                        *sql.Stmt
+	updateClientSecretStmt                  *sql.Stmt
+	updateWebAuthnCredentialDeviceNameStmt  *sql.Stmt
+	updateWebAuthnCredentialSignCountStmt   *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
-		db:                                  tx,
-		tx:                                  tx,
-		createAuthorizationCodeStmt:         q.createAuthorizationCodeStmt,
-		createClientStmt:                    q.createClientStmt,
-		createOIDCSessionStmt:               q.createOIDCSessionStmt,
-		createTokenStmt:                     q.createTokenStmt,
-		deleteAllAuthorizationCodesStmt:     q.deleteAllAuthorizationCodesStmt,
-		deleteAllClientsStmt:                q.deleteAllClientsStmt,
-		deleteAllOIDCSessionsStmt:           q.deleteAllOIDCSessionsStmt,
-		deleteAllTokensStmt:                 q.deleteAllTokensStmt,
-		deleteAuthorizationCodeStmt:         q.deleteAuthorizationCodeStmt,
-		deleteClientStmt:                    q.deleteClientStmt,
-		deleteExpiredAuthorizationCodesStmt: q.deleteExpiredAuthorizationCodesStmt,
-		deleteExpiredTokensStmt:             q.deleteExpiredTokensStmt,
-		deleteOIDCSessionStmt:               q.deleteOIDCSessionStmt,
-		deleteTokenStmt:                     q.deleteTokenStmt,
-		deleteTokenByAccessTokenStmt:        q.deleteTokenByAccessTokenStmt,
-		deleteTokenByRefreshTokenStmt:       q.deleteTokenByRefreshTokenStmt,
-		deleteTokensByRequestIDStmt:         q.deleteTokensByRequestIDStmt,
-		deleteTokensByUserAndClientStmt:     q.deleteTokensByUserAndClientStmt,
-		getAuthorizationCodeStmt:            q.getAuthorizationCodeStmt,
-		getClientStmt:                       q.getClientStmt,
-		getOIDCSessionStmt:                  q.getOIDCSessionStmt,
-		getTokenByAccessTokenStmt:           q.getTokenByAccessTokenStmt,
-		getTokenByIDStmt:                    q.getTokenByIDStmt,
-		getTokenByRefreshTokenStmt:          q.getTokenByRefreshTokenStmt,
-		listClientsStmt:                     q.listClientsStmt,
-		markAuthorizationCodeUsedStmt:       q.markAuthorizationCodeUsedStmt,
-		updateAuthorizationCodePKCEStmt:     q.updateAuthorizationCodePKCEStmt,
-		updateClientStmt:                    q.updateClientStmt,
-		updateClientSecretStmt:              q.updateClientSecretStmt,
+		db:                                      tx,
+		tx:                                      tx,
+		consumeWebAuthnChallengeStmt:            q.consumeWebAuthnChallengeStmt,
+		createAuthorizationCodeStmt:             q.createAuthorizationCodeStmt,
+		createClientStmt:                        q.createClientStmt,
+		createOIDCSessionStmt:                   q.createOIDCSessionStmt,
+		createTokenStmt:                         q.createTokenStmt,
+		createWebAuthnChallengeStmt:             q.createWebAuthnChallengeStmt,
+		createWebAuthnCredentialStmt:            q.createWebAuthnCredentialStmt,
+		deleteAllAuthorizationCodesStmt:         q.deleteAllAuthorizationCodesStmt,
+		deleteAllClientsStmt:                    q.deleteAllClientsStmt,
+		deleteAllOIDCSessionsStmt:               q.deleteAllOIDCSessionsStmt,
+		deleteAllTokensStmt:                     q.deleteAllTokensStmt,
+		deleteAuthorizationCodeStmt:             q.deleteAuthorizationCodeStmt,
+		deleteClientStmt:                        q.deleteClientStmt,
+		deleteExpiredAuthorizationCodesStmt:     q.deleteExpiredAuthorizationCodesStmt,
+		deleteExpiredTokensStmt:                 q.deleteExpiredTokensStmt,
+		deleteExpiredWebAuthnChallengesStmt:     q.deleteExpiredWebAuthnChallengesStmt,
+		deleteOIDCSessionStmt:                   q.deleteOIDCSessionStmt,
+		deleteTokenStmt:                         q.deleteTokenStmt,
+		deleteTokenByAccessTokenStmt:            q.deleteTokenByAccessTokenStmt,
+		deleteTokenByRefreshTokenStmt:           q.deleteTokenByRefreshTokenStmt,
+		deleteTokensByRequestIDStmt:             q.deleteTokensByRequestIDStmt,
+		deleteTokensByUserAndClientStmt:         q.deleteTokensByUserAndClientStmt,
+		deleteWebAuthnCredentialStmt:            q.deleteWebAuthnCredentialStmt,
+		getAuthorizationCodeStmt:                q.getAuthorizationCodeStmt,
+		getClientStmt:                           q.getClientStmt,
+		getOIDCSessionStmt:                      q.getOIDCSessionStmt,
+		getTokenByAccessTokenStmt:               q.getTokenByAccessTokenStmt,
+		getTokenByIDStmt:                        q.getTokenByIDStmt,
+		getTokenByRefreshTokenStmt:              q.getTokenByRefreshTokenStmt,
+		getWebAuthnCredentialByCredentialIDStmt: q.getWebAuthnCredentialByCredentialIDStmt,
+		listClientsStmt:                         q.listClientsStmt,
+		listWebAuthnCredentialsByUserStmt:       q.listWebAuthnCredentialsByUserStmt,
+		markAuthorizationCodeUsedStmt:           q.markAuthorizationCodeUsedStmt,
+		updateAuthorizationCodePKCEStmt:         q.updateAuthorizationCodePKCEStmt,
+		updateClientStmt:                        q.updateClientStmt,
+		updateClientSecretStmt:                  q.updateClientSecretStmt,
+		updateWebAuthnCredentialDeviceNameStmt:  q.updateWebAuthnCredentialDeviceNameStmt,
+		updateWebAuthnCredentialSignCountStmt:   q.updateWebAuthnCredentialSignCountStmt,
 	}
 }
