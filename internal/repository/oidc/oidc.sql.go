@@ -12,7 +12,48 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sqlc-dev/pqtype"
 )
+
+const createAccessToken = `-- name: CreateAccessToken :exec
+
+INSERT INTO access_tokens (
+    id,
+    jti,
+    request_id,
+    client_id,
+    user_id,
+    scopes,
+    audience,
+    expires_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+`
+
+type CreateAccessTokenParams struct {
+	ID        uuid.UUID             `json:"id"`
+	Jti       string                `json:"jti"`
+	RequestID string                `json:"request_id"`
+	ClientID  uuid.UUID             `json:"client_id"`
+	UserID    uuid.NullUUID         `json:"user_id"`
+	Scopes    string                `json:"scopes"`
+	Audience  pqtype.NullRawMessage `json:"audience"`
+	ExpiresAt time.Time             `json:"expires_at"`
+}
+
+// Access token queries
+func (q *Queries) CreateAccessToken(ctx context.Context, arg CreateAccessTokenParams) error {
+	_, err := q.exec(ctx, q.createAccessTokenStmt, createAccessToken,
+		arg.ID,
+		arg.Jti,
+		arg.RequestID,
+		arg.ClientID,
+		arg.UserID,
+		arg.Scopes,
+		arg.Audience,
+		arg.ExpiresAt,
+	)
+	return err
+}
 
 const createAuthorizationCode = `-- name: CreateAuthorizationCode :exec
 
@@ -125,43 +166,70 @@ func (q *Queries) CreateOIDCSession(ctx context.Context, arg CreateOIDCSessionPa
 	return err
 }
 
-const createToken = `-- name: CreateToken :exec
+const createRefreshToken = `-- name: CreateRefreshToken :exec
 
-INSERT INTO tokens (
+INSERT INTO refresh_tokens (
     id,
+    token_hash,
     request_id,
     client_id,
     user_id,
-    access_token,
-    refresh_token,
     scopes,
-    expires_at
+    expires_at,
+    previous_token_id
 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 `
 
-type CreateTokenParams struct {
-	ID           uuid.UUID      `json:"id"`
-	RequestID    string         `json:"request_id"`
-	ClientID     uuid.UUID      `json:"client_id"`
-	UserID       uuid.UUID      `json:"user_id"`
-	AccessToken  string         `json:"access_token"`
-	RefreshToken sql.NullString `json:"refresh_token"`
-	Scopes       string         `json:"scopes"`
-	ExpiresAt    time.Time      `json:"expires_at"`
+type CreateRefreshTokenParams struct {
+	ID              uuid.UUID     `json:"id"`
+	TokenHash       string        `json:"token_hash"`
+	RequestID       string        `json:"request_id"`
+	ClientID        uuid.UUID     `json:"client_id"`
+	UserID          uuid.UUID     `json:"user_id"`
+	Scopes          string        `json:"scopes"`
+	ExpiresAt       time.Time     `json:"expires_at"`
+	PreviousTokenID uuid.NullUUID `json:"previous_token_id"`
 }
 
-// Token queries
-func (q *Queries) CreateToken(ctx context.Context, arg CreateTokenParams) error {
-	_, err := q.exec(ctx, q.createTokenStmt, createToken,
+// Refresh token queries
+func (q *Queries) CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) error {
+	_, err := q.exec(ctx, q.createRefreshTokenStmt, createRefreshToken,
 		arg.ID,
+		arg.TokenHash,
 		arg.RequestID,
 		arg.ClientID,
 		arg.UserID,
-		arg.AccessToken,
-		arg.RefreshToken,
 		arg.Scopes,
 		arg.ExpiresAt,
+		arg.PreviousTokenID,
 	)
+	return err
+}
+
+const deleteAccessTokenByJTI = `-- name: DeleteAccessTokenByJTI :exec
+DELETE FROM access_tokens WHERE jti = $1
+`
+
+func (q *Queries) DeleteAccessTokenByJTI(ctx context.Context, jti string) error {
+	_, err := q.exec(ctx, q.deleteAccessTokenByJTIStmt, deleteAccessTokenByJTI, jti)
+	return err
+}
+
+const deleteAccessTokensByRequestID = `-- name: DeleteAccessTokensByRequestID :exec
+DELETE FROM access_tokens WHERE request_id = $1
+`
+
+func (q *Queries) DeleteAccessTokensByRequestID(ctx context.Context, requestID string) error {
+	_, err := q.exec(ctx, q.deleteAccessTokensByRequestIDStmt, deleteAccessTokensByRequestID, requestID)
+	return err
+}
+
+const deleteAllAccessTokens = `-- name: DeleteAllAccessTokens :exec
+DELETE FROM access_tokens
+`
+
+func (q *Queries) DeleteAllAccessTokens(ctx context.Context) error {
+	_, err := q.exec(ctx, q.deleteAllAccessTokensStmt, deleteAllAccessTokens)
 	return err
 }
 
@@ -192,12 +260,12 @@ func (q *Queries) DeleteAllOIDCSessions(ctx context.Context) error {
 	return err
 }
 
-const deleteAllTokens = `-- name: DeleteAllTokens :exec
-DELETE FROM tokens
+const deleteAllRefreshTokens = `-- name: DeleteAllRefreshTokens :exec
+DELETE FROM refresh_tokens
 `
 
-func (q *Queries) DeleteAllTokens(ctx context.Context) error {
-	_, err := q.exec(ctx, q.deleteAllTokensStmt, deleteAllTokens)
+func (q *Queries) DeleteAllRefreshTokens(ctx context.Context) error {
+	_, err := q.exec(ctx, q.deleteAllRefreshTokensStmt, deleteAllRefreshTokens)
 	return err
 }
 
@@ -219,6 +287,15 @@ func (q *Queries) DeleteClient(ctx context.Context, clientID uuid.UUID) error {
 	return err
 }
 
+const deleteExpiredAccessTokens = `-- name: DeleteExpiredAccessTokens :exec
+DELETE FROM access_tokens WHERE expires_at < NOW()
+`
+
+func (q *Queries) DeleteExpiredAccessTokens(ctx context.Context) error {
+	_, err := q.exec(ctx, q.deleteExpiredAccessTokensStmt, deleteExpiredAccessTokens)
+	return err
+}
+
 const deleteExpiredAuthorizationCodes = `-- name: DeleteExpiredAuthorizationCodes :exec
 DELETE FROM authorization_codes WHERE expires_at < NOW()
 `
@@ -228,12 +305,12 @@ func (q *Queries) DeleteExpiredAuthorizationCodes(ctx context.Context) error {
 	return err
 }
 
-const deleteExpiredTokens = `-- name: DeleteExpiredTokens :exec
-DELETE FROM tokens WHERE expires_at < NOW()
+const deleteExpiredRefreshTokens = `-- name: DeleteExpiredRefreshTokens :exec
+DELETE FROM refresh_tokens WHERE expires_at < NOW()
 `
 
-func (q *Queries) DeleteExpiredTokens(ctx context.Context) error {
-	_, err := q.exec(ctx, q.deleteExpiredTokensStmt, deleteExpiredTokens)
+func (q *Queries) DeleteExpiredRefreshTokens(ctx context.Context) error {
+	_, err := q.exec(ctx, q.deleteExpiredRefreshTokensStmt, deleteExpiredRefreshTokens)
 	return err
 }
 
@@ -246,54 +323,44 @@ func (q *Queries) DeleteOIDCSession(ctx context.Context, authorizeCode string) e
 	return err
 }
 
-const deleteToken = `-- name: DeleteToken :exec
-DELETE FROM tokens WHERE id = $1
+const deleteRefreshTokenByHash = `-- name: DeleteRefreshTokenByHash :exec
+DELETE FROM refresh_tokens WHERE token_hash = $1
 `
 
-func (q *Queries) DeleteToken(ctx context.Context, id uuid.UUID) error {
-	_, err := q.exec(ctx, q.deleteTokenStmt, deleteToken, id)
+func (q *Queries) DeleteRefreshTokenByHash(ctx context.Context, tokenHash string) error {
+	_, err := q.exec(ctx, q.deleteRefreshTokenByHashStmt, deleteRefreshTokenByHash, tokenHash)
 	return err
 }
 
-const deleteTokenByAccessToken = `-- name: DeleteTokenByAccessToken :exec
-DELETE FROM tokens WHERE access_token = $1
+const deleteRefreshTokensByRequestID = `-- name: DeleteRefreshTokensByRequestID :exec
+DELETE FROM refresh_tokens WHERE request_id = $1
 `
 
-func (q *Queries) DeleteTokenByAccessToken(ctx context.Context, accessToken string) error {
-	_, err := q.exec(ctx, q.deleteTokenByAccessTokenStmt, deleteTokenByAccessToken, accessToken)
+func (q *Queries) DeleteRefreshTokensByRequestID(ctx context.Context, requestID string) error {
+	_, err := q.exec(ctx, q.deleteRefreshTokensByRequestIDStmt, deleteRefreshTokensByRequestID, requestID)
 	return err
 }
 
-const deleteTokenByRefreshToken = `-- name: DeleteTokenByRefreshToken :exec
-DELETE FROM tokens WHERE refresh_token = $1
+const getAccessTokenByJTI = `-- name: GetAccessTokenByJTI :one
+SELECT id, jti, request_id, client_id, user_id, scopes, audience, issued_at, expires_at, revoked_at FROM access_tokens WHERE jti = $1
 `
 
-func (q *Queries) DeleteTokenByRefreshToken(ctx context.Context, refreshToken sql.NullString) error {
-	_, err := q.exec(ctx, q.deleteTokenByRefreshTokenStmt, deleteTokenByRefreshToken, refreshToken)
-	return err
-}
-
-const deleteTokensByRequestID = `-- name: DeleteTokensByRequestID :exec
-DELETE FROM tokens WHERE request_id = $1
-`
-
-func (q *Queries) DeleteTokensByRequestID(ctx context.Context, requestID string) error {
-	_, err := q.exec(ctx, q.deleteTokensByRequestIDStmt, deleteTokensByRequestID, requestID)
-	return err
-}
-
-const deleteTokensByUserAndClient = `-- name: DeleteTokensByUserAndClient :exec
-DELETE FROM tokens WHERE user_id = $1 AND client_id = $2
-`
-
-type DeleteTokensByUserAndClientParams struct {
-	UserID   uuid.UUID `json:"user_id"`
-	ClientID uuid.UUID `json:"client_id"`
-}
-
-func (q *Queries) DeleteTokensByUserAndClient(ctx context.Context, arg DeleteTokensByUserAndClientParams) error {
-	_, err := q.exec(ctx, q.deleteTokensByUserAndClientStmt, deleteTokensByUserAndClient, arg.UserID, arg.ClientID)
-	return err
+func (q *Queries) GetAccessTokenByJTI(ctx context.Context, jti string) (AccessToken, error) {
+	row := q.queryRow(ctx, q.getAccessTokenByJTIStmt, getAccessTokenByJTI, jti)
+	var i AccessToken
+	err := row.Scan(
+		&i.ID,
+		&i.Jti,
+		&i.RequestID,
+		&i.ClientID,
+		&i.UserID,
+		&i.Scopes,
+		&i.Audience,
+		&i.IssuedAt,
+		&i.ExpiresAt,
+		&i.RevokedAt,
+	)
+	return i, err
 }
 
 const getAuthorizationCode = `-- name: GetAuthorizationCode :one
@@ -358,65 +425,25 @@ func (q *Queries) GetOIDCSession(ctx context.Context, authorizeCode string) (Oid
 	return i, err
 }
 
-const getTokenByAccessToken = `-- name: GetTokenByAccessToken :one
-SELECT id, request_id, client_id, user_id, access_token, refresh_token, scopes, expires_at, created_at FROM tokens WHERE access_token = $1
+const getRefreshTokenByHash = `-- name: GetRefreshTokenByHash :one
+SELECT id, token_hash, request_id, client_id, user_id, scopes, issued_at, expires_at, rotated_at, previous_token_id, revoked_at FROM refresh_tokens WHERE token_hash = $1
 `
 
-func (q *Queries) GetTokenByAccessToken(ctx context.Context, accessToken string) (Token, error) {
-	row := q.queryRow(ctx, q.getTokenByAccessTokenStmt, getTokenByAccessToken, accessToken)
-	var i Token
+func (q *Queries) GetRefreshTokenByHash(ctx context.Context, tokenHash string) (RefreshToken, error) {
+	row := q.queryRow(ctx, q.getRefreshTokenByHashStmt, getRefreshTokenByHash, tokenHash)
+	var i RefreshToken
 	err := row.Scan(
 		&i.ID,
+		&i.TokenHash,
 		&i.RequestID,
 		&i.ClientID,
 		&i.UserID,
-		&i.AccessToken,
-		&i.RefreshToken,
 		&i.Scopes,
+		&i.IssuedAt,
 		&i.ExpiresAt,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const getTokenByID = `-- name: GetTokenByID :one
-SELECT id, request_id, client_id, user_id, access_token, refresh_token, scopes, expires_at, created_at FROM tokens WHERE id = $1
-`
-
-func (q *Queries) GetTokenByID(ctx context.Context, id uuid.UUID) (Token, error) {
-	row := q.queryRow(ctx, q.getTokenByIDStmt, getTokenByID, id)
-	var i Token
-	err := row.Scan(
-		&i.ID,
-		&i.RequestID,
-		&i.ClientID,
-		&i.UserID,
-		&i.AccessToken,
-		&i.RefreshToken,
-		&i.Scopes,
-		&i.ExpiresAt,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const getTokenByRefreshToken = `-- name: GetTokenByRefreshToken :one
-SELECT id, request_id, client_id, user_id, access_token, refresh_token, scopes, expires_at, created_at FROM tokens WHERE refresh_token = $1
-`
-
-func (q *Queries) GetTokenByRefreshToken(ctx context.Context, refreshToken sql.NullString) (Token, error) {
-	row := q.queryRow(ctx, q.getTokenByRefreshTokenStmt, getTokenByRefreshToken, refreshToken)
-	var i Token
-	err := row.Scan(
-		&i.ID,
-		&i.RequestID,
-		&i.ClientID,
-		&i.UserID,
-		&i.AccessToken,
-		&i.RefreshToken,
-		&i.Scopes,
-		&i.ExpiresAt,
-		&i.CreatedAt,
+		&i.RotatedAt,
+		&i.PreviousTokenID,
+		&i.RevokedAt,
 	)
 	return i, err
 }
@@ -462,6 +489,36 @@ UPDATE authorization_codes SET used = TRUE WHERE code = $1
 
 func (q *Queries) MarkAuthorizationCodeUsed(ctx context.Context, code string) error {
 	_, err := q.exec(ctx, q.markAuthorizationCodeUsedStmt, markAuthorizationCodeUsed, code)
+	return err
+}
+
+const markRefreshTokenRotated = `-- name: MarkRefreshTokenRotated :exec
+UPDATE refresh_tokens SET rotated_at = CURRENT_TIMESTAMP
+WHERE token_hash = $1 AND rotated_at IS NULL
+`
+
+func (q *Queries) MarkRefreshTokenRotated(ctx context.Context, tokenHash string) error {
+	_, err := q.exec(ctx, q.markRefreshTokenRotatedStmt, markRefreshTokenRotated, tokenHash)
+	return err
+}
+
+const revokeAccessTokensByRequestID = `-- name: RevokeAccessTokensByRequestID :exec
+UPDATE access_tokens SET revoked_at = CURRENT_TIMESTAMP
+WHERE request_id = $1 AND revoked_at IS NULL
+`
+
+func (q *Queries) RevokeAccessTokensByRequestID(ctx context.Context, requestID string) error {
+	_, err := q.exec(ctx, q.revokeAccessTokensByRequestIDStmt, revokeAccessTokensByRequestID, requestID)
+	return err
+}
+
+const revokeRefreshTokensByRequestID = `-- name: RevokeRefreshTokensByRequestID :exec
+UPDATE refresh_tokens SET revoked_at = CURRENT_TIMESTAMP
+WHERE request_id = $1 AND revoked_at IS NULL
+`
+
+func (q *Queries) RevokeRefreshTokensByRequestID(ctx context.Context, requestID string) error {
+	_, err := q.exec(ctx, q.revokeRefreshTokensByRequestIDStmt, revokeRefreshTokensByRequestID, requestID)
 	return err
 }
 
