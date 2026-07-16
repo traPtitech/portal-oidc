@@ -18,6 +18,7 @@ type AuthCodeRepository interface {
 	Delete(ctx context.Context, code string) error
 	MarkUsed(ctx context.Context, code string) error
 	UpdatePKCE(ctx context.Context, code, challenge, method string) error
+	ClearPKCE(ctx context.Context, code string) error
 }
 
 type authCodeRepository struct {
@@ -83,6 +84,10 @@ func (r *authCodeRepository) UpdatePKCE(ctx context.Context, code, challenge, me
 		},
 		Code: code,
 	})
+}
+
+func (r *authCodeRepository) ClearPKCE(ctx context.Context, code string) error {
+	return r.queries.ClearAuthorizationCodePKCE(ctx, code)
 }
 
 func toDomainAuthCode(db oidc.AuthorizationCode) domain.AuthCode {

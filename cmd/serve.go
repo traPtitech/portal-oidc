@@ -62,7 +62,7 @@ func newServer(cfg Config) (http.Handler, error) {
 	}
 	handler := v1.NewHandler(
 		usecase.NewClientUseCase(clientRepo),
-		usecase.NewOAuthUseCase(),
+		usecase.NewOAuthUseCase(oauth2Provider, oauthStorage),
 		oauth2Provider,
 		userUseCase,
 		v1.OAuthConfig{
