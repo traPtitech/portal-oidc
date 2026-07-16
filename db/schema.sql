@@ -80,3 +80,28 @@ CREATE TABLE IF NOT EXISTS oidc_sessions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_oidc_sessions_client_id ON oidc_sessions (client_id);
+
+-- traPortal v2 spec §sessions
+-- Server-side login session metadata. session_id is the random opaque value
+-- stored in the End-User's cookie. Multiple rows per user_id correspond to
+-- separate browsers / devices; revoked_at lets the user (or an admin)
+-- terminate one without waiting for natural expiry.
+CREATE TABLE IF NOT EXISTS user_sessions (
+  id UUID NOT NULL,
+  session_id TEXT NOT NULL,
+  user_id UUID NOT NULL,
+  user_agent TEXT NULL,
+  ip_address TEXT NULL,
+  acr TEXT NULL,
+  amr JSONB NULL,
+  auth_time TIMESTAMPTZ NOT NULL,
+  last_active_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  expires_at TIMESTAMPTZ NOT NULL,
+  revoked_at TIMESTAMPTZ NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT idx_user_sessions_session_id UNIQUE (session_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions (user_id);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions (expires_at);

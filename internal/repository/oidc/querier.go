@@ -20,6 +20,8 @@ type Querier interface {
 	CreateOIDCSession(ctx context.Context, arg CreateOIDCSessionParams) error
 	// Token queries
 	CreateToken(ctx context.Context, arg CreateTokenParams) error
+	// User session queries
+	CreateUserSession(ctx context.Context, arg CreateUserSessionParams) error
 	DeleteAllAuthorizationCodes(ctx context.Context) error
 	DeleteAllClients(ctx context.Context) error
 	DeleteAllOIDCSessions(ctx context.Context) error
@@ -40,8 +42,13 @@ type Querier interface {
 	GetTokenByAccessToken(ctx context.Context, accessToken string) (Token, error)
 	GetTokenByID(ctx context.Context, id uuid.UUID) (Token, error)
 	GetTokenByRefreshToken(ctx context.Context, refreshToken sql.NullString) (Token, error)
+	GetUserSessionBySessionID(ctx context.Context, sessionID string) (UserSession, error)
 	ListClients(ctx context.Context) ([]Client, error)
+	ListUserSessionsByUser(ctx context.Context, userID uuid.UUID) ([]UserSession, error)
 	MarkAuthorizationCodeUsed(ctx context.Context, code string) error
+	RevokeAllUserSessionsExcept(ctx context.Context, arg RevokeAllUserSessionsExceptParams) error
+	RevokeUserSession(ctx context.Context, arg RevokeUserSessionParams) error
+	TouchUserSession(ctx context.Context, sessionID string) error
 	UpdateAuthorizationCodePKCE(ctx context.Context, arg UpdateAuthorizationCodePKCEParams) error
 	UpdateClient(ctx context.Context, arg UpdateClientParams) error
 	UpdateClientSecret(ctx context.Context, arg UpdateClientSecretParams) error

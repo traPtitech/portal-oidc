@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sqlc-dev/pqtype"
 )
 
 const createAuthorizationCode = `-- name: CreateAuthorizationCode :exec
@@ -160,6 +161,49 @@ func (q *Queries) CreateToken(ctx context.Context, arg CreateTokenParams) error 
 		arg.AccessToken,
 		arg.RefreshToken,
 		arg.Scopes,
+		arg.ExpiresAt,
+	)
+	return err
+}
+
+const createUserSession = `-- name: CreateUserSession :exec
+
+INSERT INTO user_sessions (
+    id,
+    session_id,
+    user_id,
+    user_agent,
+    ip_address,
+    acr,
+    amr,
+    auth_time,
+    expires_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+`
+
+type CreateUserSessionParams struct {
+	ID        uuid.UUID             `json:"id"`
+	SessionID string                `json:"session_id"`
+	UserID    uuid.UUID             `json:"user_id"`
+	UserAgent sql.NullString        `json:"user_agent"`
+	IpAddress sql.NullString        `json:"ip_address"`
+	Acr       sql.NullString        `json:"acr"`
+	Amr       pqtype.NullRawMessage `json:"amr"`
+	AuthTime  time.Time             `json:"auth_time"`
+	ExpiresAt time.Time             `json:"expires_at"`
+}
+
+// User session queries
+func (q *Queries) CreateUserSession(ctx context.Context, arg CreateUserSessionParams) error {
+	_, err := q.exec(ctx, q.createUserSessionStmt, createUserSession,
+		arg.ID,
+		arg.SessionID,
+		arg.UserID,
+		arg.UserAgent,
+		arg.IpAddress,
+		arg.Acr,
+		arg.Amr,
+		arg.AuthTime,
 		arg.ExpiresAt,
 	)
 	return err
@@ -421,6 +465,30 @@ func (q *Queries) GetTokenByRefreshToken(ctx context.Context, refreshToken sql.N
 	return i, err
 }
 
+const getUserSessionBySessionID = `-- name: GetUserSessionBySessionID :one
+SELECT id, session_id, user_id, user_agent, ip_address, acr, amr, auth_time, last_active_at, expires_at, revoked_at, created_at FROM user_sessions WHERE session_id = $1
+`
+
+func (q *Queries) GetUserSessionBySessionID(ctx context.Context, sessionID string) (UserSession, error) {
+	row := q.queryRow(ctx, q.getUserSessionBySessionIDStmt, getUserSessionBySessionID, sessionID)
+	var i UserSession
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.UserID,
+		&i.UserAgent,
+		&i.IpAddress,
+		&i.Acr,
+		&i.Amr,
+		&i.AuthTime,
+		&i.LastActiveAt,
+		&i.ExpiresAt,
+		&i.RevokedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const listClients = `-- name: ListClients :many
 SELECT client_id, client_secret_hash, name, client_type, redirect_uris, created_at, updated_at FROM clients
 `
@@ -456,12 +524,97 @@ func (q *Queries) ListClients(ctx context.Context) ([]Client, error) {
 	return items, nil
 }
 
+const listUserSessionsByUser = `-- name: ListUserSessionsByUser :many
+SELECT id, session_id, user_id, user_agent, ip_address, acr, amr, auth_time, last_active_at, expires_at, revoked_at, created_at FROM user_sessions
+WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > CURRENT_TIMESTAMP
+ORDER BY last_active_at DESC
+`
+
+func (q *Queries) ListUserSessionsByUser(ctx context.Context, userID uuid.UUID) ([]UserSession, error) {
+	rows, err := q.query(ctx, q.listUserSessionsByUserStmt, listUserSessionsByUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []UserSession{}
+	for rows.Next() {
+		var i UserSession
+		if err := rows.Scan(
+			&i.ID,
+			&i.SessionID,
+			&i.UserID,
+			&i.UserAgent,
+			&i.IpAddress,
+			&i.Acr,
+			&i.Amr,
+			&i.AuthTime,
+			&i.LastActiveAt,
+			&i.ExpiresAt,
+			&i.RevokedAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markAuthorizationCodeUsed = `-- name: MarkAuthorizationCodeUsed :exec
 UPDATE authorization_codes SET used = TRUE WHERE code = $1
 `
 
 func (q *Queries) MarkAuthorizationCodeUsed(ctx context.Context, code string) error {
 	_, err := q.exec(ctx, q.markAuthorizationCodeUsedStmt, markAuthorizationCodeUsed, code)
+	return err
+}
+
+const revokeAllUserSessionsExcept = `-- name: RevokeAllUserSessionsExcept :exec
+UPDATE user_sessions
+SET revoked_at = CURRENT_TIMESTAMP
+WHERE user_id = $1 AND session_id <> $2 AND revoked_at IS NULL
+`
+
+type RevokeAllUserSessionsExceptParams struct {
+	UserID    uuid.UUID `json:"user_id"`
+	SessionID string    `json:"session_id"`
+}
+
+func (q *Queries) RevokeAllUserSessionsExcept(ctx context.Context, arg RevokeAllUserSessionsExceptParams) error {
+	_, err := q.exec(ctx, q.revokeAllUserSessionsExceptStmt, revokeAllUserSessionsExcept, arg.UserID, arg.SessionID)
+	return err
+}
+
+const revokeUserSession = `-- name: RevokeUserSession :exec
+UPDATE user_sessions
+SET revoked_at = CURRENT_TIMESTAMP
+WHERE id = $1 AND user_id = $2
+`
+
+type RevokeUserSessionParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) RevokeUserSession(ctx context.Context, arg RevokeUserSessionParams) error {
+	_, err := q.exec(ctx, q.revokeUserSessionStmt, revokeUserSession, arg.ID, arg.UserID)
+	return err
+}
+
+const touchUserSession = `-- name: TouchUserSession :exec
+UPDATE user_sessions
+SET last_active_at = CURRENT_TIMESTAMP
+WHERE session_id = $1
+`
+
+func (q *Queries) TouchUserSession(ctx context.Context, sessionID string) error {
+	_, err := q.exec(ctx, q.touchUserSessionStmt, touchUserSession, sessionID)
 	return err
 }
 

@@ -3,13 +3,17 @@ package v1
 import (
 	"errors"
 	"html"
+	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 
+	"github.com/traPtitech/portal-oidc/internal/domain"
 	"github.com/traPtitech/portal-oidc/internal/usecase"
 )
 
@@ -89,7 +93,39 @@ func (h *Handler) PostLogin(ctx *echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to save session")
 	}
 
+	h.persistUserSession(ctx, session.ID, userID)
+
 	return ctx.Redirect(http.StatusFound, sanitizeReturnURL(returnURL))
+}
+
+// persistUserSession mirrors the cookie session into the user_sessions table
+// so /auth/sessions can list or revoke it. Best-effort: a DB failure here is
+// logged but does not fail the login because the cookie is the active source
+// of truth until a follow-up PR flips the dependency.
+func (h *Handler) persistUserSession(ctx *echo.Context, cookieID, userIDStr string) {
+	if h.userSessions == nil || cookieID == "" {
+		return
+	}
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return
+	}
+	expires := time.Now().Add(time.Duration(h.sessions.Options.MaxAge) * time.Second)
+	host, _, splitErr := net.SplitHostPort(ctx.Request().RemoteAddr)
+	if splitErr != nil {
+		host = ctx.Request().RemoteAddr
+	}
+	row := domain.UserSession{
+		SessionID: cookieID,
+		UserID:    userID,
+		UserAgent: ctx.Request().Header.Get("User-Agent"),
+		IPAddress: host,
+		AuthTime:  time.Now(),
+		ExpiresAt: expires,
+	}
+	if err := h.userSessions.Create(ctx.Request().Context(), row); err != nil {
+		log.Printf("auth: failed to persist user_session: %v", err)
+	}
 }
 
 func (h *Handler) authenticateTestUser(username, password string) (string, error) {
