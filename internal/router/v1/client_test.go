@@ -143,8 +143,6 @@ func setupTestHandler(t *testing.T) (*Handler, func()) {
 	clientRepo := repository.NewClientRepository(queries)
 	clientUseCase := usecase.NewClientUseCase(clientRepo)
 
-	oauthUsecase := usecase.NewOAuthUseCase()
-
 	oauthStorage := oauth.NewStorage(
 		testDB,
 		queries,
@@ -158,11 +156,11 @@ func setupTestHandler(t *testing.T) (*Handler, func()) {
 		RefreshTokenLifespan:           30 * 24 * time.Hour,
 		AuthorizeCodeLifespan:          5 * time.Minute,
 		IDTokenLifespan:                time.Hour,
-		GlobalSecret:                   []byte("test-secret-key-32-characters!!"),
+		GlobalSecret:                   []byte("test-secret-key-32-characters!!!"),
 		ScopeStrategy:                  fosite.ExactScopeStrategy,
 		AudienceMatchingStrategy:       fosite.DefaultAudienceMatchingStrategy,
 		SendDebugMessagesToClients:     false,
-		EnforcePKCE:                    true,
+		EnforcePKCE:                    false,
 		EnforcePKCEForPublicClients:    true,
 		EnablePKCEPlainChallengeMethod: true,
 		AccessTokenIssuer:              "http://localhost:8080",
@@ -179,7 +177,7 @@ func setupTestHandler(t *testing.T) (*Handler, func()) {
 		compose.OAuth2TokenRevocationFactory,
 	)
 
-	handler := NewHandler(clientUseCase, oauthUsecase, oauth2Provider, nil, OAuthConfig{
+	handler := NewHandler(clientUseCase, usecase.NewOAuthUseCase(oauth2Provider, oauthStorage), oauth2Provider, nil, OAuthConfig{
 		Issuer:      "http://localhost:8080",
 		Environment: "development",
 		TestUserID:  "00000000-0000-0000-0000-000000000000",

@@ -1,9 +1,16 @@
 package usecase
 
 import (
+	"context"
+	"errors"
+	"net/http"
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/ory/fosite"
+
+	"github.com/traPtitech/portal-oidc/internal/repository/oauth"
 )
 
 // AuthorizeAction represents the result of authorization decision logic.
@@ -30,12 +37,19 @@ type AuthorizeInput struct {
 // OAuthUseCase handles OAuth authorization decision logic.
 type OAuthUseCase interface {
 	EvaluateAuthorize(input AuthorizeInput) AuthorizeAction
+	ProcessToken(ctx context.Context, request *http.Request, session fosite.Session) (OAuthTokenResult, error)
 }
 
-type oauthUseCase struct{}
+type oauthUseCase struct {
+	provider fosite.OAuth2Provider
+	storage  *oauth.Storage
+}
 
-func NewOAuthUseCase() OAuthUseCase {
-	return &oauthUseCase{}
+func NewOAuthUseCase(provider fosite.OAuth2Provider, storage *oauth.Storage) OAuthUseCase {
+	return &oauthUseCase{
+		provider: provider,
+		storage:  storage,
+	}
 }
 
 // EvaluateAuthorize implements the prompt / max_age decision tree from
@@ -86,4 +100,40 @@ func (u *oauthUseCase) EvaluateAuthorize(input AuthorizeInput) AuthorizeAction {
 	}
 
 	return AuthorizeActionProceed
+}
+
+type OAuthTokenResult struct {
+	Context  context.Context
+	Request  fosite.AccessRequester
+	Response fosite.AccessResponder
+}
+
+func (u *oauthUseCase) ProcessToken(
+	ctx context.Context,
+	request *http.Request,
+	session fosite.Session,
+) (OAuthTokenResult, error) {
+	result := OAuthTokenResult{Context: ctx}
+	accessRequest, err := u.provider.NewAccessRequest(ctx, request, session)
+	result.Request = accessRequest
+	if err != nil {
+		if errors.Is(err, fosite.ErrInvalidGrant) && accessRequest != nil {
+			if invalidateErr := u.storage.InvalidateAuthorizeCodeSession(ctx, accessRequest.GetID()); invalidateErr != nil {
+				err = fosite.ErrServerError.WithWrap(invalidateErr)
+			}
+		}
+		return result, err
+	}
+
+	for _, scope := range accessRequest.GetRequestedScopes() {
+		accessRequest.GrantScope(scope)
+	}
+
+	response, err := u.provider.NewAccessResponse(ctx, accessRequest)
+	result.Response = response
+	if err != nil {
+		return result, err
+	}
+
+	return result, nil
 }

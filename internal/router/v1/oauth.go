@@ -169,28 +169,17 @@ func parseMaxAge(ar fosite.AuthorizeRequester) (*int64, error) {
 }
 
 func (h *Handler) Token(ctx *echo.Context) error {
-	c := ctx.Request().Context()
-	rw := ctx.Response()
-	req := ctx.Request()
-
-	session := oauth.NewSession("", time.Time{})
-	accessRequest, err := h.oauth2.NewAccessRequest(c, req, session)
+	result, err := h.oauthUseCase.ProcessToken(
+		ctx.Request().Context(),
+		ctx.Request(),
+		oauth.NewSession("", time.Time{}),
+	)
 	if err != nil {
-		h.oauth2.WriteAccessError(c, rw, accessRequest, err)
+		h.oauth2.WriteAccessError(result.Context, ctx.Response(), result.Request, err)
 		return nil
 	}
 
-	for _, scope := range accessRequest.GetRequestedScopes() {
-		accessRequest.GrantScope(scope)
-	}
-
-	response, err := h.oauth2.NewAccessResponse(c, accessRequest)
-	if err != nil {
-		h.oauth2.WriteAccessError(c, rw, accessRequest, err)
-		return nil
-	}
-
-	h.oauth2.WriteAccessResponse(c, rw, accessRequest, response)
+	h.oauth2.WriteAccessResponse(result.Context, ctx.Response(), result.Request, result.Response)
 	return nil
 }
 

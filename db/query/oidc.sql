@@ -55,7 +55,11 @@ SELECT * FROM authorization_codes WHERE code = $1;
 DELETE FROM authorization_codes WHERE code = $1;
 
 -- name: MarkAuthorizationCodeUsed :exec
-UPDATE authorization_codes SET used = TRUE WHERE code = $1;
+UPDATE authorization_codes SET
+    used = TRUE,
+    code_challenge = NULL,
+    code_challenge_method = NULL
+WHERE code = $1;
 
 -- name: UpdateAuthorizationCodePKCE :exec
 UPDATE authorization_codes SET
