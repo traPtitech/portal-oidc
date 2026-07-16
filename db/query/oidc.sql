@@ -134,3 +134,44 @@ DELETE FROM oidc_sessions WHERE authorize_code = $1;
 
 -- name: DeleteAllOIDCSessions :exec
 DELETE FROM oidc_sessions;
+
+-- Signing key queries
+
+-- name: CreateSigningKey :exec
+INSERT INTO signing_keys (
+    id,
+    kid,
+    algorithm,
+    use_,
+    status,
+    public_key,
+    private_key,
+    expires_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+
+-- name: GetSigningKey :one
+SELECT * FROM signing_keys WHERE id = $1;
+
+-- name: GetSigningKeyByKID :one
+SELECT * FROM signing_keys WHERE kid = $1;
+
+-- name: GetActiveSigningKey :one
+SELECT * FROM signing_keys
+WHERE status = 'active' AND use_ = 'sig'
+ORDER BY created_at DESC
+LIMIT 1;
+
+-- name: ListPublishableSigningKeys :many
+SELECT * FROM signing_keys
+WHERE status IN ('active', 'rotated')
+ORDER BY created_at DESC;
+
+-- name: MarkSigningKeyRotated :exec
+UPDATE signing_keys
+SET status = 'rotated', rotated_at = CURRENT_TIMESTAMP
+WHERE id = $1 AND status = 'active';
+
+-- name: RevokeSigningKey :exec
+UPDATE signing_keys
+SET status = 'revoked'
+WHERE id = $1;

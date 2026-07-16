@@ -62,11 +62,6 @@ jobs:
       - name: Build portal-oidc
         run: go build -o portal-oidc ./cmd/
 
-      - name: Generate RSA key
-        run: |
-          mkdir -p data
-          openssl genpkey -algorithm RSA -out data/private.pem -pkeyopt rsa_keygen_bits:2048
-
       - name: Start portal-oidc
         run: |
           ./portal-oidc serve > /tmp/portal-oidc.log 2>&1 &

@@ -125,6 +125,46 @@ func (q *Queries) CreateOIDCSession(ctx context.Context, arg CreateOIDCSessionPa
 	return err
 }
 
+const createSigningKey = `-- name: CreateSigningKey :exec
+
+INSERT INTO signing_keys (
+    id,
+    kid,
+    algorithm,
+    use_,
+    status,
+    public_key,
+    private_key,
+    expires_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+`
+
+type CreateSigningKeyParams struct {
+	ID         uuid.UUID    `json:"id"`
+	Kid        string       `json:"kid"`
+	Algorithm  string       `json:"algorithm"`
+	Use        string       `json:"use_"`
+	Status     string       `json:"status"`
+	PublicKey  string       `json:"public_key"`
+	PrivateKey string       `json:"private_key"`
+	ExpiresAt  sql.NullTime `json:"expires_at"`
+}
+
+// Signing key queries
+func (q *Queries) CreateSigningKey(ctx context.Context, arg CreateSigningKeyParams) error {
+	_, err := q.exec(ctx, q.createSigningKeyStmt, createSigningKey,
+		arg.ID,
+		arg.Kid,
+		arg.Algorithm,
+		arg.Use,
+		arg.Status,
+		arg.PublicKey,
+		arg.PrivateKey,
+		arg.ExpiresAt,
+	)
+	return err
+}
+
 const createToken = `-- name: CreateToken :exec
 
 INSERT INTO tokens (
@@ -296,6 +336,31 @@ func (q *Queries) DeleteTokensByUserAndClient(ctx context.Context, arg DeleteTok
 	return err
 }
 
+const getActiveSigningKey = `-- name: GetActiveSigningKey :one
+SELECT id, kid, algorithm, use_, status, public_key, private_key, expires_at, rotated_at, created_at FROM signing_keys
+WHERE status = 'active' AND use_ = 'sig'
+ORDER BY created_at DESC
+LIMIT 1
+`
+
+func (q *Queries) GetActiveSigningKey(ctx context.Context) (SigningKey, error) {
+	row := q.queryRow(ctx, q.getActiveSigningKeyStmt, getActiveSigningKey)
+	var i SigningKey
+	err := row.Scan(
+		&i.ID,
+		&i.Kid,
+		&i.Algorithm,
+		&i.Use,
+		&i.Status,
+		&i.PublicKey,
+		&i.PrivateKey,
+		&i.ExpiresAt,
+		&i.RotatedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getAuthorizationCode = `-- name: GetAuthorizationCode :one
 SELECT code, client_id, user_id, redirect_uri, scopes, code_challenge, code_challenge_method, nonce, used, expires_at, created_at FROM authorization_codes WHERE code = $1
 `
@@ -353,6 +418,50 @@ func (q *Queries) GetOIDCSession(ctx context.Context, authorizeCode string) (Oid
 		&i.Nonce,
 		&i.AuthTime,
 		&i.RequestedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getSigningKey = `-- name: GetSigningKey :one
+SELECT id, kid, algorithm, use_, status, public_key, private_key, expires_at, rotated_at, created_at FROM signing_keys WHERE id = $1
+`
+
+func (q *Queries) GetSigningKey(ctx context.Context, id uuid.UUID) (SigningKey, error) {
+	row := q.queryRow(ctx, q.getSigningKeyStmt, getSigningKey, id)
+	var i SigningKey
+	err := row.Scan(
+		&i.ID,
+		&i.Kid,
+		&i.Algorithm,
+		&i.Use,
+		&i.Status,
+		&i.PublicKey,
+		&i.PrivateKey,
+		&i.ExpiresAt,
+		&i.RotatedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getSigningKeyByKID = `-- name: GetSigningKeyByKID :one
+SELECT id, kid, algorithm, use_, status, public_key, private_key, expires_at, rotated_at, created_at FROM signing_keys WHERE kid = $1
+`
+
+func (q *Queries) GetSigningKeyByKID(ctx context.Context, kid string) (SigningKey, error) {
+	row := q.queryRow(ctx, q.getSigningKeyByKIDStmt, getSigningKeyByKID, kid)
+	var i SigningKey
+	err := row.Scan(
+		&i.ID,
+		&i.Kid,
+		&i.Algorithm,
+		&i.Use,
+		&i.Status,
+		&i.PublicKey,
+		&i.PrivateKey,
+		&i.ExpiresAt,
+		&i.RotatedAt,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -456,12 +565,74 @@ func (q *Queries) ListClients(ctx context.Context) ([]Client, error) {
 	return items, nil
 }
 
+const listPublishableSigningKeys = `-- name: ListPublishableSigningKeys :many
+SELECT id, kid, algorithm, use_, status, public_key, private_key, expires_at, rotated_at, created_at FROM signing_keys
+WHERE status IN ('active', 'rotated')
+ORDER BY created_at DESC
+`
+
+func (q *Queries) ListPublishableSigningKeys(ctx context.Context) ([]SigningKey, error) {
+	rows, err := q.query(ctx, q.listPublishableSigningKeysStmt, listPublishableSigningKeys)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SigningKey{}
+	for rows.Next() {
+		var i SigningKey
+		if err := rows.Scan(
+			&i.ID,
+			&i.Kid,
+			&i.Algorithm,
+			&i.Use,
+			&i.Status,
+			&i.PublicKey,
+			&i.PrivateKey,
+			&i.ExpiresAt,
+			&i.RotatedAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markAuthorizationCodeUsed = `-- name: MarkAuthorizationCodeUsed :exec
 UPDATE authorization_codes SET used = TRUE WHERE code = $1
 `
 
 func (q *Queries) MarkAuthorizationCodeUsed(ctx context.Context, code string) error {
 	_, err := q.exec(ctx, q.markAuthorizationCodeUsedStmt, markAuthorizationCodeUsed, code)
+	return err
+}
+
+const markSigningKeyRotated = `-- name: MarkSigningKeyRotated :exec
+UPDATE signing_keys
+SET status = 'rotated', rotated_at = CURRENT_TIMESTAMP
+WHERE id = $1 AND status = 'active'
+`
+
+func (q *Queries) MarkSigningKeyRotated(ctx context.Context, id uuid.UUID) error {
+	_, err := q.exec(ctx, q.markSigningKeyRotatedStmt, markSigningKeyRotated, id)
+	return err
+}
+
+const revokeSigningKey = `-- name: RevokeSigningKey :exec
+UPDATE signing_keys
+SET status = 'revoked'
+WHERE id = $1
+`
+
+func (q *Queries) RevokeSigningKey(ctx context.Context, id uuid.UUID) error {
+	_, err := q.exec(ctx, q.revokeSigningKeyStmt, revokeSigningKey, id)
 	return err
 }
 
