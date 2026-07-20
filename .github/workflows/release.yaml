@@ -11,6 +11,8 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  MISE_LOCKED: "1"
+  MISE_LOCKED_VERIFY_PROVENANCE: "1"
 
 jobs:
   test:

@@ -13,6 +13,10 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  MISE_LOCKED: "1"
+  MISE_LOCKED_VERIFY_PROVENANCE: "1"
+
 jobs:
   lint:
     name: Lint
