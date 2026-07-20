@@ -1,3 +1,8 @@
+[settings]
+locked_verify_provenance = true
+lockfile = true
+lockfile_platforms = ["macos-arm64", "linux-x64"]
+
 [tools]
 go = "1.26.5"
 golangci-lint = "2.12.2"
