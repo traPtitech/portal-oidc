@@ -43,34 +43,51 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: ${{ env.GO_VERSION_FILE }}
+      - parallel:
+          - uses: actions/setup-go@v7
+            with:
+              go-version-file: go.mod
 
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.14"
+          - uses: actions/setup-python@v7
+            with:
+              python-version: "3.14"
 
       - name: Install Python dependencies
+        id: python-dependencies
         run: pip install httpx
+        background: true
 
-      - name: Apply DB schema
-        run: psql -h 127.0.0.1 -p 5433 -U root -d oidc -f db/schema.sql
-        env:
-          PGPASSWORD: password
+          - name: Login to GHCR
+            uses: docker/login-action@v4
+            with:
+              registry: ghcr.io
+              username: ${{ github.actor }}
+              password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build portal-oidc
-        run: go build -o portal-oidc ./cmd/
+      - name: Start conformance suite
+        id: conformance-suite-start
+        run: docker compose -f .github/conformance/docker-compose.yml up --wait --wait-timeout 300
+        background: true
+        timeout-minutes: 6
 
-      - name: Generate RSA key
-        run: |
-          mkdir -p data
-          openssl genpkey -algorithm RSA -out data/private.pem -pkeyopt rsa_keygen_bits:2048
+      - parallel:
+          - name: Apply DB schema
+            run: psql -h 127.0.0.1 -p 5433 -U root -d oidc -f db/schema.sql
+            env:
+              PGPASSWORD: password
+
+          - name: Build portal-oidc
+            run: go build -o portal-oidc ./cmd/
+
+          - name: Generate RSA key
+            run: |
+              mkdir -p data
+              openssl genpkey -algorithm RSA -out data/private.pem -pkeyopt rsa_keygen_bits:2048
 
       - name: Start portal-oidc
-        run: |
-          ./portal-oidc serve > /tmp/portal-oidc.log 2>&1 &
-          echo $! > /tmp/portal-oidc.pid
+        id: portal-oidc
+        run: exec ./portal-oidc serve
+        background: true
         env:
           OIDC_HOST: http://host.docker.internal:8080
           OIDC_DATABASE__HOST: 127.0.0.1
@@ -80,42 +97,19 @@ jobs:
           OIDC_DATABASE__NAME: oidc
           OIDC_OAUTH__SECRET: conformance-test-secret-key-32!!
 
-      - name: Wait for portal-oidc health check
-        run: |
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
-              echo "portal-oidc is ready"
-              exit 0
-            fi
-            echo "Waiting for portal-oidc... ($i/30)"
-            sleep 2
-          done
-          echo "portal-oidc failed to start"
-          exit 1
+      - name: Wait for conformance suite startup
+        wait: conformance-suite-start
 
-      - name: Login to GHCR
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Wait for portal-oidc
+        timeout-minutes: 2
+        run: >-
+          curl --fail --silent --show-error --output /dev/null
+          --retry 30 --retry-all-errors --retry-delay 2 --retry-max-time 60
+          --connect-timeout 2 --max-time 5
+          http://localhost:8080/health
 
-      - name: Start conformance suite
-        run: docker compose -f .github/conformance/docker-compose.yml up -d
-
-      - name: Wait for conformance suite
-        run: |
-          for i in $(seq 1 60); do
-            if curl -sfk https://localhost:8443 > /dev/null 2>&1; then
-              echo "Conformance suite is ready"
-              exit 0
-            fi
-            echo "Waiting for conformance suite... ($i/60)"
-            sleep 5
-          done
-          echo "Conformance suite failed to start"
-          docker compose -f .github/conformance/docker-compose.yml logs
-          exit 1
+      - name: Wait for Python dependencies
+        wait: python-dependencies
 
       - name: Run conformance tests
         working-directory: ${{ github.workspace }}
@@ -137,10 +131,9 @@ jobs:
           path: .github/conformance/results/
           retention-days: 30
 
-      - name: Portal OIDC server logs
-        if: always()
-        run: cat /tmp/portal-oidc.log || true
-
       - name: Conformance suite logs
         if: failure()
         run: docker compose -f .github/conformance/docker-compose.yml logs --tail=200
+
+      - name: Stop portal-oidc
+        cancel: portal-oidc
