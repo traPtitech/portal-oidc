@@ -14,11 +14,6 @@ permissions:
   contents: read
   packages: read
 
-env:
-  GO_VERSION_FILE: go.mod
-  CONFORMANCE_HTTPD_IMAGE: ghcr.io/traptitech/portal-oidc/conformance-httpd:release-v5.1.35
-  CONFORMANCE_SERVER_IMAGE: ghcr.io/traptitech/portal-oidc/conformance-server:release-v5.1.35
-
 jobs:
   conformance:
     name: Conformance Suite
@@ -50,12 +45,9 @@ jobs:
 
           - uses: actions/setup-python@v7
             with:
-              python-version: "3.14"
+              python-version-file: .github/scripts/pyproject.toml
 
-      - name: Install Python dependencies
-        id: python-dependencies
-        run: pip install httpx
-        background: true
+          - uses: astral-sh/setup-uv@v7
 
           - name: Login to GHCR
             uses: docker/login-action@v4
@@ -108,14 +100,8 @@ jobs:
           --connect-timeout 2 --max-time 5
           http://localhost:8080/health
 
-      - name: Wait for Python dependencies
-        wait: python-dependencies
-
       - name: Run conformance tests
-        working-directory: ${{ github.workspace }}
-        run: |
-          chmod +x .github/conformance/run.sh
-          bash .github/conformance/run.sh
+        run: .github/conformance/run.sh
         env:
           CONFORMANCE_SERVER: https://localhost:8443
           CONFORMANCE_TOKEN: ""
