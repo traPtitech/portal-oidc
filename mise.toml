@@ -5,7 +5,7 @@ lockfile_platforms = ["macos-arm64", "linux-x64"]
 [tools]
 go = "1.26.5"
 golangci-lint = "2.12.2"
-atlas = "1.2.3"
+atlas = "1.2.0"
 tbls = "1.95.0"
 pre-commit = "4.6.0"
 "go:github.com/sqlc-dev/sqlc/cmd/sqlc" = "1.31.1"
