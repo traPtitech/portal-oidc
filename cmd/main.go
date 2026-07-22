@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"time"
@@ -32,6 +33,8 @@ func (s *ServeCmd) Run(cfg *Config) error {
 }
 
 func main() {
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+
 	var cli CLI
 	parser := kong.Must(&cli,
 		kong.Name("portal-oidc"),
