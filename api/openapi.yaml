@@ -612,6 +612,21 @@ components:
           type: array
           items:
             type: string
+        request_parameter_supported:
+          type: boolean
+          description: |
+            Indicates whether the OP supports use of the `request` parameter
+            (OpenID Connect Core 1.0 §6 / Discovery 1.0 §3).
+        request_uri_parameter_supported:
+          type: boolean
+          description: |
+            Indicates whether the OP supports use of the `request_uri` parameter
+            (OpenID Connect Core 1.0 §6 / Discovery 1.0 §3).
+        require_request_uri_registration:
+          type: boolean
+          description: |
+            Indicates whether the OP requires `request_uri` values to be
+            pre-registered (OpenID Connect Discovery 1.0 §3).
 
     JWKS:
       type: object
