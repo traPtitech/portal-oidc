@@ -168,6 +168,26 @@ func parseMaxAge(ar fosite.AuthorizeRequester) (*int64, error) {
 	return &maxAge, nil
 }
 
+// Revoke implements RFC 7009 OAuth 2.0 Token Revocation. fosite already wires
+// the OAuth2TokenRevocationFactory into the provider, so the handler just
+// shuttles the request through and lets fosite emit the spec-correct response
+// (200 on success or no-op, 400/401 on invalid request / client auth).
+//
+// Refs:
+//   - RFC 7009 §2.1 (Revocation Request)
+//     https://datatracker.ietf.org/doc/html/rfc7009#section-2.1
+//   - RFC 7009 §2.2 (Revocation Response)
+//     https://datatracker.ietf.org/doc/html/rfc7009#section-2.2
+func (h *Handler) Revoke(ctx *echo.Context) error {
+	c := ctx.Request().Context()
+	rw := ctx.Response()
+	req := ctx.Request()
+
+	err := h.oauth2.NewRevocationRequest(c, req)
+	h.oauth2.WriteRevocationResponse(c, rw, err)
+	return nil
+}
+
 func (h *Handler) Token(ctx *echo.Context) error {
 	result, err := h.oauthUseCase.ProcessToken(
 		ctx.Request().Context(),
