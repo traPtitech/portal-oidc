@@ -82,6 +82,7 @@ func newServer(cfg Config) (http.Handler, error) {
 		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 	}))
 	gen.RegisterHandlers(e, handler)
+	e.POST("/oauth2/register", handler.RegisterClient)
 	e.GET("/login", handler.GetLogin)
 	e.POST("/login", handler.PostLogin)
 	e.GET("/logout", handler.Logout)
