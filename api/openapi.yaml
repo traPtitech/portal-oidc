@@ -170,6 +170,61 @@ paths:
               schema:
                 $ref: "#/components/schemas/JWKS"
 
+  /oauth2/logout:
+    get:
+      operationId: getRPInitiatedLogout
+      summary: RP-Initiated Logout (OpenID Connect)
+      description: |
+        OpenID Connect RP-Initiated Logout 1.0 のエンドユーザーセッション終了
+        エンドポイント。id_token_hint を検証してセッションを破棄し、
+        クライアントが事前登録した post_logout_redirect_uri へリダイレクトする。
+      tags:
+        - oauth2/oidc
+      parameters:
+        - name: id_token_hint
+          in: query
+          required: false
+          schema:
+            type: string
+          description: |
+            事前に発行された ID Token (検証用)。OIDC Core 1.0 の
+            id_token_hint と同じ形式。
+        - name: post_logout_redirect_uri
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uri
+          description: |
+            ログアウト後のリダイレクト先。client が事前登録した URI と
+            完全一致する必要がある。
+        - name: client_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: |
+            id_token_hint が無いがリダイレクト URI を指定したい場合に必須。
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+          description: post_logout_redirect_uri 戻り時に echo back される
+        - name: ui_locales
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "302":
+          description: ログアウト完了 → post_logout_redirect_uri (登録済みの場合)
+        "200":
+          description: ログアウト完了確認ページ (post_logout_redirect_uri 無し / 未登録時)
+        "400":
+          description: Bad Request (id_token_hint 不正等)
+
   /oauth2/userinfo:
     get:
       operationId: getUserInfo
