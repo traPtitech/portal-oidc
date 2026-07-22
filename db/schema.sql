@@ -47,13 +47,14 @@ CREATE TABLE IF NOT EXISTS tokens (
   request_id TEXT NOT NULL,
   client_id UUID NOT NULL,
   user_id UUID NOT NULL,
-  access_token TEXT NOT NULL,
+  access_token TEXT NULL,
   refresh_token TEXT NULL,
   scopes TEXT NOT NULL,
   expires_at TIMESTAMPTZ NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   CONSTRAINT idx_tokens_access_token UNIQUE (access_token),
+  CONSTRAINT chk_tokens_at_least_one_token CHECK (access_token IS NOT NULL OR refresh_token IS NOT NULL),
   CONSTRAINT fk_tokens_client FOREIGN KEY (client_id) REFERENCES clients (client_id) ON DELETE CASCADE
 );
 
