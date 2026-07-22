@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/labstack/echo/v5"
@@ -87,6 +88,17 @@ func newServer(cfg Config) (http.Handler, error) {
 	e.GET("/logout", handler.Logout)
 	e.GET("/health", func(c *echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+	})
+	e.GET("/ready", func(c *echo.Context) error {
+		pingCtx, cancel := context.WithTimeout(c.Request().Context(), 2*time.Second)
+		defer cancel()
+		if err := oidcDB.PingContext(pingCtx); err != nil {
+			return c.JSON(http.StatusServiceUnavailable, map[string]string{
+				"status": "unavailable",
+				"reason": "oidc database unreachable",
+			})
+		}
+		return c.JSON(http.StatusOK, map[string]string{"status": "ready"})
 	})
 
 	return e, nil
