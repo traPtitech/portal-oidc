@@ -56,16 +56,8 @@ depends = ["gen:sqlc", "gen:oapi"]
 description = "sqlcでDBコード生成"
 dir = "db"
 run = "sqlc generate"
-sources = [
-  "sqlc.yaml",
-  "schema.sql",
-  "portal-schema.sql",
-  "query/*.sql",
-]
-outputs = [
-  "../internal/repository/oidc/",
-  "../internal/repository/portal/",
-]
+sources = ["sqlc.yaml", "schema.sql", "portal-schema.sql", "query/*.sql"]
+outputs = ["../internal/repository/oidc/", "../internal/repository/portal/"]
 
 [tasks."gen:oapi"]
 description = "OpenAPIでサーバー/モデル生成"
@@ -74,11 +66,7 @@ run = """
 oapi-codegen --config oapi.server.yaml openapi.yaml
 oapi-codegen --config oapi.models.yaml openapi.yaml
 """
-sources = [
-  "openapi.yaml",
-  "oapi.server.yaml",
-  "oapi.models.yaml",
-]
+sources = ["openapi.yaml", "oapi.server.yaml", "oapi.models.yaml"]
 outputs = [
   "../internal/router/v1/gen/server.go",
   "../internal/router/v1/gen/models.go",
