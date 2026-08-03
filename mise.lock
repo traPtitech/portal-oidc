@@ -83,3 +83,7 @@ url_api = "https://api.github.com/repos/k1LoW/tbls/releases/assets/473227925"
 checksum = "sha256:1aa34bf1071dcfbd7052be09e2a69886613badcee1f64cb5500415419b9afcaa"
 url = "https://github.com/k1LoW/tbls/releases/download/v1.95.0/tbls_v1.95.0_darwin_arm64.zip"
 url_api = "https://api.github.com/repos/k1LoW/tbls/releases/assets/473224028"
+
+[[tools.uv]]
+version = "0.12.1"
+backend = "asdf:uv"
