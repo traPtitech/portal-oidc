@@ -220,6 +220,32 @@ type OAuthError struct {
 // OAuthErrorError defines model for OAuthError.Error.
 type OAuthErrorError string
 
+// ClientRegistrationRequest defines model for ClientRegistrationRequest (RFC 7591 §2.0).
+type ClientRegistrationRequest struct {
+	ClientName              *string  `json:"client_name,omitempty"`
+	ClientUri               *string  `json:"client_uri,omitempty"`
+	GrantTypes              *[]string `json:"grant_types,omitempty"`
+	LogoUri                 *string  `json:"logo_uri,omitempty"`
+	RedirectUris            []string `json:"redirect_uris"`
+	ResponseTypes           *[]string `json:"response_types,omitempty"`
+	Scope                   *string  `json:"scope,omitempty"`
+	TokenEndpointAuthMethod *string  `json:"token_endpoint_auth_method,omitempty"`
+}
+
+// ClientRegistrationResponse defines model for ClientRegistrationResponse (RFC 7591 §3.2.1).
+type ClientRegistrationResponse struct {
+	ClientId                openapi_types.UUID `json:"client_id"`
+	ClientIdIssuedAt        int64              `json:"client_id_issued_at"`
+	ClientName              *string            `json:"client_name,omitempty"`
+	ClientSecret            *string            `json:"client_secret,omitempty"`
+	ClientSecretExpiresAt   *int64             `json:"client_secret_expires_at,omitempty"`
+	GrantTypes              *[]string          `json:"grant_types,omitempty"`
+	RedirectUris            []string           `json:"redirect_uris"`
+	ResponseTypes           *[]string          `json:"response_types,omitempty"`
+	Scope                   *string            `json:"scope,omitempty"`
+	TokenEndpointAuthMethod *string            `json:"token_endpoint_auth_method,omitempty"`
+}
+
 // OpenIDConfiguration defines model for OpenIDConfiguration.
 type OpenIDConfiguration struct {
 	AuthorizationEndpoint             string    `json:"authorization_endpoint"`
