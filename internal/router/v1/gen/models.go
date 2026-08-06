@@ -220,6 +220,39 @@ type OAuthError struct {
 // OAuthErrorError defines model for OAuthError.Error.
 type OAuthErrorError string
 
+// IntrospectRequestTokenTypeHint defines model for IntrospectRequest.TokenTypeHint.
+type IntrospectRequestTokenTypeHint string
+
+// Defines values for IntrospectRequestTokenTypeHint.
+const (
+	IntrospectRequestTokenTypeHintAccessToken  IntrospectRequestTokenTypeHint = "access_token"
+	IntrospectRequestTokenTypeHintRefreshToken IntrospectRequestTokenTypeHint = "refresh_token"
+)
+
+// IntrospectRequest defines model for IntrospectRequest (RFC 7662 §2.1).
+type IntrospectRequest struct {
+	ClientId      *openapi_types.UUID             `json:"client_id,omitempty"`
+	ClientSecret  *string                         `json:"client_secret,omitempty"`
+	Token         string                          `json:"token"`
+	TokenTypeHint *IntrospectRequestTokenTypeHint `json:"token_type_hint,omitempty"`
+}
+
+// IntrospectResponse defines model for IntrospectResponse (RFC 7662 §2.2).
+type IntrospectResponse struct {
+	Active    bool      `json:"active"`
+	Aud       *[]string `json:"aud,omitempty"`
+	ClientId  *string   `json:"client_id,omitempty"`
+	Exp       *int64    `json:"exp,omitempty"`
+	Iat       *int64    `json:"iat,omitempty"`
+	Iss       *string   `json:"iss,omitempty"`
+	Jti       *string   `json:"jti,omitempty"`
+	Nbf       *int64    `json:"nbf,omitempty"`
+	Scope     *string   `json:"scope,omitempty"`
+	Sub       *string   `json:"sub,omitempty"`
+	TokenType *string   `json:"token_type,omitempty"`
+	Username  *string   `json:"username,omitempty"`
+}
+
 // OpenIDConfiguration defines model for OpenIDConfiguration.
 type OpenIDConfiguration struct {
 	AuthorizationEndpoint             string    `json:"authorization_endpoint"`
