@@ -220,6 +220,23 @@ type OAuthError struct {
 // OAuthErrorError defines model for OAuthError.Error.
 type OAuthErrorError string
 
+// RevokeRequestTokenTypeHint defines model for RevokeRequest.TokenTypeHint.
+type RevokeRequestTokenTypeHint string
+
+// Defines values for RevokeRequestTokenTypeHint.
+const (
+	RevokeRequestTokenTypeHintAccessToken  RevokeRequestTokenTypeHint = "access_token"
+	RevokeRequestTokenTypeHintRefreshToken RevokeRequestTokenTypeHint = "refresh_token"
+)
+
+// RevokeRequest defines model for RevokeRequest (RFC 7009 §2.1).
+type RevokeRequest struct {
+	ClientId      *openapi_types.UUID         `json:"client_id,omitempty"`
+	ClientSecret  *string                     `json:"client_secret,omitempty"`
+	Token         string                      `json:"token"`
+	TokenTypeHint *RevokeRequestTokenTypeHint `json:"token_type_hint,omitempty"`
+}
+
 // OpenIDConfiguration defines model for OpenIDConfiguration.
 type OpenIDConfiguration struct {
 	AuthorizationEndpoint             string    `json:"authorization_endpoint"`
