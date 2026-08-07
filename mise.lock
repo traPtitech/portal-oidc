@@ -85,5 +85,5 @@ url = "https://github.com/k1LoW/tbls/releases/download/v1.95.0/tbls_v1.95.0_darw
 url_api = "https://api.github.com/repos/k1LoW/tbls/releases/assets/473224028"
 
 [[tools.uv]]
-version = "0.12.2"
+version = "0.12.3"
 backend = "asdf:uv"
