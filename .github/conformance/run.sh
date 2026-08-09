@@ -44,7 +44,7 @@ sed \
   "$SCRIPT_DIR/config.template.json" > "$SCRIPT_DIR/results/config.json"
 
 echo "==> Running conformance test plan: $TEST_PLAN"
-python3 "$REPO_DIR/.github/scripts/run-test-plan.py" \
+uv run --project "$REPO_DIR/.github/scripts" --locked python "$REPO_DIR/.github/scripts/run-test-plan.py" \
   --server "$CONFORMANCE_SERVER" \
   --token "$CONFORMANCE_TOKEN" \
   --plan "$TEST_PLAN" \

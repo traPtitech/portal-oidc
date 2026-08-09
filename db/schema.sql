@@ -74,7 +74,9 @@ CREATE TABLE IF NOT EXISTS oidc_sessions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (authorize_code),
   CONSTRAINT fk_oidc_sessions_client FOREIGN KEY (client_id)
-    REFERENCES clients (client_id) ON DELETE CASCADE
+    REFERENCES clients (client_id) ON DELETE CASCADE,
+  CONSTRAINT fk_oidc_sessions_authorize_code FOREIGN KEY (authorize_code)
+    REFERENCES authorization_codes (code) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_oidc_sessions_client_id ON oidc_sessions (client_id);

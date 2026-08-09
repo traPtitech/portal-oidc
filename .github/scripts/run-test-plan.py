@@ -77,6 +77,97 @@ def find_authorize_url(log_entries: list) -> str | None:
     return None
 
 
+TEST_USERNAME = os.environ.get("CONFORMANCE_TEST_USERNAME", "testuser")
+TEST_PASSWORD = os.environ.get("CONFORMANCE_TEST_PASSWORD", "password")
+
+
+def submit_login_form(
+    browser: httpx.Client, login_url: str
+) -> httpx.Response | None:
+    """POST credentials to the login form and return the resulting redirect.
+
+    The /login page on portal-oidc is a static HTML form whose action target is
+    /login itself. After successful auth it issues a 302 back to the authorize
+    URL embedded in the `return_url` hidden field.
+    """
+    parsed = httpx.URL(login_url)
+    return_url = ""
+    for key, value in parsed.params.multi_items():
+        if key == "return_url":
+            return_url = value
+            break
+
+    print("  Browser: submitting login credentials")
+    try:
+        return browser.post(
+            login_url,
+            data={
+                "username": TEST_USERNAME,
+                "password": TEST_PASSWORD,
+                "return_url": return_url,
+            },
+            follow_redirects=False,
+        )
+    except httpx.HTTPError as e:
+        print(f"  Browser: login submission failed: {e}")
+        return None
+
+
+def follow_authorize(
+    browser: httpx.Client, auth_url: str, max_hops: int = 5
+) -> httpx.Response | None:
+    """Drive the authorize → (login →) callback redirect chain.
+
+    Conformance tests that exercise prompt=login or max_age cause portal-oidc
+    to redirect to /login even when there is an existing session, so we may
+    bounce login → authorize → callback multiple times. Location headers may
+    be relative URLs, so resolve them against the previous request URL on each
+    hop.
+    """
+    current_url = httpx.URL(auth_url)
+    for _ in range(max_hops):
+        try:
+            resp = browser.get(current_url, follow_redirects=False)
+        except httpx.HTTPError as e:
+            print(f"  Browser: request failed: {e}")
+            return None
+
+        if resp.status_code in (301, 302, 303, 307, 308):
+            location = resp.headers.get("location", "")
+            if not location:
+                return resp
+            current_url = httpx.URL(location)
+            if not current_url.host:
+                current_url = resp.url.join(current_url)
+            continue
+
+        if resp.status_code == 200 and "/login" in str(resp.url):
+            login_resp = submit_login_form(browser, str(resp.url))
+            if not login_resp:
+                return None
+            if login_resp.status_code in (301, 302, 303, 307, 308):
+                location = login_resp.headers.get("location", "")
+                if not location:
+                    return login_resp
+                current_url = httpx.URL(location)
+                if not current_url.host:
+                    current_url = login_resp.url.join(current_url)
+                continue
+            # A successful login always answers with a redirect back to the
+            # authorize URL; anything else (401 failure page, re-rendered
+            # form) means the credentials were rejected.
+            print(
+                f"  Browser: login failed: status {login_resp.status_code}"
+                f" at {login_resp.url}"
+            )
+            return None
+
+        return resp
+
+    print("  Browser: exceeded redirect hop limit")
+    return None
+
+
 def perform_browser_interaction(
     api_client: httpx.Client,
     browser: httpx.Client,
@@ -92,31 +183,34 @@ def perform_browser_interaction(
         auth_url = auth_url.replace("host.docker.internal:8080", oidc_server_url)
 
     print("  Browser: visiting authorize URL")
-    try:
-        resp = browser.get(auth_url, follow_redirects=False)
-    except httpx.HTTPError as e:
-        print(f"  Browser: authorize request failed: {e}")
+    resp = follow_authorize(browser, auth_url)
+    if resp is None:
         return
 
-    if resp.status_code not in (301, 302, 303, 307, 308):
-        print(f"  Browser: OP returned {resp.status_code} (no redirect)")
+    # follow_authorize already drives the authorize → (login →) callback chain
+    # all the way through, so resp is normally the 200 callback page served by
+    # the conformance suite. If we somehow stopped at a 30x without following,
+    # do one more GET to land on the callback page.
+    if resp.status_code in (301, 302, 303, 307, 308):
+        callback_url = resp.headers.get("location", "")
+        if not callback_url:
+            print("  Browser: redirect with no location header")
+            return
+        print("  Browser: following redirect to callback")
+        try:
+            resp = browser.get(callback_url)
+        except httpx.HTTPError as e:
+            print(f"  Browser: callback request failed: {e}")
+            return
+
+    if resp.status_code != 200:
+        print(f"  Browser: OP returned {resp.status_code} (expected callback page)")
         return
 
-    callback_url = resp.headers.get("location", "")
-    if not callback_url:
-        print("  Browser: redirect with no location header")
-        return
-
-    print("  Browser: following redirect to callback")
-    try:
-        cb_resp = browser.get(callback_url)
-    except httpx.HTTPError as e:
-        print(f"  Browser: callback request failed: {e}")
-        return
-
-    match = re.search(r"xhr\.open\('POST',\s*\"([^\"]+)\"", cb_resp.text)
+    match = re.search(r"xhr\.open\('POST',\s*\"([^\"]+)\"", resp.text)
     if not match:
-        print("  Browser: no implicit submit URL found in callback page")
+        # Some callback pages do not need a fragment submission step (e.g.
+        # response_mode=query), so the auth code is already in the test's hands.
         return
 
     implicit_url = match.group(1).replace("\\/", "/")
