@@ -52,7 +52,7 @@ type Token struct {
 	RequestID    string         `json:"request_id"`
 	ClientID     uuid.UUID      `json:"client_id"`
 	UserID       uuid.UUID      `json:"user_id"`
-	AccessToken  string         `json:"access_token"`
+	AccessToken  sql.NullString `json:"access_token"`
 	RefreshToken sql.NullString `json:"refresh_token"`
 	Scopes       string         `json:"scopes"`
 	ExpiresAt    time.Time      `json:"expires_at"`

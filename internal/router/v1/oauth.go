@@ -33,6 +33,23 @@ func (h *Handler) authorize(ctx *echo.Context) error {
 	rw := ctx.Response()
 	req := ctx.Request()
 
+	// Discovery advertises request_parameter_supported=false and
+	// request_uri_parameter_supported=false. OIDC Core 1.0 §6.1 requires the
+	// matching error codes (request_not_supported / request_uri_not_supported)
+	// when these parameters are sent regardless. Without this short-circuit
+	// fosite would otherwise try to parse the JWT request object and surface
+	// invalid_request_object instead.
+	if err := req.ParseForm(); err == nil {
+		if req.Form.Get("request") != "" {
+			h.oauth2.WriteAuthorizeError(c, rw, &fosite.AuthorizeRequest{Request: fosite.Request{Form: req.Form}}, fosite.ErrRequestNotSupported)
+			return nil
+		}
+		if req.Form.Get("request_uri") != "" {
+			h.oauth2.WriteAuthorizeError(c, rw, &fosite.AuthorizeRequest{Request: fosite.Request{Form: req.Form}}, fosite.ErrRequestURINotSupported)
+			return nil
+		}
+	}
+
 	ar, err := h.oauth2.NewAuthorizeRequest(c, req)
 	if err != nil {
 		h.oauth2.WriteAuthorizeError(c, rw, ar, err)
@@ -59,9 +76,12 @@ func (h *Handler) authorize(ctx *echo.Context) error {
 		AuthTime:        info.AuthTime,
 		MaxAge:          maxAge,
 		ReauthCompleted: h.isReauthCompleted(ctx, info.AuthTime),
-		IsNonProd:       h.config.Environment != "production",
 	})
 
+	if action == usecase.AuthorizeActionInvalidRequest {
+		h.oauth2.WriteAuthorizeError(c, rw, ar, fosite.ErrInvalidRequest.WithHint("Parameter 'prompt' was set to 'none', but contains other values as well which is not allowed."))
+		return nil
+	}
 	if action == usecase.AuthorizeActionLoginError {
 		h.oauth2.WriteAuthorizeError(c, rw, ar, fosite.ErrLoginRequired)
 		return nil
@@ -70,19 +90,16 @@ func (h *Handler) authorize(ctx *echo.Context) error {
 		return h.redirectToLogin(ctx, &returnURL)
 	}
 
-	userID := info.UserID
-	authTime := info.AuthTime
-	if h.config.Environment != "production" {
-		userID = h.config.TestUserID
-		authTime = time.Now()
-	}
-
-	return h.completeAuthorize(ctx, ar, userID, authTime)
+	return h.completeAuthorize(ctx, ar, info.UserID, info.AuthTime)
 }
 
 func (h *Handler) completeAuthorize(ctx *echo.Context, ar fosite.AuthorizeRequester, userID string, authTime time.Time) error {
 	c := ctx.Request().Context()
 	rw := ctx.Response()
+
+	if err := h.clearReauthRequest(ctx); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to save session")
+	}
 
 	session := oauth.NewSession(userID, authTime)
 	for _, scope := range ar.GetRequestedScopes() {
@@ -111,6 +128,20 @@ func (h *Handler) isReauthCompleted(ctx *echo.Context, authTime time.Time) bool 
 	}
 
 	return authTime.Unix() > reqAt
+}
+
+func (h *Handler) clearReauthRequest(ctx *echo.Context) error {
+	session, err := h.sessions.Get(ctx.Request(), sessionName)
+	if err != nil {
+		return err
+	}
+
+	if _, ok := session.Values["reauth_requested_at"]; !ok {
+		return nil
+	}
+
+	delete(session.Values, "reauth_requested_at")
+	return session.Save(ctx.Request(), ctx.Response())
 }
 
 func (h *Handler) redirectToLogin(ctx *echo.Context, returnURL *url.URL) error {
@@ -155,28 +186,17 @@ func parseMaxAge(ar fosite.AuthorizeRequester) (*int64, error) {
 }
 
 func (h *Handler) Token(ctx *echo.Context) error {
-	c := ctx.Request().Context()
-	rw := ctx.Response()
-	req := ctx.Request()
-
-	session := oauth.NewSession("", time.Time{})
-	accessRequest, err := h.oauth2.NewAccessRequest(c, req, session)
+	result, err := h.oauthUseCase.ProcessToken(
+		ctx.Request().Context(),
+		ctx.Request(),
+		oauth.NewSession("", time.Time{}),
+	)
 	if err != nil {
-		h.oauth2.WriteAccessError(c, rw, accessRequest, err)
+		h.oauth2.WriteAccessError(result.Context, ctx.Response(), result.Request, err)
 		return nil
 	}
 
-	for _, scope := range accessRequest.GetRequestedScopes() {
-		accessRequest.GrantScope(scope)
-	}
-
-	response, err := h.oauth2.NewAccessResponse(c, accessRequest)
-	if err != nil {
-		h.oauth2.WriteAccessError(c, rw, accessRequest, err)
-		return nil
-	}
-
-	h.oauth2.WriteAccessResponse(c, rw, accessRequest, response)
+	h.oauth2.WriteAccessResponse(result.Context, ctx.Response(), result.Request, result.Response)
 	return nil
 }
 
@@ -269,6 +289,8 @@ func (h *Handler) GetOpenIDConfiguration(ctx *echo.Context) error {
 	claimsSupported := []string{"sub", "name", "preferred_username", "email", "email_verified"}
 	codeChallengeMethodsSupported := []string{"S256", "plain"}
 	tokenEndpointAuthMethodsSupported := []string{"client_secret_basic", "client_secret_post"}
+	requestParameterSupported := false
+	requestURIParameterSupported := false
 
 	return ctx.JSON(http.StatusOK, gen.OpenIDConfiguration{
 		Issuer:                            issuer,
@@ -283,5 +305,7 @@ func (h *Handler) GetOpenIDConfiguration(ctx *echo.Context) error {
 		ClaimsSupported:                   &claimsSupported,
 		CodeChallengeMethodsSupported:     &codeChallengeMethodsSupported,
 		TokenEndpointAuthMethodsSupported: &tokenEndpointAuthMethodsSupported,
+		RequestParameterSupported:         &requestParameterSupported,
+		RequestUriParameterSupported:      &requestURIParameterSupported,
 	})
 }
