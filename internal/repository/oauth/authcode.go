@@ -48,10 +48,6 @@ func (s *Storage) GetAuthorizeCodeSession(ctx context.Context, code string, sess
 		return nil, err
 	}
 
-	if time.Now().After(authCode.ExpiresAt) {
-		return nil, fosite.ErrTokenExpired
-	}
-
 	client, err := s.GetClient(ctx, authCode.ClientID.String())
 	if err != nil {
 		return nil, err
@@ -74,6 +70,9 @@ func (s *Storage) GetAuthorizeCodeSession(ctx context.Context, code string, sess
 
 	req := newFositeRequest(code, authCode.CreatedAt, client, sess, authCode.Scopes, form)
 
+	// Checked before expiry: when an attacker redeems a stolen code first, the real
+	// client's losing exchange can arrive after the 5 minute code lifetime, and only
+	// ErrInvalidatedAuthorizeCode makes fosite revoke the attacker's hour-long token.
 	if authCode.Used {
 		// RFC 6749 §4.1.2: on authorization code reuse, the server SHOULD revoke
 		// all tokens previously issued from this code. The code itself was used as
@@ -83,6 +82,12 @@ func (s *Storage) GetAuthorizeCodeSession(ctx context.Context, code string, sess
 			return req, errors.Join(fosite.ErrInvalidatedAuthorizeCode, delErr)
 		}
 		return req, fosite.ErrInvalidatedAuthorizeCode
+	}
+
+	// ErrNotFound, not ErrTokenExpired: fosite turns anything else returned here into
+	// 500, while RFC 6749 §5.2 puts an expired grant under invalid_grant.
+	if time.Now().After(authCode.ExpiresAt) {
+		return nil, fosite.ErrNotFound
 	}
 
 	return req, nil
