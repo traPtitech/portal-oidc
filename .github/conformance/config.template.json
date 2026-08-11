@@ -16,92 +16,53 @@
     "client_id": "${CLIENT2_ID}",
     "client_secret": "${CLIENT2_SECRET}"
   },
-  "override": {
-    "oidcc-prompt-login": {
-      "browser": [
-        {
-          "match": "http://host.docker.internal:8080/oauth2/authorize*",
-          "tasks": [
-            {
-              "task": "Login",
-              "optional": true,
-              "match": "http://host.docker.internal:8080/login*",
-              "commands": [
-                ["wait", "xpath", "//*", 10, "(?s).*Login.*", "update-image-placeholder-optional"],
-                ["text", "name", "username", "testuser", "optional"],
-                ["text", "name", "password", "password", "optional"],
-                ["click", "css", "button[type='submit']"]
-              ]
-            },
-            {
-              "task": "Verify Complete",
-              "match": "*/test/*/callback*",
-              "commands": [
-                ["wait", "id", "submission_complete", 10]
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    "oidcc-max-age-1": {
-      "browser": [
-        {
-          "match": "http://host.docker.internal:8080/oauth2/authorize*",
-          "tasks": [
-            {
-              "task": "Login",
-              "optional": true,
-              "match": "http://host.docker.internal:8080/login*",
-              "commands": [
-                ["wait", "xpath", "//*", 10, "(?s).*Login.*", "update-image-placeholder-optional"],
-                ["text", "name", "username", "testuser", "optional"],
-                ["text", "name", "password", "password", "optional"],
-                ["click", "css", "button[type='submit']"]
-              ]
-            },
-            {
-              "task": "Verify Complete",
-              "match": "*/test/*/callback*",
-              "commands": [
-                ["wait", "id", "submission_complete", 10]
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    "oidcc-ensure-registered-redirect-uri": {
-      "browser": [
-        {
-          "match": "http://host.docker.internal:8080/oauth2/authorize*",
-          "tasks": [
-            {
-              "task": "Verify invalid redirect URI error page",
-              "match": "http://host.docker.internal:8080/oauth2/authorize*",
-              "commands": [
-                ["wait", "xpath", "//*", 10, "(?s).*invalid_request.*", "update-image-placeholder"]
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    "oidcc-ensure-request-object-with-redirect-uri": {
-      "browser": [
-        {
-          "match": "http://host.docker.internal:8080/oauth2/authorize*",
-          "tasks": [
-            {
-              "task": "Verify invalid redirect URI error page",
-              "match": "http://host.docker.internal:8080/oauth2/authorize*",
-              "commands": [
-                ["wait", "xpath", "//*", 10, "(?s).*invalid_request.*", "update-image-placeholder"]
-              ]
-            }
-          ]
-        }
-      ]
-    }
+
+  "_browser_flows": {
+    "login": [
+      {
+        "match": "${OIDC_ORIGIN}/oauth2/authorize*",
+        "tasks": [
+          {
+            "task": "Login",
+            "optional": true,
+            "match": "${OIDC_ORIGIN}/login*",
+            "commands": [
+              ["wait", "xpath", "//*", 10, "(?s).*Login.*", "update-image-placeholder-optional"],
+              ["text", "name", "username", "${TEST_USERNAME}", "optional"],
+              ["text", "name", "password", "${TEST_PASSWORD}", "optional"],
+              ["click", "css", "button[type='submit']"]
+            ]
+          },
+          {
+            "task": "Verify Complete",
+            "match": "*/test/*/callback*",
+            "commands": [
+              ["wait", "id", "submission_complete", 10]
+            ]
+          }
+        ]
+      }
+    ],
+    "redirect_uri_error": [
+      {
+        "match": "${OIDC_ORIGIN}/oauth2/authorize*",
+        "tasks": [
+          {
+            "task": "Verify invalid redirect URI error page",
+            "match": "${OIDC_ORIGIN}/oauth2/authorize*",
+            "commands": [
+              ["wait", "xpath", "//*", 10, "(?s).*invalid_request.*", "update-image-placeholder"]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+
+  "_override_flows": {
+    "oidcc-prompt-login": "login",
+    "oidcc-max-age-1": "login",
+    "oidcc-ensure-registered-redirect-uri": "redirect_uri_error",
+    "oidcc-ensure-request-object-with-redirect-uri": "redirect_uri_error"
   }
 }

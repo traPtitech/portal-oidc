@@ -39,16 +39,20 @@ func (h *Handler) authorize(ctx *echo.Context) error {
 	unsupportedRequestError := stripUnsupportedAuthorizeParameters(req)
 
 	ar, err := h.oauth2.NewAuthorizeRequest(c, req)
-	if unsupportedRequestError != nil {
-		// fosite has now validated the client and redirect URI, so it can send
-		// this to a registered redirect_uri as OIDC Core 1.0 §3.1.2.6 requires.
-		// When the redirect URI is not usable it answers directly instead, which
-		// is what RFC 6749 §4.1.2.1 requires for that case.
+	// Order matters. Only once fosite has accepted the outer redirect_uri may the
+	// request-object rejection be sent there (OIDC Core 1.0 §3.1.2.6). When the
+	// outer redirect_uri is itself unusable, RFC 6749 §4.1.2.1 forbids redirecting
+	// at all and fosite's own error is the one that describes the real problem.
+	if unsupportedRequestError != nil && ar.IsRedirectURIValid() {
 		h.oauth2.WriteAuthorizeError(c, rw, ar, unsupportedRequestError)
 		return nil
 	}
 	if err != nil {
 		h.oauth2.WriteAuthorizeError(c, rw, ar, err)
+		return nil
+	}
+	if unsupportedRequestError != nil {
+		h.oauth2.WriteAuthorizeError(c, rw, ar, unsupportedRequestError)
 		return nil
 	}
 
@@ -65,6 +69,7 @@ func (h *Handler) authorize(ctx *echo.Context) error {
 		h.oauth2.WriteAuthorizeError(c, rw, ar, fosite.ErrInvalidRequest.WithHint("invalid max_age parameter").WithDebug(err.Error()))
 		return nil
 	}
+
 	action := h.oauthUseCase.EvaluateAuthorize(usecase.AuthorizeInput{
 		Prompt:          ar.GetRequestForm().Get("prompt"),
 		Authenticated:   authenticated,
@@ -114,11 +119,13 @@ func (h *Handler) completeAuthorize(ctx *echo.Context, ar fosite.AuthorizeReques
 // isReauthCompleted reports whether the user has logged in again since the
 // server last asked them to (prompt=login, or max_age elapsing).
 //
-// The check does not compare timestamps: auth_time and reauth_requested_at are
-// both whole seconds, so a login completing in the same second as the request
-// leaves them equal and no strict comparison can tell "logged in again" from
-// "never logged in". redirectToLogin clears authenticated and only a fresh
-// PostLogin can set it back, so the flag carries the same information.
+// auth_time and reauth_requested_at are both whole seconds, so a login that
+// completes in the same second as the request leaves them equal and a strict
+// comparison cannot tell "logged in again" from "never logged in". That is not
+// hypothetical: the conformance suite's own browser drives the login fast
+// enough to hit it, and oidcc-prompt-login then loops authorize -> /login
+// forever. redirectToLogin clears authenticated and only a fresh PostLogin can
+// set it back, so the flag answers the same question without a clock.
 func (h *Handler) isReauthCompleted(ctx *echo.Context) bool {
 	session, err := h.sessions.Get(ctx.Request(), sessionName)
 	if err != nil {

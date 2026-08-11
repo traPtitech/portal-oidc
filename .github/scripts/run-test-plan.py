@@ -261,18 +261,6 @@ def module_uses_suite_browser(config: dict, module_name: str) -> bool:
     return isinstance(module_override, dict) and bool(module_override.get("browser"))
 
 
-def save_test_log(
-    api_client: httpx.Client,
-    module_id: str,
-    module_name: str,
-    output_dir: str,
-) -> None:
-    log = get_test_log(api_client, module_id)
-    log_path = os.path.join(output_dir, f"{module_name}.json")
-    with open(log_path, "w") as f:
-        json.dump(log, f, indent=2)
-
-
 def run_plan(
     api_client: httpx.Client,
     plan_name: str,
@@ -321,10 +309,6 @@ def run_plan(
                     )
         except TimeoutError as e:
             print(f"TIMEOUT: {e}")
-            try:
-                save_test_log(api_client, module_id, module_name, output_dir)
-            except httpx.HTTPError as log_error:
-                print(f"Failed to save timeout log: {log_error}")
             all_passed = False
             results.append({"module": module_name, "result": "TIMEOUT"})
             continue
@@ -332,7 +316,10 @@ def run_plan(
         result = info.get("result", "UNKNOWN")
         print(f"Result: {result}")
 
-        save_test_log(api_client, module_id, module_name, output_dir)
+        log = get_test_log(api_client, module_id)
+        log_path = os.path.join(output_dir, f"{module_name}.json")
+        with open(log_path, "w") as f:
+            json.dump(log, f, indent=2)
 
         results.append({"module": module_name, "result": result})
 
@@ -395,11 +382,15 @@ def main() -> None:
 
     os.makedirs(args.output, exist_ok=True)
 
-    with create_api_client(args.server, args.token) as api_client:
+    api_client = create_api_client(args.server, args.token)
+
+    try:
         passed = run_plan(
             api_client, args.plan, variant, config, args.output,
             args.oidc_server, skips,
         )
+    finally:
+        api_client.close()
 
     if not passed:
         print("\nSome tests failed.")

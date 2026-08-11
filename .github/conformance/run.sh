@@ -10,6 +10,12 @@ CONFORMANCE_TOKEN="${CONFORMANCE_TOKEN-}"
 DISCOVERY_URL="${DISCOVERY_URL:-http://host.docker.internal:8080/.well-known/openid-configuration}"
 REDIRECT_URI="https://localhost.emobix.co.uk:8443/test/a/portal-oidc/callback"
 OIDC_SERVER_LOCAL="${OIDC_SERVER_LOCAL:-localhost:8080}"
+# The suite's own browser reaches portal-oidc under the discovery origin, not
+# under PORTAL_OIDC_URL, so the browser overrides have to match that one.
+OIDC_ORIGIN="${DISCOVERY_URL%/.well-known/openid-configuration}"
+# Same credentials the Python runner posts, kept in one place.
+TEST_USERNAME="${CONFORMANCE_TEST_USERNAME:-testuser}"
+TEST_PASSWORD="${CONFORMANCE_TEST_PASSWORD:-password}"
 
 TEST_PLAN="oidcc-basic-certification-test-plan"
 TEST_VARIANT='{"server_metadata":"discovery","client_registration":"static_client"}'
@@ -55,15 +61,27 @@ echo "    second client_id=$CLIENT2_ID"
 echo "    client secrets=***"
 
 echo "==> Generating test config..."
+# Each browser flow is written once in the template; _override_flows names which
+# module uses which, and jq fans them out into the `override` the suite reads.
 sed \
   -e "s|\${DISCOVERY_URL}|$DISCOVERY_URL|g" \
+  -e "s|\${OIDC_ORIGIN}|$OIDC_ORIGIN|g" \
+  -e "s|\${TEST_USERNAME}|$TEST_USERNAME|g" \
+  -e "s|\${TEST_PASSWORD}|$TEST_PASSWORD|g" \
   -e "s|\${CLIENT_ID}|$CLIENT_ID|g" \
   -e "s|\${CLIENT_SECRET}|$CLIENT_SECRET|g" \
   -e "s|\${CLIENT_SECRET_POST_ID}|$CLIENT_SECRET_POST_ID|g" \
   -e "s|\${CLIENT_SECRET_POST_SECRET}|$CLIENT_SECRET_POST_SECRET|g" \
   -e "s|\${CLIENT2_ID}|$CLIENT2_ID|g" \
   -e "s|\${CLIENT2_SECRET}|$CLIENT2_SECRET|g" \
-  "$SCRIPT_DIR/config.template.json" > "$SCRIPT_DIR/results/config.json"
+  "$SCRIPT_DIR/config.template.json" \
+  | jq '. as $config
+        | .override = (
+            ._override_flows
+            | with_entries(.value = {browser: $config._browser_flows[.value]})
+          )
+        | del(._browser_flows, ._override_flows)' \
+  > "$SCRIPT_DIR/results/config.json"
 
 echo "==> Running conformance test plan: $TEST_PLAN"
 uv run --project "$REPO_DIR/.github/scripts" --locked python "$REPO_DIR/.github/scripts/run-test-plan.py" \

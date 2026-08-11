@@ -178,10 +178,9 @@ func setupTestHandler(t *testing.T) (*Handler, func()) {
 	)
 
 	handler := NewHandler(clientUseCase, usecase.NewOAuthUseCase(oauth2Provider, oauthStorage), oauth2Provider, nil, OAuthConfig{
-		Issuer:        "http://localhost:8080",
-		SessionSecret: []byte("test-session-secret-32-characters"),
-		Environment:   "development",
-		TestUserID:    "00000000-0000-0000-0000-000000000000",
+		Issuer:      "http://localhost:8080",
+		Environment: "development",
+		TestUserID:  "00000000-0000-0000-0000-000000000000",
 	})
 
 	cleanup := func() {
