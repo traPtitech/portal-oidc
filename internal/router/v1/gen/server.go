@@ -168,9 +168,9 @@ func (w *ServerInterfaceWrapper) GetAuthorize(ctx *echo.Context) error {
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params GetAuthorizeParams
-	// ------------- Required query parameter "response_type" -------------
+	// ------------- Optional query parameter "response_type" -------------
 
-	err = runtime.BindQueryParameter("form", true, true, "response_type", ctx.QueryParams(), &params.ResponseType)
+	err = runtime.BindQueryParameter("form", true, false, "response_type", ctx.QueryParams(), &params.ResponseType)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter response_type: %s", err))
 	}

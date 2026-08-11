@@ -250,13 +250,18 @@ paths:
       tags:
         - oauth2/oidc
       parameters:
+        # OAuth 2.0 / OIDC 上は必須 (RFC 6749 Section 4.1.1, OIDC Core 1.0 Section 3.1.2.1)。
+        # ただし欠落時のエラーは RFC 6749 Section 4.1.2.1 / OIDC Core 1.0 Section 3.1.2.6 に従い
+        # 登録済み redirect_uri へ error として返さなければならず、素の HTTP 400 は仕様違反になる。
+        # required: true にすると oapi-codegen 生成の binding がハンドラより先に 400 を返すため、
+        # HTTP 層では optional として受け取り、必須判定は OAuth 層 (fosite) に委ねる。
         - name: response_type
           in: query
-          required: true
+          required: false
           schema:
             type: string
             enum: [code]
-          description: レスポンスタイプ (現在は code のみサポート)
+          description: レスポンスタイプ (現在は code のみサポート。OAuth/OIDC 上は必須)
         - name: client_id
           in: query
           required: true
@@ -365,6 +370,38 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TokenResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthError"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthError"
+
+  /oauth2/revoke:
+    post:
+      operationId: revokeToken
+      summary: トークン失効エンドポイント (RFC 7009)
+      description: |
+        指定された access_token または refresh_token を無効化する。
+        RFC 7009 §2.2 により認可されたクライアントによる呼び出しは、
+        トークンが既に存在しなかった場合でも 200 OK を返す。
+      tags:
+        - oauth2/oidc
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: "#/components/schemas/RevokeRequest"
+      responses:
+        "200":
+          description: OK (トークンが無効化された / そもそも存在しなかった)
         "400":
           description: Bad Request
           content:
@@ -618,6 +655,30 @@ components:
           type: string
           description: JWT ID
 
+    RevokeRequest:
+      type: object
+      description: |
+        RFC 7009 §2.1 トークン失効リクエスト。
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          description: 失効させる access_token または refresh_token
+        token_type_hint:
+          type: string
+          enum:
+            - access_token
+            - refresh_token
+          description: |
+            トークン種別ヒント (RFC 7009 §2.1)。
+            提供されると検索順序が最適化される。誤指定でも動作する。
+        client_id:
+          type: string
+          format: uuid
+        client_secret:
+          type: string
+
     TokenResponse:
       type: object
       required:
@@ -717,6 +778,21 @@ components:
           type: array
           items:
             type: string
+        request_parameter_supported:
+          type: boolean
+          description: |
+            Indicates whether the OP supports use of the `request` parameter
+            (OpenID Connect Core 1.0 §6 / Discovery 1.0 §3).
+        request_uri_parameter_supported:
+          type: boolean
+          description: |
+            Indicates whether the OP supports use of the `request_uri` parameter
+            (OpenID Connect Core 1.0 §6 / Discovery 1.0 §3).
+        require_request_uri_registration:
+          type: boolean
+          description: |
+            Indicates whether the OP requires `request_uri` values to be
+            pre-registered (OpenID Connect Discovery 1.0 §3).
 
     JWKS:
       type: object

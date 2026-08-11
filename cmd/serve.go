@@ -62,7 +62,7 @@ func newServer(cfg Config) (http.Handler, error) {
 	}
 	handler := v1.NewHandler(
 		usecase.NewClientUseCase(clientRepo),
-		usecase.NewOAuthUseCase(),
+		usecase.NewOAuthUseCase(oauth2Provider, oauthStorage),
 		oauth2Provider,
 		userUseCase,
 		v1.OAuthConfig{
@@ -82,6 +82,7 @@ func newServer(cfg Config) (http.Handler, error) {
 		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 	}))
 	gen.RegisterHandlers(e, handler)
+	e.POST("/oauth2/revoke", handler.Revoke)
 	e.POST("/oauth2/introspect", handler.Introspect)
 	e.GET("/login", handler.GetLogin)
 	e.POST("/login", handler.PostLogin)
