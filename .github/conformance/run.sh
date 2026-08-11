@@ -13,6 +13,7 @@ OIDC_SERVER_LOCAL="${OIDC_SERVER_LOCAL:-localhost:8080}"
 # The suite's own browser reaches portal-oidc under the discovery origin, not
 # under PORTAL_OIDC_URL, so the browser overrides have to match that one.
 OIDC_ORIGIN="${DISCOVERY_URL%/.well-known/openid-configuration}"
+
 TEST_PLAN="oidcc-basic-certification-test-plan"
 TEST_VARIANT='{"server_metadata":"discovery","client_registration":"static_client"}'
 
@@ -51,10 +52,10 @@ for value in \
   fi
 done
 
-echo "    primary client_id=$CLIENT_ID"
+echo "    client_id=$CLIENT_ID"
 echo "    client_secret_post client_id=$CLIENT_SECRET_POST_ID"
-echo "    second client_id=$CLIENT2_ID"
-echo "    client secrets=***"
+echo "    client2 client_id=$CLIENT2_ID"
+echo "    client_secret=***"
 
 echo "==> Generating test config..."
 # Each browser flow is written once in the template; _override_flows names which

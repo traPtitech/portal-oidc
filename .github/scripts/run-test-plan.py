@@ -179,9 +179,7 @@ def follow_authorize(
 
 
 def perform_browser_interaction(
-    api_client: httpx.Client,
     browser: httpx.Client,
-    module_id: str,
     auth_url: str,
     oidc_server_url: str,
 ) -> None:
@@ -245,9 +243,7 @@ def wait_for_test(
             auth_url = find_authorize_url(get_test_log(api_client, module_id))
             if auth_url and auth_url not in handled_authorize_urls:
                 handled_authorize_urls.add(auth_url)
-                perform_browser_interaction(
-                    api_client, browser, module_id, auth_url, oidc_server_url
-                )
+                perform_browser_interaction(browser, auth_url, oidc_server_url)
         time.sleep(2)
     raise TimeoutError(f"Test {module_id} did not finish within {timeout}s")
 
@@ -266,11 +262,7 @@ def module_uses_suite_browser(config: dict, module_name: str) -> bool:
     # screenshot, while this runner drives the delayed login and callback.
     if module_name in RUNNER_DRIVEN_BROWSER_MODULES:
         return False
-    overrides = config.get("override", {})
-    if not isinstance(overrides, dict):
-        return False
-    module_override = overrides.get(module_name, {})
-    return isinstance(module_override, dict) and bool(module_override.get("browser"))
+    return "browser" in config.get("override", {}).get(module_name, {})
 
 
 def run_plan(
