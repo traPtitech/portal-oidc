@@ -39,20 +39,16 @@ func (h *Handler) authorize(ctx *echo.Context) error {
 	unsupportedRequestError := stripUnsupportedAuthorizeParameters(req)
 
 	ar, err := h.oauth2.NewAuthorizeRequest(c, req)
-	// An unsupported request object may be the only place that carries state.
-	// In that case fosite reaches its state validation only after it has safely
-	// validated the outer client and redirect URI. Prefer the protocol-specific
-	// unsupported error once that redirect is known to be registered.
-	if unsupportedRequestError != nil && ar != nil && ar.IsRedirectURIValid() {
+	if unsupportedRequestError != nil {
+		// fosite has now validated the client and redirect URI, so it can send
+		// this to a registered redirect_uri as OIDC Core 1.0 §3.1.2.6 requires.
+		// When the redirect URI is not usable it answers directly instead, which
+		// is what RFC 6749 §4.1.2.1 requires for that case.
 		h.oauth2.WriteAuthorizeError(c, rw, ar, unsupportedRequestError)
 		return nil
 	}
 	if err != nil {
 		h.oauth2.WriteAuthorizeError(c, rw, ar, err)
-		return nil
-	}
-	if unsupportedRequestError != nil {
-		h.oauth2.WriteAuthorizeError(c, rw, ar, unsupportedRequestError)
 		return nil
 	}
 
@@ -69,17 +65,12 @@ func (h *Handler) authorize(ctx *echo.Context) error {
 		h.oauth2.WriteAuthorizeError(c, rw, ar, fosite.ErrInvalidRequest.WithHint("invalid max_age parameter").WithDebug(err.Error()))
 		return nil
 	}
-	reauthCompleted, err := h.consumeReauthCompletion(ctx, returnURL.RequestURI())
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to save session")
-	}
-
 	action := h.oauthUseCase.EvaluateAuthorize(usecase.AuthorizeInput{
 		Prompt:          ar.GetRequestForm().Get("prompt"),
 		Authenticated:   authenticated,
 		AuthTime:        info.AuthTime,
 		MaxAge:          maxAge,
-		ReauthCompleted: reauthCompleted,
+		ReauthCompleted: h.isReauthCompleted(ctx),
 	})
 
 	if action == usecase.AuthorizeActionInvalidRequest {
@@ -101,6 +92,10 @@ func (h *Handler) completeAuthorize(ctx *echo.Context, ar fosite.AuthorizeReques
 	c := ctx.Request().Context()
 	rw := ctx.Response()
 
+	if err := h.clearReauthRequest(ctx); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to save session")
+	}
+
 	session := oauth.NewSession(userID, authTime)
 	for _, scope := range ar.GetRequestedScopes() {
 		ar.GrantScope(scope)
@@ -116,52 +111,44 @@ func (h *Handler) completeAuthorize(ctx *echo.Context, ar fosite.AuthorizeReques
 	return nil
 }
 
-const reauthRequestMarkerKey = "reauth_request_marker"
-
-func reauthRequestMarker(requestURI string) string {
-	digest := sha256.Sum256([]byte(requestURI))
-	return base64.RawURLEncoding.EncodeToString(digest[:])
-}
-
-func (h *Handler) consumeReauthCompletion(ctx *echo.Context, requestURI string) (bool, error) {
+// isReauthCompleted reports whether the user has logged in again since the
+// server last asked them to (prompt=login, or max_age elapsing).
+//
+// The check does not compare timestamps: auth_time and reauth_requested_at are
+// both whole seconds, so a login completing in the same second as the request
+// leaves them equal and no strict comparison can tell "logged in again" from
+// "never logged in". redirectToLogin clears authenticated and only a fresh
+// PostLogin can set it back, so the flag carries the same information.
+func (h *Handler) isReauthCompleted(ctx *echo.Context) bool {
 	session, err := h.sessions.Get(ctx.Request(), sessionName)
 	if err != nil {
-		return false, err
+		return false
 	}
 
-	marker, ok := session.Values[reauthRequestMarkerKey].(string)
-	if !ok || marker != reauthRequestMarker(requestURI) {
-		return false, nil
+	if _, ok := session.Values["reauth_requested_at"].(int64); !ok {
+		return false
 	}
 
 	authenticated, ok := session.Values["authenticated"].(bool)
-	if !ok || !authenticated {
-		return false, nil
-	}
-
-	delete(session.Values, reauthRequestMarkerKey)
-	if err := session.Save(ctx.Request(), ctx.Response()); err != nil {
-		return false, err
-	}
-	return true, nil
+	return ok && authenticated
 }
 
 // stripUnsupportedAuthorizeParameters records which unsupported OIDC request
-// parameter was supplied and removes it from every form representation that
-// net/http may reuse. In particular, multipart values must be removed from
-// MultipartForm as well, otherwise fosite's ParseMultipartForm call restores
-// the parameter after it was deleted from Form.
+// parameter was supplied and removes it so fosite validates the rest of the
+// request normally. Removing it before fosite runs is what lets the resulting
+// error reach a registered redirect_uri instead of becoming a direct 400.
 func stripUnsupportedAuthorizeParameters(req *http.Request) error {
-	if err := req.ParseMultipartForm(1 << 20); err != nil && !errors.Is(err, http.ErrNotMultipart) {
+	if err := req.ParseForm(); err != nil {
 		// Let fosite produce the normal invalid_request response for malformed
 		// bodies instead of replacing that parsing error here.
-		return nil
+		return nil //nolint:nilerr // intentional: fosite reports the parse failure
 	}
 
 	var unsupportedError error
-	if req.Form.Get("request") != "" {
+	switch {
+	case req.Form.Get("request") != "":
 		unsupportedError = fosite.ErrRequestNotSupported
-	} else if req.Form.Get("request_uri") != "" {
+	case req.Form.Get("request_uri") != "":
 		unsupportedError = fosite.ErrRequestURINotSupported
 	}
 	if unsupportedError == nil {
@@ -171,12 +158,23 @@ func stripUnsupportedAuthorizeParameters(req *http.Request) error {
 	for _, key := range []string{"request", "request_uri"} {
 		req.Form.Del(key)
 		req.PostForm.Del(key)
-		if req.MultipartForm != nil {
-			delete(req.MultipartForm.Value, key)
-		}
 	}
 
 	return unsupportedError
+}
+
+func (h *Handler) clearReauthRequest(ctx *echo.Context) error {
+	session, err := h.sessions.Get(ctx.Request(), sessionName)
+	if err != nil {
+		return err
+	}
+
+	if _, ok := session.Values["reauth_requested_at"]; !ok {
+		return nil
+	}
+
+	delete(session.Values, "reauth_requested_at")
+	return session.Save(ctx.Request(), ctx.Response())
 }
 
 func (h *Handler) redirectToLogin(ctx *echo.Context, returnURL *url.URL) error {
@@ -185,7 +183,7 @@ func (h *Handler) redirectToLogin(ctx *echo.Context, returnURL *url.URL) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get session")
 	}
 
-	session.Values[reauthRequestMarkerKey] = reauthRequestMarker(returnURL.RequestURI())
+	session.Values["reauth_requested_at"] = time.Now().Unix()
 	session.Values["authenticated"] = false
 
 	if err := session.Save(ctx.Request(), ctx.Response()); err != nil {
