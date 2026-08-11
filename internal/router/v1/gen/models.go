@@ -362,9 +362,6 @@ type ClientWithSecret struct {
 
 // IntrospectRequest RFC 7662 §2.1 トークンイントロスペクションリクエスト。
 type IntrospectRequest struct {
-	ClientId     *openapi_types.UUID `json:"client_id,omitempty"`
-	ClientSecret *string             `json:"client_secret,omitempty"`
-
 	// Token イントロスペクション対象のトークン
 	Token string `json:"token"`
 

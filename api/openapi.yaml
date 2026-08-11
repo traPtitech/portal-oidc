@@ -177,9 +177,21 @@ paths:
       description: |
         提示された access_token / refresh_token のメタデータを返却。
         active=false でアクティブでないことを示し、スコープ・有効期限・
-        ユーザー識別子等を返す。クライアント認証必須。
+        ユーザー識別子等を返す。
+
+        RFC 7662 §2.1 が要求する「トークンスキャン攻撃を防ぐための認可」は
+        Authorization ヘッダで行う。basicAuth は RFC 6749 §2.3.1 の
+        クライアント認証、bearerAuth は RFC 7662 §2.1 が併記する
+        「別の OAuth 2.0 アクセストークン」に対応する。後者はイントロスペクト
+        対象のトークンと同一であってはならない。
+
+        リクエストボディでの資格情報 (client_secret_post) は受け付けない。
+        RFC 6749 §2.3.1 が NOT RECOMMENDED としており、実装も 401 を返す。
       tags:
         - oauth2/oidc
+      security:
+        - basicAuth: []
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -602,11 +614,6 @@ components:
             - access_token
             - refresh_token
           description: トークン種別ヒント (RFC 7662 §2.1)
-        client_id:
-          type: string
-          format: uuid
-        client_secret:
-          type: string
 
     IntrospectResponse:
       type: object
@@ -858,3 +865,10 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
+    basicAuth:
+      type: http
+      scheme: basic
+      description: |
+        RFC 6749 §2.3.1 のクライアント認証 (client_secret_basic)。
+        同条が「認可サーバーは HTTP Basic 認証方式を MUST support」と
+        定めるため、資格情報を持つクライアントはこの方式を使う。
