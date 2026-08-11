@@ -204,7 +204,7 @@ func parseMaxAge(ar fosite.AuthorizeRequester) (*int64, error) {
 //     https://datatracker.ietf.org/doc/html/rfc7009#section-2.1
 //   - RFC 7009 §2.2 (Revocation Response)
 //     https://datatracker.ietf.org/doc/html/rfc7009#section-2.2
-func (h *Handler) Revoke(ctx *echo.Context) error {
+func (h *Handler) RevokeToken(ctx *echo.Context) error {
 	c := ctx.Request().Context()
 	rw := ctx.Response()
 	req := ctx.Request()
@@ -239,7 +239,7 @@ func (h *Handler) Token(ctx *echo.Context) error {
 //     https://datatracker.ietf.org/doc/html/rfc7662#section-2.1
 //   - RFC 7662 §2.2 (Introspection Response)
 //     https://datatracker.ietf.org/doc/html/rfc7662#section-2.2
-func (h *Handler) Introspect(ctx *echo.Context) error {
+func (h *Handler) IntrospectToken(ctx *echo.Context) error {
 	c := ctx.Request().Context()
 	rw := ctx.Response()
 	req := ctx.Request()
