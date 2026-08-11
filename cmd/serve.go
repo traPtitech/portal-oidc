@@ -62,7 +62,7 @@ func newServer(cfg Config) (http.Handler, error) {
 	}
 	handler := v1.NewHandler(
 		usecase.NewClientUseCase(clientRepo),
-		usecase.NewOAuthUseCase(),
+		usecase.NewOAuthUseCase(oauth2Provider, oauthStorage),
 		oauth2Provider,
 		userUseCase,
 		v1.OAuthConfig{
@@ -82,10 +82,6 @@ func newServer(cfg Config) (http.Handler, error) {
 		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 	}))
 	gen.RegisterHandlers(e, handler)
-	// TODO: drop this manual registration once oapi-codegen v3 ships proper Echo v5
-	// support and we regenerate server.go — gen.RegisterHandlers will then bind the
-	// route itself and Echo will panic on the duplicate.
-	e.GET("/.well-known/oauth-authorization-server", handler.GetOAuthAuthorizationServerMetadata)
 	e.GET("/login", handler.GetLogin)
 	e.POST("/login", handler.PostLogin)
 	e.GET("/logout", handler.Logout)

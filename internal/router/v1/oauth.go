@@ -33,7 +33,33 @@ func (h *Handler) authorize(ctx *echo.Context) error {
 	rw := ctx.Response()
 	req := ctx.Request()
 
+	// Discovery advertises request_parameter_supported=false and
+	// request_uri_parameter_supported=false. OIDC Core 1.0 §6.1 requires the
+	// matching error codes (request_not_supported / request_uri_not_supported)
+	// when these parameters are sent regardless. The parameter is dropped rather
+	// than answered here so fosite still validates the client and redirect URI;
+	// otherwise the error cannot be redirected and becomes a bare 400.
+	var unsupported error
+	if err := req.ParseForm(); err == nil {
+		if req.Form.Get("request") != "" {
+			unsupported = fosite.ErrRequestNotSupported
+		}
+		if req.Form.Get("request_uri") != "" {
+			unsupported = fosite.ErrRequestURINotSupported
+		}
+		req.Form.Del("request")
+		req.Form.Del("request_uri")
+		req.PostForm.Del("request")
+		req.PostForm.Del("request_uri")
+	}
+
 	ar, err := h.oauth2.NewAuthorizeRequest(c, req)
+	// Send the rejection to the redirect_uri once fosite has accepted it
+	// (OIDC Core 1.0 §3.1.2.6); when it is unusable RFC 6749 §4.1.2.1 forbids
+	// redirecting and fosite's error is the one that explains why.
+	if unsupported != nil && (ar.IsRedirectURIValid() || err == nil) {
+		err = unsupported
+	}
 	if err != nil {
 		h.oauth2.WriteAuthorizeError(c, rw, ar, err)
 		return nil
@@ -59,9 +85,12 @@ func (h *Handler) authorize(ctx *echo.Context) error {
 		AuthTime:        info.AuthTime,
 		MaxAge:          maxAge,
 		ReauthCompleted: h.isReauthCompleted(ctx, info.AuthTime),
-		IsNonProd:       h.config.Environment != "production",
 	})
 
+	if action == usecase.AuthorizeActionInvalidRequest {
+		h.oauth2.WriteAuthorizeError(c, rw, ar, fosite.ErrInvalidRequest.WithHint("Parameter 'prompt' was set to 'none', but contains other values as well which is not allowed."))
+		return nil
+	}
 	if action == usecase.AuthorizeActionLoginError {
 		h.oauth2.WriteAuthorizeError(c, rw, ar, fosite.ErrLoginRequired)
 		return nil
@@ -70,19 +99,16 @@ func (h *Handler) authorize(ctx *echo.Context) error {
 		return h.redirectToLogin(ctx, &returnURL)
 	}
 
-	userID := info.UserID
-	authTime := info.AuthTime
-	if h.config.Environment != "production" {
-		userID = h.config.TestUserID
-		authTime = time.Now()
-	}
-
-	return h.completeAuthorize(ctx, ar, userID, authTime)
+	return h.completeAuthorize(ctx, ar, info.UserID, info.AuthTime)
 }
 
 func (h *Handler) completeAuthorize(ctx *echo.Context, ar fosite.AuthorizeRequester, userID string, authTime time.Time) error {
 	c := ctx.Request().Context()
 	rw := ctx.Response()
+
+	if err := h.clearReauthRequest(ctx); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to save session")
+	}
 
 	session := oauth.NewSession(userID, authTime)
 	for _, scope := range ar.GetRequestedScopes() {
@@ -111,6 +137,20 @@ func (h *Handler) isReauthCompleted(ctx *echo.Context, authTime time.Time) bool 
 	}
 
 	return authTime.Unix() > reqAt
+}
+
+func (h *Handler) clearReauthRequest(ctx *echo.Context) error {
+	session, err := h.sessions.Get(ctx.Request(), sessionName)
+	if err != nil {
+		return err
+	}
+
+	if _, ok := session.Values["reauth_requested_at"]; !ok {
+		return nil
+	}
+
+	delete(session.Values, "reauth_requested_at")
+	return session.Save(ctx.Request(), ctx.Response())
 }
 
 func (h *Handler) redirectToLogin(ctx *echo.Context, returnURL *url.URL) error {
@@ -154,29 +194,63 @@ func parseMaxAge(ar fosite.AuthorizeRequester) (*int64, error) {
 	return &maxAge, nil
 }
 
-func (h *Handler) Token(ctx *echo.Context) error {
+// Revoke implements RFC 7009 OAuth 2.0 Token Revocation. fosite already wires
+// the OAuth2TokenRevocationFactory into the provider, so the handler just
+// shuttles the request through and lets fosite emit the spec-correct response
+// (200 on success or no-op, 400/401 on invalid request / client auth).
+//
+// Refs:
+//   - RFC 7009 §2.1 (Revocation Request)
+//     https://datatracker.ietf.org/doc/html/rfc7009#section-2.1
+//   - RFC 7009 §2.2 (Revocation Response)
+//     https://datatracker.ietf.org/doc/html/rfc7009#section-2.2
+func (h *Handler) RevokeToken(ctx *echo.Context) error {
 	c := ctx.Request().Context()
 	rw := ctx.Response()
 	req := ctx.Request()
 
-	session := oauth.NewSession("", time.Time{})
-	accessRequest, err := h.oauth2.NewAccessRequest(c, req, session)
+	err := h.oauth2.NewRevocationRequest(c, req)
+	h.oauth2.WriteRevocationResponse(c, rw, err)
+	return nil
+}
+
+func (h *Handler) Token(ctx *echo.Context) error {
+	result, err := h.oauthUseCase.ProcessToken(
+		ctx.Request().Context(),
+		ctx.Request(),
+		oauth.NewSession("", time.Time{}),
+	)
 	if err != nil {
-		h.oauth2.WriteAccessError(c, rw, accessRequest, err)
+		h.oauth2.WriteAccessError(result.Context, ctx.Response(), result.Request, err)
 		return nil
 	}
 
-	for _, scope := range accessRequest.GetRequestedScopes() {
-		accessRequest.GrantScope(scope)
-	}
+	h.oauth2.WriteAccessResponse(result.Context, ctx.Response(), result.Request, result.Response)
+	return nil
+}
 
-	response, err := h.oauth2.NewAccessResponse(c, accessRequest)
+// Introspect implements RFC 7662 OAuth 2.0 Token Introspection. fosite already
+// wires OAuth2TokenIntrospectionFactory into the provider; the handler shapes
+// the request and writes whatever fosite returns. Per RFC 7662 §2.2, an
+// inactive or unknown token still yields HTTP 200 with {"active": false}.
+//
+// Refs:
+//   - RFC 7662 §2.1 (Introspection Request)
+//     https://datatracker.ietf.org/doc/html/rfc7662#section-2.1
+//   - RFC 7662 §2.2 (Introspection Response)
+//     https://datatracker.ietf.org/doc/html/rfc7662#section-2.2
+func (h *Handler) IntrospectToken(ctx *echo.Context) error {
+	c := ctx.Request().Context()
+	rw := ctx.Response()
+	req := ctx.Request()
+
+	resp, err := h.oauth2.NewIntrospectionRequest(c, req, oauth.NewSession("", time.Time{}))
 	if err != nil {
-		h.oauth2.WriteAccessError(c, rw, accessRequest, err)
+		h.oauth2.WriteIntrospectionError(c, rw, err)
 		return nil
 	}
 
-	h.oauth2.WriteAccessResponse(c, rw, accessRequest, response)
+	h.oauth2.WriteIntrospectionResponse(c, rw, resp)
 	return nil
 }
 
@@ -271,6 +345,8 @@ func (h *Handler) GetOpenIDConfiguration(ctx *echo.Context) error {
 	// honoured by the server, so advertising "plain" would only invite downgrades.
 	codeChallengeMethodsSupported := []string{"S256"}
 	tokenEndpointAuthMethodsSupported := []string{"client_secret_basic", "client_secret_post"}
+	requestParameterSupported := false
+	requestURIParameterSupported := false
 
 	return ctx.JSON(http.StatusOK, gen.OpenIDConfiguration{
 		Issuer:                            issuer,
@@ -285,6 +361,8 @@ func (h *Handler) GetOpenIDConfiguration(ctx *echo.Context) error {
 		ClaimsSupported:                   &claimsSupported,
 		CodeChallengeMethodsSupported:     &codeChallengeMethodsSupported,
 		TokenEndpointAuthMethodsSupported: &tokenEndpointAuthMethodsSupported,
+		RequestParameterSupported:         &requestParameterSupported,
+		RequestUriParameterSupported:      &requestURIParameterSupported,
 	})
 }
 
