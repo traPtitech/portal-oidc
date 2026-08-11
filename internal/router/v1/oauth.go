@@ -39,20 +39,15 @@ func (h *Handler) authorize(ctx *echo.Context) error {
 	unsupportedRequestError := stripUnsupportedAuthorizeParameters(req)
 
 	ar, err := h.oauth2.NewAuthorizeRequest(c, req)
-	// Order matters. Only once fosite has accepted the outer redirect_uri may the
-	// request-object rejection be sent there (OIDC Core 1.0 §3.1.2.6). When the
-	// outer redirect_uri is itself unusable, RFC 6749 §4.1.2.1 forbids redirecting
-	// at all and fosite's own error is the one that describes the real problem.
-	if unsupportedRequestError != nil && ar.IsRedirectURIValid() {
-		h.oauth2.WriteAuthorizeError(c, rw, ar, unsupportedRequestError)
-		return nil
+	// The request-object rejection wins whenever it can actually reach the client
+	// (OIDC Core 1.0 §3.1.2.6). When the outer redirect_uri is itself unusable,
+	// RFC 6749 §4.1.2.1 forbids redirecting at all, and fosite's own error is the
+	// one that explains why.
+	if unsupportedRequestError != nil && (ar.IsRedirectURIValid() || err == nil) {
+		err = unsupportedRequestError
 	}
 	if err != nil {
 		h.oauth2.WriteAuthorizeError(c, rw, ar, err)
-		return nil
-	}
-	if unsupportedRequestError != nil {
-		h.oauth2.WriteAuthorizeError(c, rw, ar, unsupportedRequestError)
 		return nil
 	}
 
