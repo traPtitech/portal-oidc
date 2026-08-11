@@ -110,69 +110,6 @@ func TestStripUnsupportedAuthorizeParameters_RequestURI(t *testing.T) {
 	assertRequestObjectParametersRemoved(t, req)
 }
 
-func TestHandler_ConsumeReauthCompletion(t *testing.T) {
-	const requestURI = "/oauth2/authorize?state=request-state"
-	tests := []struct {
-		name          string
-		values        map[any]any
-		wantCompleted bool
-	}{
-		{
-			name: "matching authenticated request",
-			values: map[any]any{
-				reauthRequestMarkerKey: reauthRequestMarker(requestURI),
-				"authenticated":        true,
-			},
-			wantCompleted: true,
-		},
-		{
-			name: "marker belongs to another request",
-			values: map[any]any{
-				reauthRequestMarkerKey: reauthRequestMarker("/oauth2/authorize?state=another-state"),
-				"authenticated":        true,
-			},
-			wantCompleted: false,
-		},
-		{
-			name: "login has not completed",
-			values: map[any]any{
-				reauthRequestMarkerKey: reauthRequestMarker(requestURI),
-				"authenticated":        false,
-			},
-			wantCompleted: false,
-		},
-		{
-			name: "no reauth marker",
-			values: map[any]any{
-				"authenticated": true,
-			},
-			wantCompleted: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			handler := NewHandler(nil, nil, nil, nil, OAuthConfig{
-				Issuer:        "http://localhost:8080",
-				SessionSecret: []byte("test-session-secret-32-characters"),
-			})
-			ctx, response := contextWithSessionValues(t, handler, tt.values)
-
-			got, err := handler.consumeReauthCompletion(ctx, requestURI)
-			if err != nil {
-				t.Fatalf("consumeReauthCompletion() error = %v", err)
-			}
-			if got != tt.wantCompleted {
-				t.Fatalf("consumeReauthCompletion() = %t, want %t", got, tt.wantCompleted)
-			}
-			if got {
-				cookie := sessionCookieFromResponse(t, response)
-				assertReauthMarkerAbsent(t, handler, cookie)
-			}
-		})
-	}
-}
-
 func TestIntegration_ReauthCompletionIsBoundToAuthorizeRequestAndConsumed(t *testing.T) {
 	handler, cleanup := setupTestHandler(t)
 	defer cleanup()
@@ -703,49 +640,6 @@ func assertRequestObjectParametersRemoved(t *testing.T, req *http.Request) {
 				t.Errorf("MultipartForm.Value[%q] = %q, want empty", key, values)
 			}
 		}
-	}
-}
-
-func contextWithSessionValues(
-	t *testing.T,
-	handler *Handler,
-	values map[any]any,
-) (*echo.Context, *httptest.ResponseRecorder) {
-	t.Helper()
-
-	e := echo.New()
-	cookie := sessionCookieWithValues(t, handler, values)
-	nextRequest := httptest.NewRequestWithContext(
-		context.Background(),
-		http.MethodGet,
-		"/",
-		nil,
-	)
-	nextRequest.AddCookie(cookie)
-	response := httptest.NewRecorder()
-	return e.NewContext(nextRequest, response), response
-}
-
-func assertReauthMarkerAbsent(
-	t *testing.T,
-	handler *Handler,
-	cookie *http.Cookie,
-) {
-	t.Helper()
-
-	req := httptest.NewRequestWithContext(
-		context.Background(),
-		http.MethodGet,
-		"/",
-		nil,
-	)
-	req.AddCookie(cookie)
-	session, err := handler.sessions.Get(req, sessionName)
-	if err != nil {
-		t.Fatalf("get consumed session: %v", err)
-	}
-	if marker, ok := session.Values[reauthRequestMarkerKey]; ok {
-		t.Fatalf("reauth marker still present: %v", marker)
 	}
 }
 
