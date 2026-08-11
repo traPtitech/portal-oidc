@@ -36,21 +36,30 @@ func (h *Handler) authorize(ctx *echo.Context) error {
 	// Discovery advertises request_parameter_supported=false and
 	// request_uri_parameter_supported=false. OIDC Core 1.0 §6.1 requires the
 	// matching error codes (request_not_supported / request_uri_not_supported)
-	// when these parameters are sent regardless. Without this short-circuit
-	// fosite would otherwise try to parse the JWT request object and surface
-	// invalid_request_object instead.
+	// when these parameters are sent regardless. The parameter is dropped rather
+	// than answered here so fosite still validates the client and redirect URI;
+	// otherwise the error cannot be redirected and becomes a bare 400.
+	var unsupported error
 	if err := req.ParseForm(); err == nil {
 		if req.Form.Get("request") != "" {
-			h.oauth2.WriteAuthorizeError(c, rw, &fosite.AuthorizeRequest{Request: fosite.Request{Form: req.Form}}, fosite.ErrRequestNotSupported)
-			return nil
+			unsupported = fosite.ErrRequestNotSupported
 		}
 		if req.Form.Get("request_uri") != "" {
-			h.oauth2.WriteAuthorizeError(c, rw, &fosite.AuthorizeRequest{Request: fosite.Request{Form: req.Form}}, fosite.ErrRequestURINotSupported)
-			return nil
+			unsupported = fosite.ErrRequestURINotSupported
 		}
+		req.Form.Del("request")
+		req.Form.Del("request_uri")
+		req.PostForm.Del("request")
+		req.PostForm.Del("request_uri")
 	}
 
 	ar, err := h.oauth2.NewAuthorizeRequest(c, req)
+	// Send the rejection to the redirect_uri once fosite has accepted it
+	// (OIDC Core 1.0 §3.1.2.6); when it is unusable RFC 6749 §4.1.2.1 forbids
+	// redirecting and fosite's error is the one that explains why.
+	if unsupported != nil && (ar.IsRedirectURIValid() || err == nil) {
+		err = unsupported
+	}
 	if err != nil {
 		h.oauth2.WriteAuthorizeError(c, rw, ar, err)
 		return nil

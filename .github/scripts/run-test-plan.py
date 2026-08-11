@@ -70,7 +70,9 @@ def get_test_log(client: httpx.Client, module_id: str) -> list:
 
 
 def find_authorize_url(log_entries: list) -> str | None:
-    for entry in log_entries:
+    # Multi-step modules append a new authorization redirect for each round.
+    # Always drive the newest one instead of repeatedly selecting the first.
+    for entry in reversed(log_entries):
         url = entry.get("redirect_to_authorization_endpoint", "")
         if url:
             return url
@@ -79,6 +81,11 @@ def find_authorize_url(log_entries: list) -> str | None:
 
 TEST_USERNAME = os.environ.get("CONFORMANCE_TEST_USERNAME", "testuser")
 TEST_PASSWORD = os.environ.get("CONFORMANCE_TEST_PASSWORD", "password")
+LOGIN_INPUT_DELAY_SECONDS = 1
+RUNNER_DRIVEN_BROWSER_MODULES = {
+    "oidcc-prompt-login",
+    "oidcc-max-age-1",
+}
 
 
 def submit_login_form(
@@ -97,6 +104,9 @@ def submit_login_form(
             return_url = value
             break
 
+    # portal-oidc records reauthentication times in whole seconds. The real UI
+    # naturally crosses that boundary while a test posts the form immediately.
+    time.sleep(LOGIN_INPUT_DELAY_SECONDS)
     print("  Browser: submitting login credentials")
     try:
         return browser.post(
@@ -169,16 +179,10 @@ def follow_authorize(
 
 
 def perform_browser_interaction(
-    api_client: httpx.Client,
     browser: httpx.Client,
-    module_id: str,
+    auth_url: str,
     oidc_server_url: str,
 ) -> None:
-    log = get_test_log(api_client, module_id)
-    auth_url = find_authorize_url(log)
-    if not auth_url:
-        return
-
     if oidc_server_url:
         auth_url = auth_url.replace("host.docker.internal:8080", oidc_server_url)
 
@@ -223,23 +227,23 @@ def perform_browser_interaction(
 
 def wait_for_test(
     api_client: httpx.Client,
-    browser: httpx.Client,
+    browser: httpx.Client | None,
     module_id: str,
     oidc_server_url: str,
     timeout: int = 60,
 ) -> dict:
     start = time.time()
-    browser_tried = False
+    handled_authorize_urls: set[str] = set()
     while time.time() - start < timeout:
         info = get_test_module_info(api_client, module_id)
         status = info.get("status", "UNKNOWN")
         if status in ("FINISHED", "INTERRUPTED"):
             return info
-        if status == "WAITING" and not browser_tried:
-            browser_tried = True
-            perform_browser_interaction(
-                api_client, browser, module_id, oidc_server_url
-            )
+        if status == "WAITING" and browser is not None:
+            auth_url = find_authorize_url(get_test_log(api_client, module_id))
+            if auth_url and auth_url not in handled_authorize_urls:
+                handled_authorize_urls.add(auth_url)
+                perform_browser_interaction(browser, auth_url, oidc_server_url)
         time.sleep(2)
     raise TimeoutError(f"Test {module_id} did not finish within {timeout}s")
 
@@ -252,9 +256,17 @@ def load_expected_skips(path: str | None) -> set[str]:
     return {e["test_module"] for e in entries}
 
 
+def module_uses_suite_browser(config: dict, module_name: str) -> bool:
+    """Return whether this module has native suite browser automation."""
+    # These modules still use the suite browser to capture the required login
+    # screenshot, while this runner drives the delayed login and callback.
+    if module_name in RUNNER_DRIVEN_BROWSER_MODULES:
+        return False
+    return "browser" in config.get("override", {}).get(module_name, {})
+
+
 def run_plan(
     api_client: httpx.Client,
-    browser: httpx.Client,
     plan_name: str,
     variant: dict | None,
     config: dict,
@@ -287,9 +299,18 @@ def run_plan(
         print(f"Module ID: {module_id}")
 
         try:
-            info = wait_for_test(
-                api_client, browser, module_id, oidc_server_url
-            )
+            if module_uses_suite_browser(config, module_name):
+                print("  Browser: using conformance suite automation")
+                info = wait_for_test(
+                    api_client, None, module_id, oidc_server_url
+                )
+            else:
+                # Cookies persist within a module but never leak into the next
+                # one (notably prompt=none while logged out).
+                with create_browser_client() as browser:
+                    info = wait_for_test(
+                        api_client, browser, module_id, oidc_server_url
+                    )
         except TimeoutError as e:
             print(f"TIMEOUT: {e}")
             all_passed = False
@@ -366,16 +387,14 @@ def main() -> None:
     os.makedirs(args.output, exist_ok=True)
 
     api_client = create_api_client(args.server, args.token)
-    browser = create_browser_client()
 
     try:
         passed = run_plan(
-            api_client, browser, args.plan, variant, config, args.output,
+            api_client, args.plan, variant, config, args.output,
             args.oidc_server, skips,
         )
     finally:
         api_client.close()
-        browser.close()
 
     if not passed:
         print("\nSome tests failed.")

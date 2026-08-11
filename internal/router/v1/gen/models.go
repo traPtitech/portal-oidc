@@ -222,14 +222,23 @@ type OAuthErrorError string
 
 // OpenIDConfiguration defines model for OpenIDConfiguration.
 type OpenIDConfiguration struct {
-	AuthorizationEndpoint             string    `json:"authorization_endpoint"`
-	ClaimsSupported                   *[]string `json:"claims_supported,omitempty"`
-	CodeChallengeMethodsSupported     *[]string `json:"code_challenge_methods_supported,omitempty"`
-	IdTokenSigningAlgValuesSupported  []string  `json:"id_token_signing_alg_values_supported"`
-	Issuer                            string    `json:"issuer"`
-	JwksUri                           string    `json:"jwks_uri"`
-	RequestParameterSupported         *bool     `json:"request_parameter_supported,omitempty"`
-	RequestUriParameterSupported      *bool     `json:"request_uri_parameter_supported,omitempty"`
+	AuthorizationEndpoint            string    `json:"authorization_endpoint"`
+	ClaimsSupported                  *[]string `json:"claims_supported,omitempty"`
+	CodeChallengeMethodsSupported    *[]string `json:"code_challenge_methods_supported,omitempty"`
+	IdTokenSigningAlgValuesSupported []string  `json:"id_token_signing_alg_values_supported"`
+	Issuer                           string    `json:"issuer"`
+	JwksUri                          string    `json:"jwks_uri"`
+
+	// RequestParameterSupported Indicates whether the OP supports use of the `request` parameter
+	// (OpenID Connect Core 1.0 §6 / Discovery 1.0 §3).
+	RequestParameterSupported *bool `json:"request_parameter_supported,omitempty"`
+
+	// RequestUriParameterSupported Indicates whether the OP supports use of the `request_uri` parameter
+	// (OpenID Connect Core 1.0 §6 / Discovery 1.0 §3).
+	RequestUriParameterSupported *bool `json:"request_uri_parameter_supported,omitempty"`
+
+	// RequireRequestUriRegistration Indicates whether the OP requires `request_uri` values to be
+	// pre-registered (OpenID Connect Discovery 1.0 §3).
 	RequireRequestUriRegistration     *bool     `json:"require_request_uri_registration,omitempty"`
 	ResponseTypesSupported            []string  `json:"response_types_supported"`
 	ScopesSupported                   *[]string `json:"scopes_supported,omitempty"`
@@ -299,10 +308,10 @@ type UserInfo struct {
 
 // GetAuthorizeParams defines parameters for GetAuthorize.
 type GetAuthorizeParams struct {
-	// ResponseType レスポンスタイプ (現在は code のみサポート)
-	ResponseType GetAuthorizeParamsResponseType `form:"response_type" json:"response_type"`
-	ClientId     openapi_types.UUID             `form:"client_id" json:"client_id"`
-	RedirectUri  string                         `form:"redirect_uri" json:"redirect_uri"`
+	// ResponseType レスポンスタイプ (現在は code のみサポート。OAuth/OIDC 上は必須)
+	ResponseType *GetAuthorizeParamsResponseType `form:"response_type,omitempty" json:"response_type,omitempty"`
+	ClientId     openapi_types.UUID              `form:"client_id" json:"client_id"`
+	RedirectUri  string                          `form:"redirect_uri" json:"redirect_uri"`
 
 	// Scope スペース区切りのスコープ (openid, profile, email 等)
 	Scope *string `form:"scope,omitempty" json:"scope,omitempty"`
