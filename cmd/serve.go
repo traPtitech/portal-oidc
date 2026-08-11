@@ -76,7 +76,6 @@ func newServer(cfg Config) (http.Handler, error) {
 
 	e := echo.New()
 	e.Use(middleware.Recover())
-	e.Use(v1.AllowMissingAuthorizeResponseType)
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
 		AllowHeaders: []string{"*"},

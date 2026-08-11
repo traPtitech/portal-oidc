@@ -194,7 +194,6 @@ func TestIntegration_AuthorizeMissingResponseTypeRedirectsError(t *testing.T) {
 	redirectURI := "https://client.example/callback"
 	clientID := createAuthorizeTestClient(t, redirectURI)
 	e := echo.New()
-	e.Use(AllowMissingAuthorizeResponseType)
 	gen.RegisterHandlers(e, handler)
 
 	query := url.Values{

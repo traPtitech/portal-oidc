@@ -214,13 +214,18 @@ paths:
       tags:
         - oauth2/oidc
       parameters:
+        # OAuth 2.0 / OIDC 上は必須 (RFC 6749 Section 4.1.1, OIDC Core 1.0 Section 3.1.2.1)。
+        # ただし欠落時のエラーは RFC 6749 Section 4.1.2.1 / OIDC Core 1.0 Section 3.1.2.6 に従い
+        # 登録済み redirect_uri へ error として返さなければならず、素の HTTP 400 は仕様違反になる。
+        # required: true にすると oapi-codegen 生成の binding がハンドラより先に 400 を返すため、
+        # HTTP 層では optional として受け取り、必須判定は OAuth 層 (fosite) に委ねる。
         - name: response_type
           in: query
-          required: true
+          required: false
           schema:
             type: string
             enum: [code]
-          description: レスポンスタイプ (現在は code のみサポート)
+          description: レスポンスタイプ (現在は code のみサポート。OAuth/OIDC 上は必須)
         - name: client_id
           in: query
           required: true
