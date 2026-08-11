@@ -110,25 +110,34 @@ func TestStripUnsupportedAuthorizeParameters_RequestURI(t *testing.T) {
 	assertRequestObjectParametersRemoved(t, req)
 }
 
-func TestHandler_IsReauthCompleted(t *testing.T) {
+func TestHandler_ConsumeReauthCompletion(t *testing.T) {
+	const requestURI = "/oauth2/authorize?state=request-state"
 	tests := []struct {
 		name          string
 		values        map[any]any
 		wantCompleted bool
 	}{
 		{
-			name: "authenticated after reauth marker",
+			name: "matching authenticated request",
 			values: map[any]any{
-				"reauth_requested_at": int64(100),
-				"authenticated":       true,
+				reauthRequestMarkerKey: reauthRequestMarker(requestURI),
+				"authenticated":        true,
 			},
 			wantCompleted: true,
 		},
 		{
+			name: "marker belongs to another request",
+			values: map[any]any{
+				reauthRequestMarkerKey: reauthRequestMarker("/oauth2/authorize?state=another-state"),
+				"authenticated":        true,
+			},
+			wantCompleted: false,
+		},
+		{
 			name: "login has not completed",
 			values: map[any]any{
-				"reauth_requested_at": int64(100),
-				"authenticated":       false,
+				reauthRequestMarkerKey: reauthRequestMarker(requestURI),
+				"authenticated":        false,
 			},
 			wantCompleted: false,
 		},
@@ -147,13 +156,98 @@ func TestHandler_IsReauthCompleted(t *testing.T) {
 				Issuer:        "http://localhost:8080",
 				SessionSecret: []byte("test-session-secret-32-characters"),
 			})
-			ctx := contextWithSessionValues(t, handler, tt.values)
+			ctx, response := contextWithSessionValues(t, handler, tt.values)
 
-			if got := handler.isReauthCompleted(ctx); got != tt.wantCompleted {
-				t.Fatalf("isReauthCompleted() = %t, want %t", got, tt.wantCompleted)
+			got, err := handler.consumeReauthCompletion(ctx, requestURI)
+			if err != nil {
+				t.Fatalf("consumeReauthCompletion() error = %v", err)
+			}
+			if got != tt.wantCompleted {
+				t.Fatalf("consumeReauthCompletion() = %t, want %t", got, tt.wantCompleted)
+			}
+			if got {
+				cookie := sessionCookieFromResponse(t, response)
+				assertReauthMarkerAbsent(t, handler, cookie)
 			}
 		})
 	}
+}
+
+func TestIntegration_ReauthCompletionIsBoundToAuthorizeRequestAndConsumed(t *testing.T) {
+	handler, cleanup := setupTestHandler(t)
+	defer cleanup()
+
+	redirectURI := "https://client.example/callback"
+	clientID := createAuthorizeTestClient(t, redirectURI)
+	e := echo.New()
+	gen.RegisterHandlers(e, handler)
+	e.POST("/login", handler.PostLogin)
+
+	authorizeTarget := func(state string) string {
+		query := authorizeQuery(clientID, redirectURI, state)
+		query.Set("prompt", "login")
+		return "/oauth2/authorize?" + query.Encode()
+	}
+	authorize := func(target string, cookie *http.Cookie) *httptest.ResponseRecorder {
+		t.Helper()
+		req := httptest.NewRequestWithContext(
+			context.Background(),
+			http.MethodGet,
+			target,
+			nil,
+		)
+		req.AddCookie(cookie)
+		response := httptest.NewRecorder()
+		e.ServeHTTP(response, req)
+		return response
+	}
+
+	cookie := sessionCookieWithValues(t, handler, map[any]any{
+		"user_id":       handler.config.TestUserID,
+		"authenticated": true,
+		"auth_time":     time.Now().Unix(),
+	})
+
+	firstTarget := authorizeTarget("request-a-state")
+	first := authorize(firstTarget, cookie)
+	firstReturnURL := assertLoginRedirect(t, first)
+	cookie = sessionCookieFromResponse(t, first)
+
+	firstLogin := loginTestUser(t, e, firstReturnURL, cookie)
+	cookie = sessionCookieFromResponse(t, firstLogin)
+
+	// Abandon the first callback and start a distinct prompt=login request.
+	// Its reauthentication must not be satisfied by the first request's marker.
+	secondTarget := authorizeTarget("request-b-state")
+	second := authorize(secondTarget, cookie)
+	secondReturnURL := assertLoginRedirect(t, second)
+	cookie = sessionCookieFromResponse(t, second)
+
+	secondLogin := loginTestUser(t, e, secondReturnURL, cookie)
+	cookie = sessionCookieFromResponse(t, secondLogin)
+
+	completed := authorize(secondLogin.Header().Get("Location"), cookie)
+	if completed.Code != http.StatusSeeOther {
+		t.Fatalf(
+			"completed status = %d, want %d, body = %s",
+			completed.Code,
+			http.StatusSeeOther,
+			completed.Body.String(),
+		)
+	}
+	callback, err := url.Parse(completed.Header().Get("Location"))
+	if err != nil {
+		t.Fatalf("parse callback: %v", err)
+	}
+	if got := callback.Query().Get("state"); got != "request-b-state" {
+		t.Fatalf("callback state = %q, want request-b-state", got)
+	}
+	cookie = sessionCookieFromResponse(t, completed)
+
+	// The matching marker was consumed, so replaying the same authorization
+	// request requires another login.
+	replay := authorize(secondTarget, cookie)
+	assertLoginRedirect(t, replay)
 }
 
 func TestIntegration_AuthorizeMissingResponseTypeRedirectsError(t *testing.T) {
@@ -616,10 +710,52 @@ func contextWithSessionValues(
 	t *testing.T,
 	handler *Handler,
 	values map[any]any,
-) *echo.Context {
+) (*echo.Context, *httptest.ResponseRecorder) {
 	t.Helper()
 
 	e := echo.New()
+	cookie := sessionCookieWithValues(t, handler, values)
+	nextRequest := httptest.NewRequestWithContext(
+		context.Background(),
+		http.MethodGet,
+		"/",
+		nil,
+	)
+	nextRequest.AddCookie(cookie)
+	response := httptest.NewRecorder()
+	return e.NewContext(nextRequest, response), response
+}
+
+func assertReauthMarkerAbsent(
+	t *testing.T,
+	handler *Handler,
+	cookie *http.Cookie,
+) {
+	t.Helper()
+
+	req := httptest.NewRequestWithContext(
+		context.Background(),
+		http.MethodGet,
+		"/",
+		nil,
+	)
+	req.AddCookie(cookie)
+	session, err := handler.sessions.Get(req, sessionName)
+	if err != nil {
+		t.Fatalf("get consumed session: %v", err)
+	}
+	if marker, ok := session.Values[reauthRequestMarkerKey]; ok {
+		t.Fatalf("reauth marker still present: %v", marker)
+	}
+}
+
+func sessionCookieWithValues(
+	t *testing.T,
+	handler *Handler,
+	values map[any]any,
+) *http.Cookie {
+	t.Helper()
+
 	req := httptest.NewRequestWithContext(
 		context.Background(),
 		http.MethodGet,
@@ -637,19 +773,84 @@ func contextWithSessionValues(
 	if err := session.Save(req, recorder); err != nil {
 		t.Fatalf("save session: %v", err)
 	}
+	return sessionCookieFromResponse(t, recorder)
+}
 
-	cookies := recorder.Result().Cookies()
-	if len(cookies) != 1 {
-		t.Fatalf("session cookies = %d, want 1", len(cookies))
+func sessionCookieFromResponse(
+	t *testing.T,
+	response *httptest.ResponseRecorder,
+) *http.Cookie {
+	t.Helper()
+
+	for _, cookie := range response.Result().Cookies() {
+		if cookie.Name == sessionName {
+			return cookie
+		}
 	}
-	nextRequest := httptest.NewRequestWithContext(
+	t.Fatal("session cookie not found")
+	return nil
+}
+
+func assertLoginRedirect(
+	t *testing.T,
+	response *httptest.ResponseRecorder,
+) string {
+	t.Helper()
+
+	if response.Code != http.StatusFound {
+		t.Fatalf(
+			"status = %d, want %d, body = %s",
+			response.Code,
+			http.StatusFound,
+			response.Body.String(),
+		)
+	}
+	location, err := url.Parse(response.Header().Get("Location"))
+	if err != nil {
+		t.Fatalf("parse login redirect: %v", err)
+	}
+	if location.Path != "/login" {
+		t.Fatalf("redirect path = %q, want /login", location.Path)
+	}
+	returnURL := location.Query().Get("return_url")
+	if returnURL == "" {
+		t.Fatal("login redirect has no return_url")
+	}
+	return returnURL
+}
+
+func loginTestUser(
+	t *testing.T,
+	e *echo.Echo,
+	returnURL string,
+	cookie *http.Cookie,
+) *httptest.ResponseRecorder {
+	t.Helper()
+
+	form := url.Values{
+		"username":   {"testuser"},
+		"password":   {"password"},
+		"return_url": {returnURL},
+	}
+	req := httptest.NewRequestWithContext(
 		context.Background(),
-		http.MethodGet,
-		"/",
-		nil,
+		http.MethodPost,
+		"/login",
+		strings.NewReader(form.Encode()),
 	)
-	nextRequest.AddCookie(cookies[0])
-	return e.NewContext(nextRequest, httptest.NewRecorder())
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	req.AddCookie(cookie)
+	response := httptest.NewRecorder()
+	e.ServeHTTP(response, req)
+	if response.Code != http.StatusFound {
+		t.Fatalf(
+			"login status = %d, want %d, body = %s",
+			response.Code,
+			http.StatusFound,
+			response.Body.String(),
+		)
+	}
+	return response
 }
 
 func createAuthorizeTestClient(t *testing.T, redirectURI string) uuid.UUID {

@@ -69,13 +69,17 @@ func (h *Handler) authorize(ctx *echo.Context) error {
 		h.oauth2.WriteAuthorizeError(c, rw, ar, fosite.ErrInvalidRequest.WithHint("invalid max_age parameter").WithDebug(err.Error()))
 		return nil
 	}
+	reauthCompleted, err := h.consumeReauthCompletion(ctx, returnURL.RequestURI())
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to save session")
+	}
 
 	action := h.oauthUseCase.EvaluateAuthorize(usecase.AuthorizeInput{
 		Prompt:          ar.GetRequestForm().Get("prompt"),
 		Authenticated:   authenticated,
 		AuthTime:        info.AuthTime,
 		MaxAge:          maxAge,
-		ReauthCompleted: h.isReauthCompleted(ctx),
+		ReauthCompleted: reauthCompleted,
 	})
 
 	if action == usecase.AuthorizeActionInvalidRequest {
@@ -97,10 +101,6 @@ func (h *Handler) completeAuthorize(ctx *echo.Context, ar fosite.AuthorizeReques
 	c := ctx.Request().Context()
 	rw := ctx.Response()
 
-	if err := h.clearReauthRequest(ctx); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to save session")
-	}
-
 	session := oauth.NewSession(userID, authTime)
 	for _, scope := range ar.GetRequestedScopes() {
 		ar.GrantScope(scope)
@@ -116,19 +116,34 @@ func (h *Handler) completeAuthorize(ctx *echo.Context, ar fosite.AuthorizeReques
 	return nil
 }
 
-func (h *Handler) isReauthCompleted(ctx *echo.Context) bool {
+const reauthRequestMarkerKey = "reauth_request_marker"
+
+func reauthRequestMarker(requestURI string) string {
+	digest := sha256.Sum256([]byte(requestURI))
+	return base64.RawURLEncoding.EncodeToString(digest[:])
+}
+
+func (h *Handler) consumeReauthCompletion(ctx *echo.Context, requestURI string) (bool, error) {
 	session, err := h.sessions.Get(ctx.Request(), sessionName)
 	if err != nil {
-		return false
+		return false, err
 	}
 
-	_, ok := session.Values["reauth_requested_at"].(int64)
-	if !ok {
-		return false
+	marker, ok := session.Values[reauthRequestMarkerKey].(string)
+	if !ok || marker != reauthRequestMarker(requestURI) {
+		return false, nil
 	}
 
 	authenticated, ok := session.Values["authenticated"].(bool)
-	return ok && authenticated
+	if !ok || !authenticated {
+		return false, nil
+	}
+
+	delete(session.Values, reauthRequestMarkerKey)
+	if err := session.Save(ctx.Request(), ctx.Response()); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // stripUnsupportedAuthorizeParameters records which unsupported OIDC request
@@ -164,27 +179,13 @@ func stripUnsupportedAuthorizeParameters(req *http.Request) error {
 	return unsupportedError
 }
 
-func (h *Handler) clearReauthRequest(ctx *echo.Context) error {
-	session, err := h.sessions.Get(ctx.Request(), sessionName)
-	if err != nil {
-		return err
-	}
-
-	if _, ok := session.Values["reauth_requested_at"]; !ok {
-		return nil
-	}
-
-	delete(session.Values, "reauth_requested_at")
-	return session.Save(ctx.Request(), ctx.Response())
-}
-
 func (h *Handler) redirectToLogin(ctx *echo.Context, returnURL *url.URL) error {
 	session, err := h.sessions.Get(ctx.Request(), sessionName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get session")
 	}
 
-	session.Values["reauth_requested_at"] = time.Now().Unix()
+	session.Values[reauthRequestMarkerKey] = reauthRequestMarker(returnURL.RequestURI())
 	session.Values["authenticated"] = false
 
 	if err := session.Save(ctx.Request(), ctx.Response()); err != nil {
