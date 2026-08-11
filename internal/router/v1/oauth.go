@@ -204,7 +204,7 @@ func parseMaxAge(ar fosite.AuthorizeRequester) (*int64, error) {
 //     https://datatracker.ietf.org/doc/html/rfc7009#section-2.1
 //   - RFC 7009 §2.2 (Revocation Response)
 //     https://datatracker.ietf.org/doc/html/rfc7009#section-2.2
-func (h *Handler) Revoke(ctx *echo.Context) error {
+func (h *Handler) RevokeToken(ctx *echo.Context) error {
 	c := ctx.Request().Context()
 	rw := ctx.Response()
 	req := ctx.Request()
@@ -226,6 +226,31 @@ func (h *Handler) Token(ctx *echo.Context) error {
 	}
 
 	h.oauth2.WriteAccessResponse(result.Context, ctx.Response(), result.Request, result.Response)
+	return nil
+}
+
+// Introspect implements RFC 7662 OAuth 2.0 Token Introspection. fosite already
+// wires OAuth2TokenIntrospectionFactory into the provider; the handler shapes
+// the request and writes whatever fosite returns. Per RFC 7662 §2.2, an
+// inactive or unknown token still yields HTTP 200 with {"active": false}.
+//
+// Refs:
+//   - RFC 7662 §2.1 (Introspection Request)
+//     https://datatracker.ietf.org/doc/html/rfc7662#section-2.1
+//   - RFC 7662 §2.2 (Introspection Response)
+//     https://datatracker.ietf.org/doc/html/rfc7662#section-2.2
+func (h *Handler) IntrospectToken(ctx *echo.Context) error {
+	c := ctx.Request().Context()
+	rw := ctx.Response()
+	req := ctx.Request()
+
+	resp, err := h.oauth2.NewIntrospectionRequest(c, req, oauth.NewSession("", time.Time{}))
+	if err != nil {
+		h.oauth2.WriteIntrospectionError(c, rw, err)
+		return nil
+	}
+
+	h.oauth2.WriteIntrospectionResponse(c, rw, resp)
 	return nil
 }
 
