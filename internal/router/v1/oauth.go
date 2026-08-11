@@ -40,12 +40,27 @@ func (h *Handler) authorize(ctx *echo.Context) error {
 	// fosite would otherwise try to parse the JWT request object and surface
 	// invalid_request_object instead.
 	if err := req.ParseForm(); err == nil {
-		if req.Form.Get("request") != "" {
-			h.oauth2.WriteAuthorizeError(c, rw, &fosite.AuthorizeRequest{Request: fosite.Request{Form: req.Form}}, fosite.ErrRequestNotSupported)
-			return nil
+		var requestObjectErr error
+		switch {
+		case req.Form.Get("request") != "":
+			requestObjectErr = fosite.ErrRequestNotSupported
+		case req.Form.Get("request_uri") != "":
+			requestObjectErr = fosite.ErrRequestURINotSupported
 		}
-		if req.Form.Get("request_uri") != "" {
-			h.oauth2.WriteAuthorizeError(c, rw, &fosite.AuthorizeRequest{Request: fosite.Request{Form: req.Form}}, fosite.ErrRequestURINotSupported)
+		if requestObjectErr != nil {
+			// OIDC Core 1.0 §3.1.2.6: the error belongs at the client's
+			// registered redirect_uri. fosite only redirects when the requester
+			// it is handed has an already-validated redirect URI, so re-run the
+			// normal validation with the request object stripped out. A bare
+			// AuthorizeRequest would make IsRedirectURIValid() false and fosite
+			// would answer with a direct 400 the RP never sees.
+			//
+			// Any validation error is discarded on purpose: whatever else is
+			// malformed, the request object is what the RP has to fix. ar still
+			// carries a validated redirect_uri when the request has one, and
+			// fosite falls back to a direct response when it does not.
+			ar, _ := h.oauth2.NewAuthorizeRequest(c, withoutRequestObject(req)) //nolint:errcheck // see above
+			h.oauth2.WriteAuthorizeError(c, rw, ar, requestObjectErr)
 			return nil
 		}
 	}
@@ -158,6 +173,19 @@ func (h *Handler) redirectToLogin(ctx *echo.Context, returnURL *url.URL) error {
 	}
 
 	return ctx.Redirect(http.StatusFound, "/login?return_url="+url.QueryEscape(returnURL.String()))
+}
+
+// withoutRequestObject copies req with the request / request_uri parameters
+// removed so the remainder of the authorization request can still be validated.
+// http.Request.Clone deep-copies Form, and fosite reuses a non-nil Form instead
+// of re-parsing the raw query, so dropping the keys there is enough.
+func withoutRequestObject(req *http.Request) *http.Request {
+	stripped := req.Clone(req.Context())
+	for _, key := range []string{"request", "request_uri"} {
+		stripped.Form.Del(key)
+		stripped.PostForm.Del(key)
+	}
+	return stripped
 }
 
 // parseMaxAge returns the max_age parameter as a pointer.
