@@ -33,26 +33,26 @@ func (h *Handler) authorize(ctx *echo.Context) error {
 	rw := ctx.Response()
 	req := ctx.Request()
 
-	// Discovery advertises request_parameter_supported=false and
-	// request_uri_parameter_supported=false. OIDC Core 1.0 §6.1 requires the
-	// matching error codes (request_not_supported / request_uri_not_supported)
-	// when these parameters are sent regardless. Without this short-circuit
-	// fosite would otherwise try to parse the JWT request object and surface
-	// invalid_request_object instead.
-	if err := req.ParseForm(); err == nil {
-		if req.Form.Get("request") != "" {
-			h.oauth2.WriteAuthorizeError(c, rw, &fosite.AuthorizeRequest{Request: fosite.Request{Form: req.Form}}, fosite.ErrRequestNotSupported)
-			return nil
-		}
-		if req.Form.Get("request_uri") != "" {
-			h.oauth2.WriteAuthorizeError(c, rw, &fosite.AuthorizeRequest{Request: fosite.Request{Form: req.Form}}, fosite.ErrRequestURINotSupported)
-			return nil
-		}
-	}
+	// Remove unsupported request-object parameters before fosite parses them.
+	// This lets fosite validate the client and redirect URI first, so a safe
+	// redirect receives request_not_supported instead of an unredirected 400.
+	unsupportedRequestError := stripUnsupportedAuthorizeParameters(req)
 
 	ar, err := h.oauth2.NewAuthorizeRequest(c, req)
+	// An unsupported request object may be the only place that carries state.
+	// In that case fosite reaches its state validation only after it has safely
+	// validated the outer client and redirect URI. Prefer the protocol-specific
+	// unsupported error once that redirect is known to be registered.
+	if unsupportedRequestError != nil && ar != nil && ar.IsRedirectURIValid() {
+		h.oauth2.WriteAuthorizeError(c, rw, ar, unsupportedRequestError)
+		return nil
+	}
 	if err != nil {
 		h.oauth2.WriteAuthorizeError(c, rw, ar, err)
+		return nil
+	}
+	if unsupportedRequestError != nil {
+		h.oauth2.WriteAuthorizeError(c, rw, ar, unsupportedRequestError)
 		return nil
 	}
 
@@ -75,7 +75,7 @@ func (h *Handler) authorize(ctx *echo.Context) error {
 		Authenticated:   authenticated,
 		AuthTime:        info.AuthTime,
 		MaxAge:          maxAge,
-		ReauthCompleted: h.isReauthCompleted(ctx, info.AuthTime),
+		ReauthCompleted: h.isReauthCompleted(ctx),
 	})
 
 	if action == usecase.AuthorizeActionInvalidRequest {
@@ -116,18 +116,52 @@ func (h *Handler) completeAuthorize(ctx *echo.Context, ar fosite.AuthorizeReques
 	return nil
 }
 
-func (h *Handler) isReauthCompleted(ctx *echo.Context, authTime time.Time) bool {
+func (h *Handler) isReauthCompleted(ctx *echo.Context) bool {
 	session, err := h.sessions.Get(ctx.Request(), sessionName)
 	if err != nil {
 		return false
 	}
 
-	reqAt, ok := session.Values["reauth_requested_at"].(int64)
+	_, ok := session.Values["reauth_requested_at"].(int64)
 	if !ok {
 		return false
 	}
 
-	return authTime.Unix() > reqAt
+	authenticated, ok := session.Values["authenticated"].(bool)
+	return ok && authenticated
+}
+
+// stripUnsupportedAuthorizeParameters records which unsupported OIDC request
+// parameter was supplied and removes it from every form representation that
+// net/http may reuse. In particular, multipart values must be removed from
+// MultipartForm as well, otherwise fosite's ParseMultipartForm call restores
+// the parameter after it was deleted from Form.
+func stripUnsupportedAuthorizeParameters(req *http.Request) error {
+	if err := req.ParseMultipartForm(1 << 20); err != nil && !errors.Is(err, http.ErrNotMultipart) {
+		// Let fosite produce the normal invalid_request response for malformed
+		// bodies instead of replacing that parsing error here.
+		return nil
+	}
+
+	var unsupportedError error
+	if req.Form.Get("request") != "" {
+		unsupportedError = fosite.ErrRequestNotSupported
+	} else if req.Form.Get("request_uri") != "" {
+		unsupportedError = fosite.ErrRequestURINotSupported
+	}
+	if unsupportedError == nil {
+		return nil
+	}
+
+	for _, key := range []string{"request", "request_uri"} {
+		req.Form.Del(key)
+		req.PostForm.Del(key)
+		if req.MultipartForm != nil {
+			delete(req.MultipartForm.Value, key)
+		}
+	}
+
+	return unsupportedError
 }
 
 func (h *Handler) clearReauthRequest(ctx *echo.Context) error {
