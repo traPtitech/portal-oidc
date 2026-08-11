@@ -75,7 +75,7 @@ func (h *Handler) authorize(ctx *echo.Context) error {
 		Authenticated:   authenticated,
 		AuthTime:        info.AuthTime,
 		MaxAge:          maxAge,
-		ReauthCompleted: h.isReauthCompleted(ctx, info.AuthTime),
+		ReauthCompleted: h.isReauthCompleted(ctx),
 	})
 
 	if action == usecase.AuthorizeActionInvalidRequest {
@@ -116,18 +116,28 @@ func (h *Handler) completeAuthorize(ctx *echo.Context, ar fosite.AuthorizeReques
 	return nil
 }
 
-func (h *Handler) isReauthCompleted(ctx *echo.Context, authTime time.Time) bool {
+// isReauthCompleted reports whether the user has logged in again since the
+// server last asked them to (prompt=login, or max_age elapsing).
+//
+// The check deliberately does not compare timestamps. auth_time and
+// reauth_requested_at are both whole seconds, so a login that completes in the
+// same second as the request — the norm for anything faster than a human, and
+// for the conformance suite in particular — leaves the two equal and no
+// strict comparison can tell "logged in again" from "never logged in". The
+// authenticated flag carries the same information exactly: redirectToLogin
+// clears it, and only a fresh PostLogin can set it back.
+func (h *Handler) isReauthCompleted(ctx *echo.Context) bool {
 	session, err := h.sessions.Get(ctx.Request(), sessionName)
 	if err != nil {
 		return false
 	}
 
-	reqAt, ok := session.Values["reauth_requested_at"].(int64)
-	if !ok {
+	if _, ok := session.Values["reauth_requested_at"].(int64); !ok {
 		return false
 	}
 
-	return authTime.Unix() > reqAt
+	authenticated, ok := session.Values["authenticated"].(bool)
+	return ok && authenticated
 }
 
 func (h *Handler) clearReauthRequest(ctx *echo.Context) error {
