@@ -70,7 +70,7 @@ func (h *Handler) authorize(ctx *echo.Context) error {
 		Authenticated:   authenticated,
 		AuthTime:        info.AuthTime,
 		MaxAge:          maxAge,
-		ReauthCompleted: h.isReauthCompleted(ctx),
+		ReauthCompleted: h.isReauthCompleted(ctx, info.AuthTime),
 	})
 
 	if action == usecase.AuthorizeActionInvalidRequest {
@@ -111,28 +111,18 @@ func (h *Handler) completeAuthorize(ctx *echo.Context, ar fosite.AuthorizeReques
 	return nil
 }
 
-// isReauthCompleted reports whether the user has logged in again since the
-// server last asked them to (prompt=login, or max_age elapsing).
-//
-// auth_time and reauth_requested_at are both whole seconds, so a login that
-// completes in the same second as the request leaves them equal and a strict
-// comparison cannot tell "logged in again" from "never logged in". That is not
-// hypothetical: the conformance suite's own browser drives the login fast
-// enough to hit it, and oidcc-prompt-login then loops authorize -> /login
-// forever. redirectToLogin clears authenticated and only a fresh PostLogin can
-// set it back, so the flag answers the same question without a clock.
-func (h *Handler) isReauthCompleted(ctx *echo.Context) bool {
+func (h *Handler) isReauthCompleted(ctx *echo.Context, authTime time.Time) bool {
 	session, err := h.sessions.Get(ctx.Request(), sessionName)
 	if err != nil {
 		return false
 	}
 
-	if _, ok := session.Values["reauth_requested_at"].(int64); !ok {
+	reqAt, ok := session.Values["reauth_requested_at"].(int64)
+	if !ok {
 		return false
 	}
 
-	authenticated, ok := session.Values["authenticated"].(bool)
-	return ok && authenticated
+	return authTime.Unix() > reqAt
 }
 
 // stripUnsupportedAuthorizeParameters records which unsupported OIDC request

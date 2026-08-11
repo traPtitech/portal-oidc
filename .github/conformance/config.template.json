@@ -18,26 +18,16 @@
   },
 
   "_browser_flows": {
-    "login": [
+    "reauth_prompt": [
       {
         "match": "${OIDC_ORIGIN}/oauth2/authorize*",
         "tasks": [
           {
-            "task": "Login",
+            "task": "Capture reauthentication prompt",
             "optional": true,
             "match": "${OIDC_ORIGIN}/login*",
             "commands": [
-              ["wait", "xpath", "//*", 10, "(?s).*Login.*", "update-image-placeholder-optional"],
-              ["text", "name", "username", "${TEST_USERNAME}", "optional"],
-              ["text", "name", "password", "${TEST_PASSWORD}", "optional"],
-              ["click", "css", "button[type='submit']"]
-            ]
-          },
-          {
-            "task": "Verify Complete",
-            "match": "*/test/*/callback*",
-            "commands": [
-              ["wait", "id", "submission_complete", 10]
+              ["wait", "xpath", "//*", 10, "(?s).*Login.*", "update-image-placeholder-optional"]
             ]
           }
         ]
@@ -60,8 +50,8 @@
   },
 
   "_override_flows": {
-    "oidcc-prompt-login": "login",
-    "oidcc-max-age-1": "login",
+    "oidcc-prompt-login": "reauth_prompt",
+    "oidcc-max-age-1": "reauth_prompt",
     "oidcc-ensure-registered-redirect-uri": "redirect_uri_error",
     "oidcc-ensure-request-object-with-redirect-uri": "redirect_uri_error"
   }

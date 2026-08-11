@@ -13,10 +13,6 @@ OIDC_SERVER_LOCAL="${OIDC_SERVER_LOCAL:-localhost:8080}"
 # The suite's own browser reaches portal-oidc under the discovery origin, not
 # under PORTAL_OIDC_URL, so the browser overrides have to match that one.
 OIDC_ORIGIN="${DISCOVERY_URL%/.well-known/openid-configuration}"
-# Same credentials the Python runner posts, kept in one place.
-TEST_USERNAME="${CONFORMANCE_TEST_USERNAME:-testuser}"
-TEST_PASSWORD="${CONFORMANCE_TEST_PASSWORD:-password}"
-
 TEST_PLAN="oidcc-basic-certification-test-plan"
 TEST_VARIANT='{"server_metadata":"discovery","client_registration":"static_client"}'
 
@@ -66,8 +62,6 @@ echo "==> Generating test config..."
 sed \
   -e "s|\${DISCOVERY_URL}|$DISCOVERY_URL|g" \
   -e "s|\${OIDC_ORIGIN}|$OIDC_ORIGIN|g" \
-  -e "s|\${TEST_USERNAME}|$TEST_USERNAME|g" \
-  -e "s|\${TEST_PASSWORD}|$TEST_PASSWORD|g" \
   -e "s|\${CLIENT_ID}|$CLIENT_ID|g" \
   -e "s|\${CLIENT_SECRET}|$CLIENT_SECRET|g" \
   -e "s|\${CLIENT_SECRET_POST_ID}|$CLIENT_SECRET_POST_ID|g" \

@@ -81,6 +81,11 @@ def find_authorize_url(log_entries: list) -> str | None:
 
 TEST_USERNAME = os.environ.get("CONFORMANCE_TEST_USERNAME", "testuser")
 TEST_PASSWORD = os.environ.get("CONFORMANCE_TEST_PASSWORD", "password")
+LOGIN_INPUT_DELAY_SECONDS = 1
+RUNNER_DRIVEN_BROWSER_MODULES = {
+    "oidcc-prompt-login",
+    "oidcc-max-age-1",
+}
 
 
 def submit_login_form(
@@ -99,6 +104,9 @@ def submit_login_form(
             return_url = value
             break
 
+    # portal-oidc records reauthentication times in whole seconds. The real UI
+    # naturally crosses that boundary while a test posts the form immediately.
+    time.sleep(LOGIN_INPUT_DELAY_SECONDS)
     print("  Browser: submitting login credentials")
     try:
         return browser.post(
@@ -254,6 +262,10 @@ def load_expected_skips(path: str | None) -> set[str]:
 
 def module_uses_suite_browser(config: dict, module_name: str) -> bool:
     """Return whether this module has native suite browser automation."""
+    # These modules still use the suite browser to capture the required login
+    # screenshot, while this runner drives the delayed login and callback.
+    if module_name in RUNNER_DRIVEN_BROWSER_MODULES:
+        return False
     overrides = config.get("override", {})
     if not isinstance(overrides, dict):
         return False
