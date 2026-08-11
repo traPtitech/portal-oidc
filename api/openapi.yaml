@@ -214,13 +214,17 @@ paths:
       tags:
         - oauth2/oidc
       parameters:
+        # OIDC Core 1.0 上は必須。ただし欠落時のエラーは OIDC Core 1.0 Section 3.1.2.6 に従い
+        # 登録済み redirect_uri へ返す必要がある (fosite は unsupported_response_type を返す)。
+        # required: true にすると oapi-codegen 生成の binding が先に 400 を返してしまい、
+        # RP がエラーを受け取れないため、必須判定は OAuth 層 (fosite) に委ねる。
         - name: response_type
           in: query
-          required: true
+          required: false
           schema:
             type: string
             enum: [code]
-          description: レスポンスタイプ (現在は code のみサポート)
+          description: レスポンスタイプ (現在は code のみサポート。OIDC 上は必須)
         - name: client_id
           in: query
           required: true
