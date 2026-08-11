@@ -33,18 +33,32 @@ func (h *Handler) authorize(ctx *echo.Context) error {
 	rw := ctx.Response()
 	req := ctx.Request()
 
-	// Remove unsupported request-object parameters before fosite parses them.
-	// This lets fosite validate the client and redirect URI first, so a safe
-	// redirect receives request_not_supported instead of an unredirected 400.
-	unsupportedRequestError := stripUnsupportedAuthorizeParameters(req)
+	// Discovery advertises request_parameter_supported=false and
+	// request_uri_parameter_supported=false. OIDC Core 1.0 §6.1 requires the
+	// matching error codes (request_not_supported / request_uri_not_supported)
+	// when these parameters are sent regardless. The parameter is dropped rather
+	// than answered here so fosite still validates the client and redirect URI;
+	// otherwise the error cannot be redirected and becomes a bare 400.
+	var unsupported error
+	if err := req.ParseForm(); err == nil {
+		if req.Form.Get("request") != "" {
+			unsupported = fosite.ErrRequestNotSupported
+		}
+		if req.Form.Get("request_uri") != "" {
+			unsupported = fosite.ErrRequestURINotSupported
+		}
+		req.Form.Del("request")
+		req.Form.Del("request_uri")
+		req.PostForm.Del("request")
+		req.PostForm.Del("request_uri")
+	}
 
 	ar, err := h.oauth2.NewAuthorizeRequest(c, req)
-	// The request-object rejection wins whenever it can actually reach the client
-	// (OIDC Core 1.0 §3.1.2.6). When the outer redirect_uri is itself unusable,
-	// RFC 6749 §4.1.2.1 forbids redirecting at all, and fosite's own error is the
-	// one that explains why.
-	if unsupportedRequestError != nil && (ar.IsRedirectURIValid() || err == nil) {
-		err = unsupportedRequestError
+	// Send the rejection to the redirect_uri once fosite has accepted it
+	// (OIDC Core 1.0 §3.1.2.6); when it is unusable RFC 6749 §4.1.2.1 forbids
+	// redirecting and fosite's error is the one that explains why.
+	if unsupported != nil && (ar.IsRedirectURIValid() || err == nil) {
+		err = unsupported
 	}
 	if err != nil {
 		h.oauth2.WriteAuthorizeError(c, rw, ar, err)
@@ -123,36 +137,6 @@ func (h *Handler) isReauthCompleted(ctx *echo.Context, authTime time.Time) bool 
 	}
 
 	return authTime.Unix() > reqAt
-}
-
-// stripUnsupportedAuthorizeParameters records which unsupported OIDC request
-// parameter was supplied and removes it so fosite validates the rest of the
-// request normally. Removing it before fosite runs is what lets the resulting
-// error reach a registered redirect_uri instead of becoming a direct 400.
-func stripUnsupportedAuthorizeParameters(req *http.Request) error {
-	if err := req.ParseForm(); err != nil {
-		// Let fosite produce the normal invalid_request response for malformed
-		// bodies instead of replacing that parsing error here.
-		return nil //nolint:nilerr // intentional: fosite reports the parse failure
-	}
-
-	var unsupportedError error
-	switch {
-	case req.Form.Get("request") != "":
-		unsupportedError = fosite.ErrRequestNotSupported
-	case req.Form.Get("request_uri") != "":
-		unsupportedError = fosite.ErrRequestURINotSupported
-	}
-	if unsupportedError == nil {
-		return nil
-	}
-
-	for _, key := range []string{"request", "request_uri"} {
-		req.Form.Del(key)
-		req.PostForm.Del(key)
-	}
-
-	return unsupportedError
 }
 
 func (h *Handler) clearReauthRequest(ctx *echo.Context) error {
