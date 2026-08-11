@@ -56,6 +56,11 @@ jobs:
               username: ${{ github.actor }}
               password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Test conformance runner
+        run: >-
+          uv run --project .github/scripts --locked python -m unittest discover
+          -s .github/scripts -p 'test_*.py'
+
       - name: Start conformance suite
         id: conformance-suite-start
         run: docker compose -f .github/conformance/docker-compose.yml up --wait --wait-timeout 300

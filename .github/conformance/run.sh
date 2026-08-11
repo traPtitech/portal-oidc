@@ -16,31 +16,53 @@ TEST_VARIANT='{"server_metadata":"discovery","client_registration":"static_clien
 
 mkdir -p "$SCRIPT_DIR/results"
 
-echo "==> Creating test client..."
-RESPONSE=$(curl -sf -X POST "$PORTAL_OIDC_URL/api/v1/admin/clients" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"name\": \"conformance-suite\",
-    \"client_type\": \"confidential\",
-    \"redirect_uris\": [\"$REDIRECT_URI\"]
-  }")
+create_client() {
+  local name="$1"
+  curl -sf -X POST "$PORTAL_OIDC_URL/api/v1/admin/clients" \
+    -H "Content-Type: application/json" \
+    -d "{
+      \"name\": \"$name\",
+      \"client_type\": \"confidential\",
+      \"redirect_uris\": [\"$REDIRECT_URI\"]
+    }"
+}
 
-CLIENT_ID=$(echo "$RESPONSE" | jq -r '.client_id')
-CLIENT_SECRET=$(echo "$RESPONSE" | jq -r '.client_secret')
+echo "==> Creating test clients..."
+CLIENT_RESPONSE=$(create_client "conformance-suite")
+CLIENT_SECRET_POST_RESPONSE=$(create_client "conformance-suite-client-secret-post")
+CLIENT2_RESPONSE=$(create_client "conformance-suite-client-2")
 
-if [[ -z "$CLIENT_ID" || "$CLIENT_ID" == "null" || -z "$CLIENT_SECRET" || "$CLIENT_SECRET" == "null" ]]; then
-  echo "Error: Failed to extract client credentials from response"
-  exit 1
-fi
+CLIENT_ID=$(echo "$CLIENT_RESPONSE" | jq -r '.client_id')
+CLIENT_SECRET=$(echo "$CLIENT_RESPONSE" | jq -r '.client_secret')
+CLIENT_SECRET_POST_ID=$(echo "$CLIENT_SECRET_POST_RESPONSE" | jq -r '.client_id')
+CLIENT_SECRET_POST_SECRET=$(echo "$CLIENT_SECRET_POST_RESPONSE" | jq -r '.client_secret')
+CLIENT2_ID=$(echo "$CLIENT2_RESPONSE" | jq -r '.client_id')
+CLIENT2_SECRET=$(echo "$CLIENT2_RESPONSE" | jq -r '.client_secret')
 
-echo "    client_id=$CLIENT_ID"
-echo "    client_secret=***"
+for value in \
+  "$CLIENT_ID" "$CLIENT_SECRET" \
+  "$CLIENT_SECRET_POST_ID" "$CLIENT_SECRET_POST_SECRET" \
+  "$CLIENT2_ID" "$CLIENT2_SECRET"; do
+  if [[ -z "$value" || "$value" == "null" ]]; then
+    echo "Error: Failed to extract client credentials from response"
+    exit 1
+  fi
+done
+
+echo "    primary client_id=$CLIENT_ID"
+echo "    client_secret_post client_id=$CLIENT_SECRET_POST_ID"
+echo "    second client_id=$CLIENT2_ID"
+echo "    client secrets=***"
 
 echo "==> Generating test config..."
 sed \
   -e "s|\${DISCOVERY_URL}|$DISCOVERY_URL|g" \
   -e "s|\${CLIENT_ID}|$CLIENT_ID|g" \
   -e "s|\${CLIENT_SECRET}|$CLIENT_SECRET|g" \
+  -e "s|\${CLIENT_SECRET_POST_ID}|$CLIENT_SECRET_POST_ID|g" \
+  -e "s|\${CLIENT_SECRET_POST_SECRET}|$CLIENT_SECRET_POST_SECRET|g" \
+  -e "s|\${CLIENT2_ID}|$CLIENT2_ID|g" \
+  -e "s|\${CLIENT2_SECRET}|$CLIENT2_SECRET|g" \
   "$SCRIPT_DIR/config.template.json" > "$SCRIPT_DIR/results/config.json"
 
 echo "==> Running conformance test plan: $TEST_PLAN"
