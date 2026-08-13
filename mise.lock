@@ -37,7 +37,7 @@ version = "1.31.1"
 backend = "go:github.com/sqlc-dev/sqlc/cmd/sqlc"
 
 [[tools."go:golang.org/x/vuln/cmd/govulncheck"]]
-version = "1.6.0"
+version = "1.7.0"
 backend = "go:golang.org/x/vuln/cmd/govulncheck"
 
 [[tools.golangci-lint]]
