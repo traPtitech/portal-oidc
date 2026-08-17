@@ -176,9 +176,10 @@ paths:
       summary: OAuth 2.0 Authorization Server Metadata
       description: |
         RFC 8414 のメタデータを返却。OAuth 2.1 / 2.0 クライアントが
-        endpoint discovery に利用する。OIDC Discovery と一部フィールドを共有するが、
-        OIDC 専用 (id_token_signing_alg_values_supported, subject_types_supported, claims_supported) を
-        除き OAuth 専用 (revocation_endpoint, introspection_endpoint, response_modes_supported) を含む。
+        endpoint discovery に利用する。OIDC Discovery と一部フィールドを共有する。
+        OIDC 固有の id_token_signing_alg_values_supported、subject_types_supported、
+        claims_supported は含めず、revocation_endpoint、introspection_endpoint などの
+        OAuth Authorization Server Metadata を返す。
       tags:
         - discovery
       responses:
