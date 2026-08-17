@@ -56,6 +56,9 @@ type ServerInterface interface {
 	// GetRPInitiatedLogout RP-Initiated Logout (OpenID Connect)
 	// (GET /oauth2/logout)
 	GetRPInitiatedLogout(ctx *echo.Context, params GetRPInitiatedLogoutParams) error
+	// PostRPInitiatedLogoutConfirmation RP-Initiated Logout のユーザー確認
+	// (POST /oauth2/logout/confirm)
+	PostRPInitiatedLogoutConfirmation(ctx *echo.Context) error
 	// RevokeToken トークン失効エンドポイント (RFC 7009)
 	// (POST /oauth2/revoke)
 	RevokeToken(ctx *echo.Context) error
@@ -329,6 +332,15 @@ func (w *ServerInterfaceWrapper) GetRPInitiatedLogout(ctx *echo.Context) error {
 	return err
 }
 
+// PostRPInitiatedLogoutConfirmation converts echo context to params.
+func (w *ServerInterfaceWrapper) PostRPInitiatedLogoutConfirmation(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.PostRPInitiatedLogoutConfirmation(ctx)
+	return err
+}
+
 // RevokeToken converts echo context to params.
 func (w *ServerInterfaceWrapper) RevokeToken(ctx *echo.Context) error {
 	var err error
@@ -421,6 +433,7 @@ func RegisterHandlersWithOptions(router EchoRouter, si ServerInterface, options 
 	router.GET(options.BaseURL+"/.well-known/openid-configuration", wrapper.GetOpenIDConfiguration, options.OperationMiddlewares["getOpenIDConfiguration"]...)
 	router.GET(options.BaseURL+"/.well-known/jwks.json", wrapper.GetJWKS, options.OperationMiddlewares["getJWKS"]...)
 	router.GET(options.BaseURL+"/oauth2/logout", wrapper.GetRPInitiatedLogout, options.OperationMiddlewares["getRPInitiatedLogout"]...)
+	router.POST(options.BaseURL+"/oauth2/logout/confirm", wrapper.PostRPInitiatedLogoutConfirmation, options.OperationMiddlewares["postRPInitiatedLogoutConfirmation"]...)
 	router.GET(options.BaseURL+"/.well-known/oauth-authorization-server", wrapper.GetOAuthAuthorizationServerMetadata, options.OperationMiddlewares["getOAuthAuthorizationServerMetadata"]...)
 	router.POST(options.BaseURL+"/oauth2/introspect", wrapper.IntrospectToken, options.OperationMiddlewares["introspectToken"]...)
 	router.GET(options.BaseURL+"/oauth2/userinfo", wrapper.GetUserInfo, options.OperationMiddlewares["getUserInfo"]...)
@@ -859,6 +872,30 @@ func (response GetRPInitiatedLogout400Response) VisitGetRPInitiatedLogoutRespons
 	return nil
 }
 
+type PostRPInitiatedLogoutConfirmationRequestObject struct {
+	Body *PostRPInitiatedLogoutConfirmationFormdataRequestBody
+}
+
+type PostRPInitiatedLogoutConfirmationResponseObject interface {
+	VisitPostRPInitiatedLogoutConfirmationResponse(w http.ResponseWriter) error
+}
+
+type PostRPInitiatedLogoutConfirmation200Response struct {
+}
+
+func (response PostRPInitiatedLogoutConfirmation200Response) VisitPostRPInitiatedLogoutConfirmationResponse(w http.ResponseWriter) error {
+	w.WriteHeader(200)
+	return nil
+}
+
+type PostRPInitiatedLogoutConfirmation400Response struct {
+}
+
+func (response PostRPInitiatedLogoutConfirmation400Response) VisitPostRPInitiatedLogoutConfirmationResponse(w http.ResponseWriter) error {
+	w.WriteHeader(400)
+	return nil
+}
+
 type RevokeTokenRequestObject struct {
 	Body *RevokeTokenFormdataRequestBody
 }
@@ -1052,6 +1089,9 @@ type StrictServerInterface interface {
 	// GetRPInitiatedLogout RP-Initiated Logout (OpenID Connect)
 	// (GET /oauth2/logout)
 	GetRPInitiatedLogout(ctx context.Context, request GetRPInitiatedLogoutRequestObject) (GetRPInitiatedLogoutResponseObject, error)
+	// PostRPInitiatedLogoutConfirmation RP-Initiated Logout のユーザー確認
+	// (POST /oauth2/logout/confirm)
+	PostRPInitiatedLogoutConfirmation(ctx context.Context, request PostRPInitiatedLogoutConfirmationRequestObject) (PostRPInitiatedLogoutConfirmationResponseObject, error)
 	// RevokeToken トークン失効エンドポイント (RFC 7009)
 	// (POST /oauth2/revoke)
 	RevokeToken(ctx context.Context, request RevokeTokenRequestObject) (RevokeTokenResponseObject, error)
@@ -1435,6 +1475,39 @@ func (sh *strictHandler) GetRPInitiatedLogout(ctx *echo.Context, params GetRPIni
 		return err
 	} else if validResponse, ok := response.(GetRPInitiatedLogoutResponseObject); ok {
 		return validResponse.VisitGetRPInitiatedLogoutResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// PostRPInitiatedLogoutConfirmation operation middleware
+func (sh *strictHandler) PostRPInitiatedLogoutConfirmation(ctx *echo.Context) error {
+	var request PostRPInitiatedLogoutConfirmationRequestObject
+
+	if form, err := ctx.FormValues(); err == nil {
+		var body PostRPInitiatedLogoutConfirmationFormdataRequestBody
+		if err := runtime.BindForm(&body, form, nil, nil); err != nil {
+			return err
+		}
+		request.Body = &body
+	} else {
+		return err
+	}
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.PostRPInitiatedLogoutConfirmation(ctx.Request().Context(), request.(PostRPInitiatedLogoutConfirmationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostRPInitiatedLogoutConfirmation")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(PostRPInitiatedLogoutConfirmationResponseObject); ok {
+		return validResponse.VisitPostRPInitiatedLogoutConfirmationResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}

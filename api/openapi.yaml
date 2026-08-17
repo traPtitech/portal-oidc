@@ -225,6 +225,33 @@ paths:
         "400":
           description: Bad Request (id_token_hint 不正等)
 
+  /oauth2/logout/confirm:
+    post:
+      operationId: postRPInitiatedLogoutConfirmation
+      summary: RP-Initiated Logout のユーザー確認
+      description: |
+        id_token_hint が無い、または現在の OP セッションに結び付かない
+        logout request を、エンドユーザーの明示確認後に完了する。
+      tags:
+        - oauth2/oidc
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - logout_challenge
+              properties:
+                logout_challenge:
+                  type: string
+                  description: 確認画面と署名済みセッションに結合された期限付きchallenge
+      responses:
+        "200":
+          description: ログアウト完了ページ
+        "400":
+          description: challengeが不正、期限切れ、または現在のセッションと不一致
+
   /.well-known/oauth-authorization-server:
     get:
       operationId: getOAuthAuthorizationServerMetadata

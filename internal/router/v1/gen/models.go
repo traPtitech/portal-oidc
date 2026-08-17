@@ -629,6 +629,12 @@ type GetRPInitiatedLogoutParams struct {
 	UiLocales *string `form:"ui_locales,omitempty" json:"ui_locales,omitempty"`
 }
 
+// PostRPInitiatedLogoutConfirmationFormdataBody defines parameters for PostRPInitiatedLogoutConfirmation.
+type PostRPInitiatedLogoutConfirmationFormdataBody struct {
+	// LogoutChallenge 確認画面と署名済みセッションに結合された期限付きchallenge
+	LogoutChallenge string `form:"logout_challenge" json:"logout_challenge"`
+}
+
 // CreateClientJSONRequestBody defines body for CreateClient for application/json ContentType.
 type CreateClientJSONRequestBody = ClientCreate
 
@@ -640,6 +646,9 @@ type PostAuthorizeFormdataRequestBody = AuthorizeRequest
 
 // IntrospectTokenFormdataRequestBody defines body for IntrospectToken for application/x-www-form-urlencoded ContentType.
 type IntrospectTokenFormdataRequestBody = IntrospectRequest
+
+// PostRPInitiatedLogoutConfirmationFormdataRequestBody defines body for PostRPInitiatedLogoutConfirmation for application/x-www-form-urlencoded ContentType.
+type PostRPInitiatedLogoutConfirmationFormdataRequestBody PostRPInitiatedLogoutConfirmationFormdataBody
 
 // RevokeTokenFormdataRequestBody defines body for RevokeToken for application/x-www-form-urlencoded ContentType.
 type RevokeTokenFormdataRequestBody = RevokeRequest

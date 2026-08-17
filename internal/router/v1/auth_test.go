@@ -7,11 +7,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/go-jose/go-jose/v4"
 	josejwt "github.com/go-jose/go-jose/v4/jwt"
+	"github.com/gorilla/sessions"
 	"github.com/labstack/echo/v5"
 	fositejwt "github.com/ory/fosite/token/jwt"
 
@@ -307,7 +309,7 @@ func TestGetRPInitiatedLogoutValidatesExplicitClientID(t *testing.T) {
 	}
 }
 
-func TestGetRPInitiatedLogoutRejectsHintForDifferentLoggedInUser(t *testing.T) {
+func TestGetRPInitiatedLogoutRequiresConfirmationForDifferentLoggedInUser(t *testing.T) {
 	t.Parallel()
 
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -348,11 +350,196 @@ func TestGetRPInitiatedLogoutRejectsHintForDifferentLoggedInUser(t *testing.T) {
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want %d, body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d, body = %s", rec.Code, http.StatusOK, rec.Body.String())
 	}
-	if setCookies := rec.Header().Values("Set-Cookie"); len(setCookies) != 0 {
-		t.Fatalf("session was modified before rejecting id_token_hint: %v", setCookies)
+	if !strings.Contains(rec.Body.String(), "Confirm logout") {
+		t.Fatalf("body does not contain logout confirmation: %s", rec.Body.String())
+	}
+	confirmationCookie := singleResponseCookie(t, rec)
+	confirmationSession := readSessionCookie(t, handler, confirmationCookie)
+	if authenticated, _ := confirmationSession.Values["authenticated"].(bool); !authenticated {
+		t.Fatal("current session was logged out before confirmation")
+	}
+	if userID, _ := confirmationSession.Values["user_id"].(string); userID != loggedInUser {
+		t.Fatalf("current session user_id = %q, want %q", userID, loggedInUser)
+	}
+}
+
+func TestRPInitiatedLogoutWithoutHintRequiresConfirmation(t *testing.T) {
+	t.Parallel()
+
+	handler := newRPLogoutTestHandler(t)
+	e := echo.New()
+	gen.RegisterHandlers(e, handler)
+
+	const userID = "00000000-0000-0000-0000-000000000001"
+	authTime := time.Now().UTC().Truncate(time.Second).Add(-time.Minute)
+	authenticatedCookie := createAuthenticatedSessionCookie(t, handler, userID, authTime)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/oauth2/logout", nil)
+	req.AddCookie(authenticatedCookie)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET status = %d, want %d, body = %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "Confirm logout") {
+		t.Fatalf("GET body does not contain confirmation page: %s", rec.Body.String())
+	}
+	if location := rec.Header().Get("Location"); location != "" {
+		t.Fatalf("GET Location = %q, want empty", location)
+	}
+	if cacheControl := rec.Header().Get("Cache-Control"); cacheControl != "no-store" {
+		t.Fatalf("GET Cache-Control = %q, want no-store", cacheControl)
+	}
+
+	confirmationCookie := singleResponseCookie(t, rec)
+	confirmationSession := readSessionCookie(t, handler, confirmationCookie)
+	if authenticated, _ := confirmationSession.Values["authenticated"].(bool); !authenticated {
+		t.Fatal("GET cleared the authenticated session before confirmation")
+	}
+	challenge, ok := confirmationSession.Values[logoutConfirmationChallengeKey].(string)
+	if !ok || challenge == "" {
+		t.Fatal("GET did not store a logout confirmation challenge")
+	}
+
+	form := url.Values{"logout_challenge": {challenge}}
+	confirmReq := httptest.NewRequestWithContext(
+		context.Background(),
+		http.MethodPost,
+		"/oauth2/logout/confirm",
+		strings.NewReader(form.Encode()),
+	)
+	confirmReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	confirmReq.AddCookie(confirmationCookie)
+	confirmRec := httptest.NewRecorder()
+	e.ServeHTTP(confirmRec, confirmReq)
+
+	if confirmRec.Code != http.StatusOK {
+		t.Fatalf("POST status = %d, want %d, body = %s", confirmRec.Code, http.StatusOK, confirmRec.Body.String())
+	}
+	if !strings.Contains(confirmRec.Body.String(), "Logged out") {
+		t.Fatalf("POST body does not contain completion page: %s", confirmRec.Body.String())
+	}
+	clearedCookie := singleResponseCookie(t, confirmRec)
+	if clearedCookie.MaxAge >= 0 {
+		t.Fatalf("POST session cookie MaxAge = %d, want negative", clearedCookie.MaxAge)
+	}
+}
+
+func TestRPInitiatedLogoutInvalidHintRequiresConfirmation(t *testing.T) {
+	t.Parallel()
+
+	handler := newRPLogoutTestHandler(t)
+	e := echo.New()
+	gen.RegisterHandlers(e, handler)
+	authTime := time.Now().UTC().Truncate(time.Second).Add(-time.Minute)
+	authenticatedCookie := createAuthenticatedSessionCookie(
+		t,
+		handler,
+		"00000000-0000-0000-0000-000000000001",
+		authTime,
+	)
+
+	req := httptest.NewRequestWithContext(
+		context.Background(),
+		http.MethodGet,
+		"/oauth2/logout?id_token_hint=not-a-token",
+		nil,
+	)
+	req.AddCookie(authenticatedCookie)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d, body = %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "Confirm logout") {
+		t.Fatalf("body does not contain confirmation page: %s", rec.Body.String())
+	}
+	confirmationSession := readSessionCookie(t, handler, singleResponseCookie(t, rec))
+	if authenticated, _ := confirmationSession.Values["authenticated"].(bool); !authenticated {
+		t.Fatal("invalid id_token_hint cleared the authenticated session before confirmation")
+	}
+}
+
+func TestRPInitiatedLogoutConfirmationRejectsInvalidState(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		mutate func(*sessions.Session)
+		value  func(*sessions.Session) string
+	}{
+		{
+			name: "wrong challenge",
+			value: func(*sessions.Session) string {
+				return "wrong-challenge"
+			},
+		},
+		{
+			name: "expired challenge",
+			mutate: func(session *sessions.Session) {
+				session.Values[logoutConfirmationExpiresAtKey] = time.Now().Add(-time.Second).Unix()
+			},
+		},
+		{
+			name: "different current session",
+			mutate: func(session *sessions.Session) {
+				session.Values["auth_time"] = session.Values["auth_time"].(int64) + 1
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			handler := newRPLogoutTestHandler(t)
+			e := echo.New()
+			gen.RegisterHandlers(e, handler)
+			authTime := time.Now().UTC().Truncate(time.Second).Add(-time.Minute)
+			authenticatedCookie := createAuthenticatedSessionCookie(
+				t,
+				handler,
+				"00000000-0000-0000-0000-000000000001",
+				authTime,
+			)
+
+			getReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/oauth2/logout", nil)
+			getReq.AddCookie(authenticatedCookie)
+			getRec := httptest.NewRecorder()
+			e.ServeHTTP(getRec, getReq)
+			confirmationCookie := singleResponseCookie(t, getRec)
+			confirmationSession := readSessionCookie(t, handler, confirmationCookie)
+			if test.mutate != nil {
+				test.mutate(confirmationSession)
+				confirmationCookie = saveSessionCookie(t, confirmationSession, confirmationCookie)
+			}
+
+			challenge := confirmationSession.Values[logoutConfirmationChallengeKey].(string)
+			if test.value != nil {
+				challenge = test.value(confirmationSession)
+			}
+			form := url.Values{"logout_challenge": {challenge}}
+			postReq := httptest.NewRequestWithContext(
+				context.Background(),
+				http.MethodPost,
+				"/oauth2/logout/confirm",
+				strings.NewReader(form.Encode()),
+			)
+			postReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+			postReq.AddCookie(confirmationCookie)
+			postRec := httptest.NewRecorder()
+			e.ServeHTTP(postRec, postReq)
+
+			if postRec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want %d, body = %s", postRec.Code, http.StatusBadRequest, postRec.Body.String())
+			}
+			if setCookies := postRec.Header().Values("Set-Cookie"); len(setCookies) != 0 {
+				t.Fatalf("invalid confirmation modified the session: %v", setCookies)
+			}
+		})
 	}
 }
 
@@ -431,6 +618,51 @@ func createAuthenticatedSessionCookie(
 		t.Fatalf("session cookie count = %d, want 1", len(cookies))
 	}
 	return cookies[0]
+}
+
+func newRPLogoutTestHandler(t *testing.T) *Handler {
+	t.Helper()
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("failed to generate signing key: %v", err)
+	}
+	return NewHandler(nil, nil, nil, nil, OAuthConfig{
+		Issuer:        "https://oidc.example.com",
+		SessionSecret: []byte("test-session-secret-32-characters"), //nolint:gosec
+		PrivateKey:    privateKey,
+		IDTokenSigner: newTestIDTokenSigner(privateKey),
+	})
+}
+
+func singleResponseCookie(t *testing.T, rec *httptest.ResponseRecorder) *http.Cookie {
+	t.Helper()
+	cookies := rec.Result().Cookies()
+	if len(cookies) != 1 {
+		t.Fatalf("response cookie count = %d, want 1; headers = %v", len(cookies), rec.Header().Values("Set-Cookie"))
+	}
+	return cookies[0]
+}
+
+func readSessionCookie(t *testing.T, handler *Handler, cookie *http.Cookie) *sessions.Session {
+	t.Helper()
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
+	req.AddCookie(cookie)
+	session, err := handler.sessions.Get(req, sessionName)
+	if err != nil {
+		t.Fatalf("failed to read session cookie: %v", err)
+	}
+	return session
+}
+
+func saveSessionCookie(t *testing.T, session *sessions.Session, requestCookie *http.Cookie) *http.Cookie {
+	t.Helper()
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
+	req.AddCookie(requestCookie)
+	rec := httptest.NewRecorder()
+	if err := session.Save(req, rec); err != nil {
+		t.Fatalf("failed to save mutated session cookie: %v", err)
+	}
+	return singleResponseCookie(t, rec)
 }
 
 func newTestIDTokenSigner(privateKey *rsa.PrivateKey) fositejwt.Signer {
