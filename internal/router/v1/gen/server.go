@@ -20,6 +20,9 @@ type ServerInterface interface {
 	// GetJWKS JSON Web Key Set
 	// (GET /.well-known/jwks.json)
 	GetJWKS(ctx *echo.Context) error
+	// GetOAuthAuthorizationServerMetadata OAuth 2.0 Authorization Server Metadata
+	// (GET /.well-known/oauth-authorization-server)
+	GetOAuthAuthorizationServerMetadata(ctx *echo.Context) error
 	// GetOpenIDConfiguration OpenID Provider Configuration
 	// (GET /.well-known/openid-configuration)
 	GetOpenIDConfiguration(ctx *echo.Context) error
@@ -75,6 +78,15 @@ func (w *ServerInterfaceWrapper) GetJWKS(ctx *echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.GetJWKS(ctx)
+	return err
+}
+
+// GetOAuthAuthorizationServerMetadata converts echo context to params.
+func (w *ServerInterfaceWrapper) GetOAuthAuthorizationServerMetadata(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetOAuthAuthorizationServerMetadata(ctx)
 	return err
 }
 
@@ -359,6 +371,7 @@ func RegisterHandlersWithOptions(router EchoRouter, si ServerInterface, options 
 	router.POST(options.BaseURL+"/api/v1/admin/clients/:clientId/secret", wrapper.RegenerateClientSecret, options.OperationMiddlewares["regenerateClientSecret"]...)
 	router.GET(options.BaseURL+"/.well-known/openid-configuration", wrapper.GetOpenIDConfiguration, options.OperationMiddlewares["getOpenIDConfiguration"]...)
 	router.GET(options.BaseURL+"/.well-known/jwks.json", wrapper.GetJWKS, options.OperationMiddlewares["getJWKS"]...)
+	router.GET(options.BaseURL+"/.well-known/oauth-authorization-server", wrapper.GetOAuthAuthorizationServerMetadata, options.OperationMiddlewares["getOAuthAuthorizationServerMetadata"]...)
 	router.POST(options.BaseURL+"/oauth2/introspect", wrapper.IntrospectToken, options.OperationMiddlewares["introspectToken"]...)
 	router.GET(options.BaseURL+"/oauth2/userinfo", wrapper.GetUserInfo, options.OperationMiddlewares["getUserInfo"]...)
 	router.POST(options.BaseURL+"/oauth2/userinfo", wrapper.PostUserInfo, options.OperationMiddlewares["postUserInfo"]...)
@@ -379,6 +392,27 @@ type GetJWKSResponseObject interface {
 type GetJWKS200JSONResponse JWKS
 
 func (response GetJWKS200JSONResponse) VisitGetJWKSResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetOAuthAuthorizationServerMetadataRequestObject struct {
+}
+
+type GetOAuthAuthorizationServerMetadataResponseObject interface {
+	VisitGetOAuthAuthorizationServerMetadataResponse(w http.ResponseWriter) error
+}
+
+type GetOAuthAuthorizationServerMetadata200JSONResponse OAuthAuthorizationServerMetadata
+
+func (response GetOAuthAuthorizationServerMetadata200JSONResponse) VisitGetOAuthAuthorizationServerMetadataResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -900,6 +934,9 @@ type StrictServerInterface interface {
 	// GetJWKS JSON Web Key Set
 	// (GET /.well-known/jwks.json)
 	GetJWKS(ctx context.Context, request GetJWKSRequestObject) (GetJWKSResponseObject, error)
+	// GetOAuthAuthorizationServerMetadata OAuth 2.0 Authorization Server Metadata
+	// (GET /.well-known/oauth-authorization-server)
+	GetOAuthAuthorizationServerMetadata(ctx context.Context, request GetOAuthAuthorizationServerMetadataRequestObject) (GetOAuthAuthorizationServerMetadataResponseObject, error)
 	// GetOpenIDConfiguration OpenID Provider Configuration
 	// (GET /.well-known/openid-configuration)
 	GetOpenIDConfiguration(ctx context.Context, request GetOpenIDConfigurationRequestObject) (GetOpenIDConfigurationResponseObject, error)
@@ -973,6 +1010,29 @@ func (sh *strictHandler) GetJWKS(ctx *echo.Context) error {
 		return err
 	} else if validResponse, ok := response.(GetJWKSResponseObject); ok {
 		return validResponse.VisitGetJWKSResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetOAuthAuthorizationServerMetadata operation middleware
+func (sh *strictHandler) GetOAuthAuthorizationServerMetadata(ctx *echo.Context) error {
+	var request GetOAuthAuthorizationServerMetadataRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetOAuthAuthorizationServerMetadata(ctx.Request().Context(), request.(GetOAuthAuthorizationServerMetadataRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetOAuthAuthorizationServerMetadata")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetOAuthAuthorizationServerMetadataResponseObject); ok {
+		return validResponse.VisitGetOAuthAuthorizationServerMetadataResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}

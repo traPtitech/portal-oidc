@@ -433,6 +433,32 @@ type JWKS struct {
 	Keys []JWK `json:"keys"`
 }
 
+// OAuthAuthorizationServerMetadata RFC 8414 OAuth 2.0 Authorization Server Metadata.
+type OAuthAuthorizationServerMetadata struct {
+	AuthorizationEndpoint         string    `json:"authorization_endpoint"`
+	CodeChallengeMethodsSupported *[]string `json:"code_challenge_methods_supported,omitempty"`
+	GrantTypesSupported           *[]string `json:"grant_types_supported,omitempty"`
+
+	// IntrospectionEndpoint Token Introspection endpoint (RFC 7662)
+	IntrospectionEndpoint                     *string   `json:"introspection_endpoint,omitempty"`
+	IntrospectionEndpointAuthMethodsSupported *[]string `json:"introspection_endpoint_auth_methods_supported,omitempty"`
+	Issuer                                    string    `json:"issuer"`
+	JwksUri                                   *string   `json:"jwks_uri,omitempty"`
+
+	// RegistrationEndpoint Dynamic Client Registration endpoint (RFC 7591)
+	RegistrationEndpoint   *string   `json:"registration_endpoint,omitempty"`
+	ResponseModesSupported *[]string `json:"response_modes_supported,omitempty"`
+	ResponseTypesSupported []string  `json:"response_types_supported"`
+
+	// RevocationEndpoint Token Revocation endpoint (RFC 7009)
+	RevocationEndpoint                     *string   `json:"revocation_endpoint,omitempty"`
+	RevocationEndpointAuthMethodsSupported *[]string `json:"revocation_endpoint_auth_methods_supported,omitempty"`
+	ScopesSupported                        *[]string `json:"scopes_supported,omitempty"`
+	ServiceDocumentation                   *string   `json:"service_documentation,omitempty"`
+	TokenEndpoint                          string    `json:"token_endpoint"`
+	TokenEndpointAuthMethodsSupported      *[]string `json:"token_endpoint_auth_methods_supported,omitempty"`
+}
+
 // OAuthError defines model for OAuthError.
 type OAuthError struct {
 	Error OAuthErrorError `json:"error"`

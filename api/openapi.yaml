@@ -170,6 +170,26 @@ paths:
               schema:
                 $ref: "#/components/schemas/JWKS"
 
+  /.well-known/oauth-authorization-server:
+    get:
+      operationId: getOAuthAuthorizationServerMetadata
+      summary: OAuth 2.0 Authorization Server Metadata
+      description: |
+        RFC 8414 のメタデータを返却。OAuth 2.1 / 2.0 クライアントが
+        endpoint discovery に利用する。OIDC Discovery と一部フィールドを共有する。
+        OIDC 固有の id_token_signing_alg_values_supported、subject_types_supported、
+        claims_supported は含めず、revocation_endpoint、introspection_endpoint などの
+        OAuth Authorization Server Metadata を返す。
+      tags:
+        - discovery
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthAuthorizationServerMetadata"
+
   /oauth2/introspect:
     post:
       operationId: introspectToken
@@ -800,6 +820,76 @@ components:
           description: |
             Indicates whether the OP requires `request_uri` values to be
             pre-registered (OpenID Connect Discovery 1.0 §3).
+
+    OAuthAuthorizationServerMetadata:
+      type: object
+      description: |
+        RFC 8414 OAuth 2.0 Authorization Server Metadata.
+      required:
+        - issuer
+        - authorization_endpoint
+        - token_endpoint
+        - response_types_supported
+      properties:
+        issuer:
+          type: string
+          format: uri
+        authorization_endpoint:
+          type: string
+          format: uri
+        token_endpoint:
+          type: string
+          format: uri
+        jwks_uri:
+          type: string
+          format: uri
+        registration_endpoint:
+          type: string
+          format: uri
+          description: Dynamic Client Registration endpoint (RFC 7591)
+        revocation_endpoint:
+          type: string
+          format: uri
+          description: Token Revocation endpoint (RFC 7009)
+        introspection_endpoint:
+          type: string
+          format: uri
+          description: Token Introspection endpoint (RFC 7662)
+        scopes_supported:
+          type: array
+          items:
+            type: string
+        response_types_supported:
+          type: array
+          items:
+            type: string
+        response_modes_supported:
+          type: array
+          items:
+            type: string
+        grant_types_supported:
+          type: array
+          items:
+            type: string
+        token_endpoint_auth_methods_supported:
+          type: array
+          items:
+            type: string
+        revocation_endpoint_auth_methods_supported:
+          type: array
+          items:
+            type: string
+        introspection_endpoint_auth_methods_supported:
+          type: array
+          items:
+            type: string
+        code_challenge_methods_supported:
+          type: array
+          items:
+            type: string
+        service_documentation:
+          type: string
+          format: uri
 
     JWKS:
       type: object

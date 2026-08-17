@@ -25,6 +25,76 @@ import (
 	"github.com/traPtitech/portal-oidc/internal/router/v1/gen"
 )
 
+func TestGetOAuthAuthorizationServerMetadataAdvertisesImplementedEndpoints(t *testing.T) {
+	handler := NewHandler(nil, nil, nil, nil, OAuthConfig{
+		Issuer: "https://issuer.example/",
+	})
+	e := echo.New()
+	gen.RegisterHandlers(e, handler)
+
+	req := httptest.NewRequestWithContext(
+		context.Background(),
+		http.MethodGet,
+		"/.well-known/oauth-authorization-server",
+		nil,
+	)
+	response := httptest.NewRecorder()
+	e.ServeHTTP(response, req)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d, body = %s", response.Code, http.StatusOK, response.Body.String())
+	}
+
+	var metadata gen.OAuthAuthorizationServerMetadata
+	if err := json.Unmarshal(response.Body.Bytes(), &metadata); err != nil {
+		t.Fatalf("decode metadata: %v", err)
+	}
+
+	if metadata.Issuer != "https://issuer.example/" {
+		t.Fatalf("issuer = %q, want %q", metadata.Issuer, "https://issuer.example/")
+	}
+	if metadata.RevocationEndpoint == nil || *metadata.RevocationEndpoint != "https://issuer.example/oauth2/revoke" {
+		t.Fatalf("revocation_endpoint = %v, want %q", metadata.RevocationEndpoint, "https://issuer.example/oauth2/revoke")
+	}
+	if metadata.IntrospectionEndpoint == nil || *metadata.IntrospectionEndpoint != "https://issuer.example/oauth2/introspect" {
+		t.Fatalf("introspection_endpoint = %v, want %q", metadata.IntrospectionEndpoint, "https://issuer.example/oauth2/introspect")
+	}
+}
+
+func TestGetOAuthAuthorizationServerMetadataAdvertisesOnlyIssuedGrantTypes(t *testing.T) {
+	handler := NewHandler(nil, nil, nil, nil, OAuthConfig{
+		Issuer: "https://issuer.example",
+	})
+	e := echo.New()
+	gen.RegisterHandlers(e, handler)
+
+	req := httptest.NewRequestWithContext(
+		context.Background(),
+		http.MethodGet,
+		"/.well-known/oauth-authorization-server",
+		nil,
+	)
+	response := httptest.NewRecorder()
+	e.ServeHTTP(response, req)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d, body = %s", response.Code, http.StatusOK, response.Body.String())
+	}
+
+	var metadata gen.OAuthAuthorizationServerMetadata
+	if err := json.Unmarshal(response.Body.Bytes(), &metadata); err != nil {
+		t.Fatalf("decode metadata: %v", err)
+	}
+
+	if metadata.GrantTypesSupported == nil {
+		t.Fatal("grant_types_supported is missing")
+	}
+	grantTypes := *metadata.GrantTypesSupported
+	if len(grantTypes) != 1 || grantTypes[0] != "authorization_code" {
+		t.Fatalf("grant_types_supported = %v, want %v", grantTypes, []string{"authorization_code"})
+	}
+}
+
 func TestIntegration_AuthorizeMissingResponseTypeRedirectsError(t *testing.T) {
 	handler, cleanup := setupTestHandler(t)
 	defer cleanup()
