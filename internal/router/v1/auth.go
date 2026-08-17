@@ -11,6 +11,7 @@ import (
 	"github.com/go-jose/go-jose/v4"
 	"github.com/labstack/echo/v5"
 
+	"github.com/traPtitech/portal-oidc/internal/router/v1/gen"
 	"github.com/traPtitech/portal-oidc/internal/usecase"
 )
 
@@ -148,10 +149,21 @@ func (h *Handler) Logout(ctx *echo.Context) error {
 //     https://openid.net/specs/openid-connect-rpinitiated-1_0.html#RPLogout
 //   - OpenID Connect RP-Initiated Logout 1.0 §3 (Redirect URI Validation)
 //     https://openid.net/specs/openid-connect-rpinitiated-1_0.html#ValidationAndErrorHandling
-func (h *Handler) RPInitiatedLogout(ctx *echo.Context) error {
-	idTokenHint := ctx.QueryParam("id_token_hint")
-	postLogoutRedirectURI := ctx.QueryParam("post_logout_redirect_uri")
-	state := ctx.QueryParam("state")
+func (h *Handler) GetRPInitiatedLogout(ctx *echo.Context, params gen.GetRPInitiatedLogoutParams) error {
+	idTokenHint := ""
+	if params.IdTokenHint != nil {
+		idTokenHint = *params.IdTokenHint
+	}
+
+	postLogoutRedirectURI := ""
+	if params.PostLogoutRedirectUri != nil {
+		postLogoutRedirectURI = *params.PostLogoutRedirectUri
+	}
+
+	state := ""
+	if params.State != nil {
+		state = *params.State
+	}
 
 	if idTokenHint != "" && h.config.PrivateKey != nil {
 		// RP-Initiated Logout 1.0 §2: verify the supplied ID Token signature.

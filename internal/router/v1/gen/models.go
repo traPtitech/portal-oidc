@@ -611,6 +611,24 @@ type GetAuthorizeParamsPrompt string
 // GetAuthorizeParamsCodeChallengeMethod defines parameters for GetAuthorize.
 type GetAuthorizeParamsCodeChallengeMethod string
 
+// GetRPInitiatedLogoutParams defines parameters for GetRPInitiatedLogout.
+type GetRPInitiatedLogoutParams struct {
+	// IdTokenHint 事前に発行された ID Token (検証用)。OIDC Core 1.0 の
+	// id_token_hint と同じ形式。
+	IdTokenHint *string `form:"id_token_hint,omitempty" json:"id_token_hint,omitempty"`
+
+	// PostLogoutRedirectUri ログアウト後のリダイレクト先。client が事前登録した URI と
+	// 完全一致する必要がある。
+	PostLogoutRedirectUri *string `form:"post_logout_redirect_uri,omitempty" json:"post_logout_redirect_uri,omitempty"`
+
+	// ClientId id_token_hint が無いがリダイレクト URI を指定したい場合に必須。
+	ClientId *openapi_types.UUID `form:"client_id,omitempty" json:"client_id,omitempty"`
+
+	// State post_logout_redirect_uri 戻り時に echo back される
+	State     *string `form:"state,omitempty" json:"state,omitempty"`
+	UiLocales *string `form:"ui_locales,omitempty" json:"ui_locales,omitempty"`
+}
+
 // CreateClientJSONRequestBody defines body for CreateClient for application/json ContentType.
 type CreateClientJSONRequestBody = ClientCreate
 

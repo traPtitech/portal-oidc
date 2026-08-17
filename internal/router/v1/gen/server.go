@@ -53,6 +53,9 @@ type ServerInterface interface {
 	// IntrospectToken トークンイントロスペクションエンドポイント (RFC 7662)
 	// (POST /oauth2/introspect)
 	IntrospectToken(ctx *echo.Context) error
+	// GetRPInitiatedLogout RP-Initiated Logout (OpenID Connect)
+	// (GET /oauth2/logout)
+	GetRPInitiatedLogout(ctx *echo.Context, params GetRPInitiatedLogoutParams) error
 	// RevokeToken トークン失効エンドポイント (RFC 7009)
 	// (POST /oauth2/revoke)
 	RevokeToken(ctx *echo.Context) error
@@ -280,6 +283,52 @@ func (w *ServerInterfaceWrapper) IntrospectToken(ctx *echo.Context) error {
 	return err
 }
 
+// GetRPInitiatedLogout converts echo context to params.
+func (w *ServerInterfaceWrapper) GetRPInitiatedLogout(ctx *echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetRPInitiatedLogoutParams
+	// ------------- Optional query parameter "id_token_hint" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "id_token_hint", ctx.QueryParams(), &params.IdTokenHint, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id_token_hint: %s", err))
+	}
+
+	// ------------- Optional query parameter "post_logout_redirect_uri" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "post_logout_redirect_uri", ctx.QueryParams(), &params.PostLogoutRedirectUri, runtime.BindQueryParameterOptions{Type: "string", Format: "uri"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter post_logout_redirect_uri: %s", err))
+	}
+
+	// ------------- Optional query parameter "client_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "client_id", ctx.QueryParams(), &params.ClientId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter client_id: %s", err))
+	}
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", ctx.QueryParams(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter state: %s", err))
+	}
+
+	// ------------- Optional query parameter "ui_locales" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "ui_locales", ctx.QueryParams(), &params.UiLocales, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter ui_locales: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetRPInitiatedLogout(ctx, params)
+	return err
+}
+
 // RevokeToken converts echo context to params.
 func (w *ServerInterfaceWrapper) RevokeToken(ctx *echo.Context) error {
 	var err error
@@ -371,6 +420,7 @@ func RegisterHandlersWithOptions(router EchoRouter, si ServerInterface, options 
 	router.POST(options.BaseURL+"/api/v1/admin/clients/:clientId/secret", wrapper.RegenerateClientSecret, options.OperationMiddlewares["regenerateClientSecret"]...)
 	router.GET(options.BaseURL+"/.well-known/openid-configuration", wrapper.GetOpenIDConfiguration, options.OperationMiddlewares["getOpenIDConfiguration"]...)
 	router.GET(options.BaseURL+"/.well-known/jwks.json", wrapper.GetJWKS, options.OperationMiddlewares["getJWKS"]...)
+	router.GET(options.BaseURL+"/oauth2/logout", wrapper.GetRPInitiatedLogout, options.OperationMiddlewares["getRPInitiatedLogout"]...)
 	router.GET(options.BaseURL+"/.well-known/oauth-authorization-server", wrapper.GetOAuthAuthorizationServerMetadata, options.OperationMiddlewares["getOAuthAuthorizationServerMetadata"]...)
 	router.POST(options.BaseURL+"/oauth2/introspect", wrapper.IntrospectToken, options.OperationMiddlewares["introspectToken"]...)
 	router.GET(options.BaseURL+"/oauth2/userinfo", wrapper.GetUserInfo, options.OperationMiddlewares["getUserInfo"]...)
@@ -777,6 +827,38 @@ func (response IntrospectToken401JSONResponse) VisitIntrospectTokenResponse(w ht
 	return err
 }
 
+type GetRPInitiatedLogoutRequestObject struct {
+	Params GetRPInitiatedLogoutParams
+}
+
+type GetRPInitiatedLogoutResponseObject interface {
+	VisitGetRPInitiatedLogoutResponse(w http.ResponseWriter) error
+}
+
+type GetRPInitiatedLogout200Response struct {
+}
+
+func (response GetRPInitiatedLogout200Response) VisitGetRPInitiatedLogoutResponse(w http.ResponseWriter) error {
+	w.WriteHeader(200)
+	return nil
+}
+
+type GetRPInitiatedLogout302Response struct {
+}
+
+func (response GetRPInitiatedLogout302Response) VisitGetRPInitiatedLogoutResponse(w http.ResponseWriter) error {
+	w.WriteHeader(302)
+	return nil
+}
+
+type GetRPInitiatedLogout400Response struct {
+}
+
+func (response GetRPInitiatedLogout400Response) VisitGetRPInitiatedLogoutResponse(w http.ResponseWriter) error {
+	w.WriteHeader(400)
+	return nil
+}
+
 type RevokeTokenRequestObject struct {
 	Body *RevokeTokenFormdataRequestBody
 }
@@ -967,6 +1049,9 @@ type StrictServerInterface interface {
 	// IntrospectToken トークンイントロスペクションエンドポイント (RFC 7662)
 	// (POST /oauth2/introspect)
 	IntrospectToken(ctx context.Context, request IntrospectTokenRequestObject) (IntrospectTokenResponseObject, error)
+	// GetRPInitiatedLogout RP-Initiated Logout (OpenID Connect)
+	// (GET /oauth2/logout)
+	GetRPInitiatedLogout(ctx context.Context, request GetRPInitiatedLogoutRequestObject) (GetRPInitiatedLogoutResponseObject, error)
 	// RevokeToken トークン失効エンドポイント (RFC 7009)
 	// (POST /oauth2/revoke)
 	RevokeToken(ctx context.Context, request RevokeTokenRequestObject) (RevokeTokenResponseObject, error)
@@ -1325,6 +1410,31 @@ func (sh *strictHandler) IntrospectToken(ctx *echo.Context) error {
 		return err
 	} else if validResponse, ok := response.(IntrospectTokenResponseObject); ok {
 		return validResponse.VisitIntrospectTokenResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetRPInitiatedLogout operation middleware
+func (sh *strictHandler) GetRPInitiatedLogout(ctx *echo.Context, params GetRPInitiatedLogoutParams) error {
+	var request GetRPInitiatedLogoutRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetRPInitiatedLogout(ctx.Request().Context(), request.(GetRPInitiatedLogoutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetRPInitiatedLogout")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetRPInitiatedLogoutResponseObject); ok {
+		return validResponse.VisitGetRPInitiatedLogoutResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}
