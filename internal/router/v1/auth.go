@@ -1,25 +1,24 @@
 package v1
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"html"
+	"math"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
-	"github.com/go-jose/go-jose/v4"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
+	fositejwt "github.com/ory/fosite/token/jwt"
 
 	"github.com/traPtitech/portal-oidc/internal/router/v1/gen"
 	"github.com/traPtitech/portal-oidc/internal/usecase"
 )
-
-// idTokenSignatureAlgorithms lists the signing algorithms accepted on
-// id_token_hint. Mirrors id_token_signing_alg_values_supported in discovery
-// (currently RS256 only). go-jose v4 requires the caller to declare the
-// expected algorithms up-front to prevent algorithm-substitution attacks.
-var idTokenSignatureAlgorithms = []jose.SignatureAlgorithm{jose.RS256}
 
 const sessionName = "oidc_session"
 
@@ -131,7 +130,8 @@ func (h *Handler) Logout(ctx *echo.Context) error {
 // RPInitiatedLogout implements OpenID Connect RP-Initiated Logout 1.0.
 //
 // Steps:
-//  1. Verify id_token_hint signature (if provided) using the OP's signing key.
+//  1. Verify id_token_hint signature and claims (if provided) using the OP's
+//     signing key and the current OP session.
 //  2. Terminate the End-User's session at the OP.
 //  3. If post_logout_redirect_uri was supplied AND it matches a URI registered
 //     for the client identified by id_token_hint.aud (or the explicit client_id
@@ -165,17 +165,40 @@ func (h *Handler) GetRPInitiatedLogout(ctx *echo.Context, params gen.GetRPInitia
 		state = *params.State
 	}
 
-	if idTokenHint != "" && h.config.PrivateKey != nil {
-		// RP-Initiated Logout 1.0 §2: verify the supplied ID Token signature.
-		// Expired tokens are tolerated because §3 explicitly allows the OP to
-		// terminate the session even when the hint cannot be authoritatively
-		// validated as a current credential.
-		jws, err := jose.ParseSigned(idTokenHint, idTokenSignatureAlgorithms)
+	if idTokenHint != "" {
+		if h.config.IDTokenSigner == nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "id_token_hint validation unavailable")
+		}
+
+		clientID := ""
+		if params.ClientId != nil {
+			clientID = params.ClientId.String()
+		}
+
+		currentSession, authenticated := h.getAuthInfo(ctx)
+		var sessionInfo *authInfo
+		if authenticated {
+			sessionInfo = &currentSession
+		}
+
+		audiences, err := validateIDTokenHint(
+			ctx.Request().Context(),
+			idTokenHint,
+			h.config.IDTokenSigner,
+			h.config.Issuer,
+			clientID,
+			sessionInfo,
+		)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid id_token_hint")
 		}
-		if _, err := jws.Verify(&h.config.PrivateKey.PublicKey); err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, "invalid id_token_hint signature")
+
+		registered, err := h.hasRegisteredAudience(ctx.Request().Context(), audiences)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "failed to validate id_token_hint audience")
+		}
+		if !registered {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid id_token_hint")
 		}
 	}
 
@@ -198,6 +221,193 @@ func (h *Handler) GetRPInitiatedLogout(ctx *echo.Context, params gen.GetRPInitia
     <p>You have been signed out.</p>
 </body>
 </html>`)
+}
+
+func validateIDTokenHint(
+	ctx context.Context,
+	rawToken string,
+	signer fositejwt.Signer,
+	issuer string,
+	clientID string,
+	currentSession *authInfo,
+) ([]string, error) {
+	claims, expired, err := decodeIDTokenHint(ctx, signer, rawToken)
+	if err != nil {
+		return nil, err
+	}
+
+	audiences, err := validateIDTokenHintClaims(claims, issuer, clientID)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateIDTokenHintSession(claims, expired, currentSession); err != nil {
+		return nil, err
+	}
+
+	return audiences, nil
+}
+
+func decodeIDTokenHint(
+	ctx context.Context,
+	signer fositejwt.Signer,
+	rawToken string,
+) (fositejwt.MapClaims, bool, error) {
+	token, err := signer.Decode(ctx, rawToken)
+	expired := false
+	if err != nil {
+		var validationErr *fositejwt.ValidationError
+		if !errors.As(err, &validationErr) || validationErr.Errors != fositejwt.ValidationErrorExpired {
+			return nil, false, err
+		}
+		expired = true
+	}
+	if token == nil {
+		return nil, false, errors.New("id_token_hint could not be decoded")
+	}
+	return token.Claims, expired, nil
+}
+
+func validateIDTokenHintClaims(
+	claims fositejwt.MapClaims,
+	issuer string,
+	clientID string,
+) ([]string, error) {
+	issuerClaim, issuerOK := requiredStringClaim(claims, "iss")
+	if issuer == "" || !issuerOK || issuerClaim != issuer {
+		return nil, errors.New("id_token_hint has invalid issuer")
+	}
+	if _, subjectOK := requiredStringClaim(claims, "sub"); !subjectOK {
+		return nil, errors.New("id_token_hint has invalid subject")
+	}
+
+	audiences, audienceOK := stringListClaim(claims, "aud")
+	if !audienceOK {
+		return nil, errors.New("id_token_hint has invalid audience")
+	}
+	if clientID != "" && !slices.Contains(audiences, clientID) {
+		return nil, errors.New("id_token_hint audience does not match client_id")
+	}
+	if _, expiryOK := numericDateClaim(claims, "exp"); !expiryOK {
+		return nil, errors.New("id_token_hint has invalid expiration")
+	}
+	if _, issuedAtOK := numericDateClaim(claims, "iat"); !issuedAtOK {
+		return nil, errors.New("id_token_hint has invalid issued-at time")
+	}
+	return audiences, nil
+}
+
+func validateIDTokenHintSession(
+	claims fositejwt.MapClaims,
+	expired bool,
+	currentSession *authInfo,
+) error {
+	if currentSession == nil {
+		if expired {
+			return errors.New("expired id_token_hint does not identify a current OP session")
+		}
+		return nil
+	}
+
+	subject, _ := requiredStringClaim(claims, "sub")
+	authTime, authTimeOK := numericDateClaim(claims, "auth_time")
+	if subject != currentSession.UserID || !authTimeOK || !authTime.Equal(currentSession.AuthTime) {
+		return errors.New("id_token_hint does not match the current OP session")
+	}
+
+	// RP-Initiated Logout 1.0 §2 recommends accepting an expired ID Token
+	// when it identifies a current OP session. Subject and auth_time provide
+	// that binding until session identifiers are supported.
+	return nil
+}
+
+func requiredStringClaim(claims fositejwt.MapClaims, name string) (string, bool) {
+	value, ok := claims[name].(string)
+	return value, ok && value != ""
+}
+
+func (h *Handler) hasRegisteredAudience(ctx context.Context, audiences []string) (bool, error) {
+	if h.clientUseCase == nil {
+		return false, errors.New("client use case is unavailable")
+	}
+
+	for _, audience := range audiences {
+		clientID, err := uuid.Parse(audience)
+		if err != nil {
+			continue
+		}
+
+		if _, err := h.clientUseCase.Get(ctx, clientID); err == nil {
+			return true, nil
+		} else if !errors.Is(err, usecase.ErrClientNotFound) {
+			return false, err
+		}
+	}
+
+	return false, nil
+}
+
+func stringListClaim(claims fositejwt.MapClaims, name string) ([]string, bool) {
+	value, ok := claims[name]
+	if !ok {
+		return nil, false
+	}
+
+	switch typed := value.(type) {
+	case string:
+		if typed == "" {
+			return nil, false
+		}
+		return []string{typed}, true
+	case []string:
+		if len(typed) == 0 || slices.Contains(typed, "") {
+			return nil, false
+		}
+		return typed, true
+	case []any:
+		values := make([]string, len(typed))
+		for index, item := range typed {
+			stringValue, ok := item.(string)
+			if !ok || stringValue == "" {
+				return nil, false
+			}
+			values[index] = stringValue
+		}
+		if len(values) == 0 {
+			return nil, false
+		}
+		return values, true
+	default:
+		return nil, false
+	}
+}
+
+func numericDateClaim(claims fositejwt.MapClaims, name string) (time.Time, bool) {
+	value, ok := claims[name]
+	if !ok {
+		return time.Time{}, false
+	}
+
+	var seconds float64
+	switch typed := value.(type) {
+	case int64:
+		seconds = float64(typed)
+	case float64:
+		seconds = typed
+	case json.Number:
+		parsed, err := typed.Float64()
+		if err != nil {
+			return time.Time{}, false
+		}
+		seconds = parsed
+	default:
+		return time.Time{}, false
+	}
+	if math.IsNaN(seconds) || math.IsInf(seconds, 0) {
+		return time.Time{}, false
+	}
+
+	wholeSeconds, fractionalSeconds := math.Modf(seconds)
+	return time.Unix(int64(wholeSeconds), int64(fractionalSeconds*float64(time.Second))).UTC(), true
 }
 
 func (h *Handler) clearSession(ctx *echo.Context) error {
