@@ -225,6 +225,74 @@ paths:
         "400":
           description: Bad Request (id_token_hint 不正等)
 
+  /.well-known/oauth-authorization-server:
+    get:
+      operationId: getOAuthAuthorizationServerMetadata
+      summary: OAuth 2.0 Authorization Server Metadata
+      description: |
+        RFC 8414 のメタデータを返却。OAuth 2.1 / 2.0 クライアントが
+        endpoint discovery に利用する。OIDC Discovery と一部フィールドを共有する。
+        OIDC 固有の id_token_signing_alg_values_supported、subject_types_supported、
+        claims_supported は含めず、revocation_endpoint、introspection_endpoint などの
+        OAuth Authorization Server Metadata を返す。
+      tags:
+        - discovery
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthAuthorizationServerMetadata"
+
+  /oauth2/introspect:
+    post:
+      operationId: introspectToken
+      summary: トークンイントロスペクションエンドポイント (RFC 7662)
+      description: |
+        提示された access_token / refresh_token のメタデータを返却。
+        active=false でアクティブでないことを示し、スコープ・有効期限・
+        ユーザー識別子等を返す。
+
+        RFC 7662 §2.1 が要求する「トークンスキャン攻撃を防ぐための認可」は
+        Authorization ヘッダで行う。basicAuth は RFC 6749 §2.3.1 の
+        クライアント認証、bearerAuth は RFC 7662 §2.1 が併記する
+        「別の OAuth 2.0 アクセストークン」に対応する。後者はイントロスペクト
+        対象のトークンと同一であってはならない。
+
+        リクエストボディでの資格情報 (client_secret_post) は受け付けない。
+        RFC 6749 §2.3.1 が NOT RECOMMENDED としており、実装も 401 を返す。
+      tags:
+        - oauth2/oidc
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: "#/components/schemas/IntrospectRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntrospectResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthError"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthError"
+
   /oauth2/userinfo:
     get:
       operationId: getUserInfo
@@ -269,13 +337,18 @@ paths:
       tags:
         - oauth2/oidc
       parameters:
+        # OAuth 2.0 / OIDC 上は必須 (RFC 6749 Section 4.1.1, OIDC Core 1.0 Section 3.1.2.1)。
+        # ただし欠落時のエラーは RFC 6749 Section 4.1.2.1 / OIDC Core 1.0 Section 3.1.2.6 に従い
+        # 登録済み redirect_uri へ error として返さなければならず、素の HTTP 400 は仕様違反になる。
+        # required: true にすると oapi-codegen 生成の binding がハンドラより先に 400 を返すため、
+        # HTTP 層では optional として受け取り、必須判定は OAuth 層 (fosite) に委ねる。
         - name: response_type
           in: query
-          required: true
+          required: false
           schema:
             type: string
             enum: [code]
-          description: レスポンスタイプ (現在は code のみサポート)
+          description: レスポンスタイプ (現在は code のみサポート。OAuth/OIDC 上は必須)
         - name: client_id
           in: query
           required: true
@@ -384,6 +457,38 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TokenResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthError"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthError"
+
+  /oauth2/revoke:
+    post:
+      operationId: revokeToken
+      summary: トークン失効エンドポイント (RFC 7009)
+      description: |
+        指定された access_token または refresh_token を無効化する。
+        RFC 7009 §2.2 により認可されたクライアントによる呼び出しは、
+        トークンが既に存在しなかった場合でも 200 OK を返す。
+      tags:
+        - oauth2/oidc
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: "#/components/schemas/RevokeRequest"
+      responses:
+        "200":
+          description: OK (トークンが無効化された / そもそも存在しなかった)
         "400":
           description: Bad Request
           content:
@@ -568,6 +673,94 @@ components:
           type: string
           description: PKCE code_verifier
 
+    IntrospectRequest:
+      type: object
+      description: |
+        RFC 7662 §2.1 トークンイントロスペクションリクエスト。
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          description: イントロスペクション対象のトークン
+        token_type_hint:
+          type: string
+          enum:
+            - access_token
+            - refresh_token
+          description: トークン種別ヒント (RFC 7662 §2.1)
+
+    IntrospectResponse:
+      type: object
+      description: |
+        RFC 7662 §2.2 トークンイントロスペクションレスポンス。
+        active=false の場合、他のフィールドは省略可能。
+      required:
+        - active
+      properties:
+        active:
+          type: boolean
+          description: トークンがアクティブか (RFC 7662 §2.2)
+        scope:
+          type: string
+          description: スペース区切りのスコープ
+        client_id:
+          type: string
+        username:
+          type: string
+        token_type:
+          type: string
+          description: 例 Bearer
+        exp:
+          type: integer
+          format: int64
+          description: トークン有効期限 (Unix epoch)
+        iat:
+          type: integer
+          format: int64
+          description: 発行時刻 (Unix epoch)
+        nbf:
+          type: integer
+          format: int64
+          description: 有効開始時刻 (Unix epoch)
+        sub:
+          type: string
+          description: トークンサブジェクト (ユーザーID等)
+        aud:
+          type: array
+          items:
+            type: string
+        iss:
+          type: string
+          description: 発行者 URL
+        jti:
+          type: string
+          description: JWT ID
+
+    RevokeRequest:
+      type: object
+      description: |
+        RFC 7009 §2.1 トークン失効リクエスト。
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          description: 失効させる access_token または refresh_token
+        token_type_hint:
+          type: string
+          enum:
+            - access_token
+            - refresh_token
+          description: |
+            トークン種別ヒント (RFC 7009 §2.1)。
+            提供されると検索順序が最適化される。誤指定でも動作する。
+        client_id:
+          type: string
+          format: uuid
+        client_secret:
+          type: string
+
     TokenResponse:
       type: object
       required:
@@ -667,6 +860,91 @@ components:
           type: array
           items:
             type: string
+        request_parameter_supported:
+          type: boolean
+          description: |
+            Indicates whether the OP supports use of the `request` parameter
+            (OpenID Connect Core 1.0 §6 / Discovery 1.0 §3).
+        request_uri_parameter_supported:
+          type: boolean
+          description: |
+            Indicates whether the OP supports use of the `request_uri` parameter
+            (OpenID Connect Core 1.0 §6 / Discovery 1.0 §3).
+        require_request_uri_registration:
+          type: boolean
+          description: |
+            Indicates whether the OP requires `request_uri` values to be
+            pre-registered (OpenID Connect Discovery 1.0 §3).
+
+    OAuthAuthorizationServerMetadata:
+      type: object
+      description: |
+        RFC 8414 OAuth 2.0 Authorization Server Metadata.
+      required:
+        - issuer
+        - authorization_endpoint
+        - token_endpoint
+        - response_types_supported
+      properties:
+        issuer:
+          type: string
+          format: uri
+        authorization_endpoint:
+          type: string
+          format: uri
+        token_endpoint:
+          type: string
+          format: uri
+        jwks_uri:
+          type: string
+          format: uri
+        registration_endpoint:
+          type: string
+          format: uri
+          description: Dynamic Client Registration endpoint (RFC 7591)
+        revocation_endpoint:
+          type: string
+          format: uri
+          description: Token Revocation endpoint (RFC 7009)
+        introspection_endpoint:
+          type: string
+          format: uri
+          description: Token Introspection endpoint (RFC 7662)
+        scopes_supported:
+          type: array
+          items:
+            type: string
+        response_types_supported:
+          type: array
+          items:
+            type: string
+        response_modes_supported:
+          type: array
+          items:
+            type: string
+        grant_types_supported:
+          type: array
+          items:
+            type: string
+        token_endpoint_auth_methods_supported:
+          type: array
+          items:
+            type: string
+        revocation_endpoint_auth_methods_supported:
+          type: array
+          items:
+            type: string
+        introspection_endpoint_auth_methods_supported:
+          type: array
+          items:
+            type: string
+        code_challenge_methods_supported:
+          type: array
+          items:
+            type: string
+        service_documentation:
+          type: string
+          format: uri
 
     JWKS:
       type: object
@@ -732,3 +1010,10 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
+    basicAuth:
+      type: http
+      scheme: basic
+      description: |
+        RFC 6749 §2.3.1 のクライアント認証 (client_secret_basic)。
+        同条が「認可サーバーは HTTP Basic 認証方式を MUST support」と
+        定めるため、資格情報を持つクライアントはこの方式を使う。

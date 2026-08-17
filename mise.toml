@@ -1,12 +1,19 @@
+[settings]
+locked_verify_provenance = true
+lockfile = true
+lockfile_platforms = ["macos-arm64", "linux-x64"]
+
 [tools]
-go = "1.26.2"
-golangci-lint = "2.12.1"
-atlas = "1.2.0"
-tbls = "1.94.5"
-pre-commit = "4.6.0"
+go = "1.26.6"
+golangci-lint = "2.12.2"
+atlas = "1.3.0"
+tbls = "1.95.0"
+pre-commit = "4.6.2"
+uv = "0.12.5"
 "go:github.com/sqlc-dev/sqlc/cmd/sqlc" = "1.31.1"
-"go:github.com/securego/gosec/v2/cmd/gosec" = "2.26.1"
-"go:github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen" = "2.7.0"
+"go:github.com/securego/gosec/v2/cmd/gosec" = "2.28.0"
+"go:github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen" = "2.8.0"
+"go:golang.org/x/vuln/cmd/govulncheck" = "v1.7.0"
 
 # =============================================================================
 # Development
@@ -50,16 +57,8 @@ depends = ["gen:sqlc", "gen:oapi"]
 description = "sqlcでDBコード生成"
 dir = "db"
 run = "sqlc generate"
-sources = [
-  "sqlc.yaml",
-  "schema.sql",
-  "portal-schema.sql",
-  "query/*.sql",
-]
-outputs = [
-  "../internal/repository/oidc/",
-  "../internal/repository/portal/",
-]
+sources = ["sqlc.yaml", "schema.sql", "portal-schema.sql", "query/*.sql"]
+outputs = ["../internal/repository/oidc/", "../internal/repository/portal/"]
 
 [tasks."gen:oapi"]
 description = "OpenAPIでサーバー/モデル生成"
@@ -68,11 +67,7 @@ run = """
 oapi-codegen --config oapi.server.yaml openapi.yaml
 oapi-codegen --config oapi.models.yaml openapi.yaml
 """
-sources = [
-  "openapi.yaml",
-  "oapi.server.yaml",
-  "oapi.models.yaml",
-]
+sources = ["openapi.yaml", "oapi.server.yaml", "oapi.models.yaml"]
 outputs = [
   "../internal/router/v1/gen/server.go",
   "../internal/router/v1/gen/models.go",
