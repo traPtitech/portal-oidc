@@ -472,12 +472,16 @@ type OAuthErrorError string
 
 // OpenIDConfiguration defines model for OpenIDConfiguration.
 type OpenIDConfiguration struct {
-	AuthorizationEndpoint            string    `json:"authorization_endpoint"`
-	ClaimsSupported                  *[]string `json:"claims_supported,omitempty"`
-	CodeChallengeMethodsSupported    *[]string `json:"code_challenge_methods_supported,omitempty"`
-	IdTokenSigningAlgValuesSupported []string  `json:"id_token_signing_alg_values_supported"`
-	Issuer                           string    `json:"issuer"`
-	JwksUri                          string    `json:"jwks_uri"`
+	AuthorizationEndpoint         string    `json:"authorization_endpoint"`
+	ClaimsSupported               *[]string `json:"claims_supported,omitempty"`
+	CodeChallengeMethodsSupported *[]string `json:"code_challenge_methods_supported,omitempty"`
+
+	// EndSessionEndpoint RP-Initiated Logout endpoint
+	// (OpenID Connect RP-Initiated Logout 1.0 §2.1).
+	EndSessionEndpoint               string   `json:"end_session_endpoint"`
+	IdTokenSigningAlgValuesSupported []string `json:"id_token_signing_alg_values_supported"`
+	Issuer                           string   `json:"issuer"`
+	JwksUri                          string   `json:"jwks_uri"`
 
 	// RequestParameterSupported Indicates whether the OP supports use of the `request` parameter
 	// (OpenID Connect Core 1.0 §6 / Discovery 1.0 §3).

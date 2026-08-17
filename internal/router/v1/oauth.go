@@ -354,6 +354,7 @@ func (h *Handler) GetOpenIDConfiguration(ctx *echo.Context) error {
 		TokenEndpoint:                     issuer + "/oauth2/token",
 		UserinfoEndpoint:                  issuer + "/oauth2/userinfo",
 		JwksUri:                           issuer + "/.well-known/jwks.json",
+		EndSessionEndpoint:                issuer + "/oauth2/logout",
 		ResponseTypesSupported:            []string{"code"},
 		SubjectTypesSupported:             []string{"public"},
 		IdTokenSigningAlgValuesSupported:  []string{"RS256"},
