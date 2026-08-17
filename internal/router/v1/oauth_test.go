@@ -58,6 +58,40 @@ func TestGetOAuthAuthorizationServerMetadataAdvertisesImplementedEndpoints(t *te
 	}
 }
 
+func TestGetOAuthAuthorizationServerMetadataAdvertisesOnlyIssuedGrantTypes(t *testing.T) {
+	handler := NewHandler(nil, nil, nil, nil, OAuthConfig{
+		Issuer: "https://issuer.example",
+	})
+	e := echo.New()
+	gen.RegisterHandlers(e, handler)
+
+	req := httptest.NewRequestWithContext(
+		context.Background(),
+		http.MethodGet,
+		"/.well-known/oauth-authorization-server",
+		nil,
+	)
+	response := httptest.NewRecorder()
+	e.ServeHTTP(response, req)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d, body = %s", response.Code, http.StatusOK, response.Body.String())
+	}
+
+	var metadata gen.OAuthAuthorizationServerMetadata
+	if err := json.Unmarshal(response.Body.Bytes(), &metadata); err != nil {
+		t.Fatalf("decode metadata: %v", err)
+	}
+
+	if metadata.GrantTypesSupported == nil {
+		t.Fatal("grant_types_supported is missing")
+	}
+	grantTypes := *metadata.GrantTypesSupported
+	if len(grantTypes) != 1 || grantTypes[0] != "authorization_code" {
+		t.Fatalf("grant_types_supported = %v, want %v", grantTypes, []string{"authorization_code"})
+	}
+}
+
 func TestIntegration_AuthorizeMissingResponseTypeRedirectsError(t *testing.T) {
 	handler, cleanup := setupTestHandler(t)
 	defer cleanup()

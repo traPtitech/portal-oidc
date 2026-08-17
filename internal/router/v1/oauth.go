@@ -382,7 +382,7 @@ func (h *Handler) GetOAuthAuthorizationServerMetadata(ctx *echo.Context) error {
 	revocationEndpoint := issuer + "/oauth2/revoke"
 	introspectionEndpoint := issuer + "/oauth2/introspect"
 	scopesSupported := []string{"openid", "profile", "email"}
-	grantTypesSupported := []string{"authorization_code", "refresh_token"}
+	grantTypesSupported := []string{"authorization_code"}
 	responseModesSupported := []string{"query"}
 	// OAuth 2.1 (draft) §1.4.2: clients SHOULD use a code_challenge method that
 	// does not expose the verifier in the authorization request, and S256 is the
