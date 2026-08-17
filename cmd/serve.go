@@ -43,7 +43,7 @@ func newServer(cfg Config) (http.Handler, error) {
 		repository.NewOIDCSessionRepository(queries),
 	)
 	defaults := defaultOAuthProviderConfig()
-	oauth2Provider := newOAuthProvider(oauthStorage, OAuthProviderConfig{
+	oauth2Provider, idTokenSigner := newOAuthProvider(oauthStorage, OAuthProviderConfig{
 		Issuer:               cfg.Host,
 		AccessTokenLifespan:  defaults.AccessTokenLifespan,
 		RefreshTokenLifespan: defaults.RefreshTokenLifespan,
@@ -69,6 +69,7 @@ func newServer(cfg Config) (http.Handler, error) {
 			Issuer:        cfg.Host,
 			SessionSecret: []byte(cfg.OAuth.Secret),
 			PrivateKey:    privateKey,
+			IDTokenSigner: idTokenSigner,
 			Environment:   cfg.Environment,
 			TestUserID:    cfg.OAuth.TestUserID,
 		},

@@ -25,6 +25,40 @@ import (
 	"github.com/traPtitech/portal-oidc/internal/router/v1/gen"
 )
 
+func TestGetOpenIDConfigurationAdvertisesEndSessionEndpoint(t *testing.T) {
+	handler := NewHandler(nil, nil, nil, nil, OAuthConfig{
+		Issuer: "https://issuer.example/",
+	})
+	e := echo.New()
+	gen.RegisterHandlers(e, handler)
+
+	req := httptest.NewRequestWithContext(
+		context.Background(),
+		http.MethodGet,
+		"/.well-known/openid-configuration",
+		nil,
+	)
+	response := httptest.NewRecorder()
+	e.ServeHTTP(response, req)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d, body = %s", response.Code, http.StatusOK, response.Body.String())
+	}
+
+	var metadata gen.OpenIDConfiguration
+	if err := json.Unmarshal(response.Body.Bytes(), &metadata); err != nil {
+		t.Fatalf("decode metadata: %v", err)
+	}
+
+	if metadata.EndSessionEndpoint != "https://issuer.example/oauth2/logout" {
+		t.Fatalf(
+			"end_session_endpoint = %q, want %q",
+			metadata.EndSessionEndpoint,
+			"https://issuer.example/oauth2/logout",
+		)
+	}
+}
+
 func TestGetOAuthAuthorizationServerMetadataAdvertisesImplementedEndpoints(t *testing.T) {
 	handler := NewHandler(nil, nil, nil, nil, OAuthConfig{
 		Issuer: "https://issuer.example/",

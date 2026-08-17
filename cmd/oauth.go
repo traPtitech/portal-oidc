@@ -38,7 +38,7 @@ func defaultOAuthProviderConfig() OAuthProviderConfig {
 	}
 }
 
-func newOAuthProvider(storage fosite.Storage, config OAuthProviderConfig, privateKey *rsa.PrivateKey) fosite.OAuth2Provider {
+func newOAuthProvider(storage fosite.Storage, config OAuthProviderConfig, privateKey *rsa.PrivateKey) (fosite.OAuth2Provider, jwt.Signer) {
 	fositeConfig := &fosite.Config{
 		AccessTokenLifespan:            config.AccessTokenLifespan,
 		RefreshTokenLifespan:           config.RefreshTokenLifespan,
@@ -58,14 +58,15 @@ func newOAuthProvider(storage fosite.Storage, config OAuthProviderConfig, privat
 	privateKeyGetter := func(_ context.Context) (interface{}, error) {
 		return privateKey, nil
 	}
+	openIDStrategy := compose.NewOpenIDConnectStrategy(privateKeyGetter, fositeConfig)
 
-	return compose.Compose(
+	provider := compose.Compose(
 		fositeConfig,
 		storage,
 		&compose.CommonStrategy{
 			CoreStrategy:               compose.NewOAuth2HMACStrategy(fositeConfig),
-			Signer:                     &jwt.DefaultSigner{GetPrivateKey: privateKeyGetter},
-			OpenIDConnectTokenStrategy: compose.NewOpenIDConnectStrategy(privateKeyGetter, fositeConfig),
+			Signer:                     openIDStrategy,
+			OpenIDConnectTokenStrategy: openIDStrategy,
 		},
 
 		compose.OAuth2AuthorizeExplicitFactory,
@@ -76,6 +77,7 @@ func newOAuthProvider(storage fosite.Storage, config OAuthProviderConfig, privat
 		compose.OpenIDConnectExplicitFactory,
 		compose.OpenIDConnectRefreshFactory,
 	)
+	return provider, openIDStrategy
 }
 
 func loadOrGenerateKey(path string) (*rsa.PrivateKey, error) {

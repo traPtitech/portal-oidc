@@ -472,12 +472,16 @@ type OAuthErrorError string
 
 // OpenIDConfiguration defines model for OpenIDConfiguration.
 type OpenIDConfiguration struct {
-	AuthorizationEndpoint            string    `json:"authorization_endpoint"`
-	ClaimsSupported                  *[]string `json:"claims_supported,omitempty"`
-	CodeChallengeMethodsSupported    *[]string `json:"code_challenge_methods_supported,omitempty"`
-	IdTokenSigningAlgValuesSupported []string  `json:"id_token_signing_alg_values_supported"`
-	Issuer                           string    `json:"issuer"`
-	JwksUri                          string    `json:"jwks_uri"`
+	AuthorizationEndpoint         string    `json:"authorization_endpoint"`
+	ClaimsSupported               *[]string `json:"claims_supported,omitempty"`
+	CodeChallengeMethodsSupported *[]string `json:"code_challenge_methods_supported,omitempty"`
+
+	// EndSessionEndpoint RP-Initiated Logout endpoint
+	// (OpenID Connect RP-Initiated Logout 1.0 §2.1).
+	EndSessionEndpoint               string   `json:"end_session_endpoint"`
+	IdTokenSigningAlgValuesSupported []string `json:"id_token_signing_alg_values_supported"`
+	Issuer                           string   `json:"issuer"`
+	JwksUri                          string   `json:"jwks_uri"`
 
 	// RequestParameterSupported Indicates whether the OP supports use of the `request` parameter
 	// (OpenID Connect Core 1.0 §6 / Discovery 1.0 §3).
@@ -611,6 +615,48 @@ type GetAuthorizeParamsPrompt string
 // GetAuthorizeParamsCodeChallengeMethod defines parameters for GetAuthorize.
 type GetAuthorizeParamsCodeChallengeMethod string
 
+// GetRPInitiatedLogoutParams defines parameters for GetRPInitiatedLogout.
+type GetRPInitiatedLogoutParams struct {
+	// IdTokenHint 事前に発行された ID Token (検証用)。OIDC Core 1.0 の
+	// id_token_hint と同じ形式。
+	IdTokenHint *string `form:"id_token_hint,omitempty" json:"id_token_hint,omitempty"`
+
+	// PostLogoutRedirectUri ログアウト後のリダイレクト先。client が事前登録した URI と
+	// 完全一致する必要がある。
+	PostLogoutRedirectUri *string `form:"post_logout_redirect_uri,omitempty" json:"post_logout_redirect_uri,omitempty"`
+
+	// ClientId id_token_hint が無いがリダイレクト URI を指定したい場合に必須。
+	ClientId *openapi_types.UUID `form:"client_id,omitempty" json:"client_id,omitempty"`
+
+	// State post_logout_redirect_uri 戻り時に echo back される
+	State     *string `form:"state,omitempty" json:"state,omitempty"`
+	UiLocales *string `form:"ui_locales,omitempty" json:"ui_locales,omitempty"`
+}
+
+// PostRPInitiatedLogoutFormdataBody defines parameters for PostRPInitiatedLogout.
+type PostRPInitiatedLogoutFormdataBody struct {
+	// ClientId id_token_hint が無いがリダイレクト URI を指定したい場合に必須。
+	ClientId *openapi_types.UUID `form:"client_id,omitempty" json:"client_id,omitempty"`
+
+	// IdTokenHint 事前に発行された ID Token (検証用)。OIDC Core 1.0 の
+	// id_token_hint と同じ形式。
+	IdTokenHint *string `form:"id_token_hint,omitempty" json:"id_token_hint,omitempty"`
+
+	// PostLogoutRedirectUri ログアウト後のリダイレクト先。client が事前登録した URI と
+	// 完全一致する必要がある。
+	PostLogoutRedirectUri *string `form:"post_logout_redirect_uri,omitempty" json:"post_logout_redirect_uri,omitempty"`
+
+	// State post_logout_redirect_uri 戻り時に echo back される
+	State     *string `form:"state,omitempty" json:"state,omitempty"`
+	UiLocales *string `form:"ui_locales,omitempty" json:"ui_locales,omitempty"`
+}
+
+// PostRPInitiatedLogoutConfirmationFormdataBody defines parameters for PostRPInitiatedLogoutConfirmation.
+type PostRPInitiatedLogoutConfirmationFormdataBody struct {
+	// LogoutChallenge 確認画面と署名済みセッションに結合された期限付きchallenge
+	LogoutChallenge string `form:"logout_challenge" json:"logout_challenge"`
+}
+
 // CreateClientJSONRequestBody defines body for CreateClient for application/json ContentType.
 type CreateClientJSONRequestBody = ClientCreate
 
@@ -622,6 +668,12 @@ type PostAuthorizeFormdataRequestBody = AuthorizeRequest
 
 // IntrospectTokenFormdataRequestBody defines body for IntrospectToken for application/x-www-form-urlencoded ContentType.
 type IntrospectTokenFormdataRequestBody = IntrospectRequest
+
+// PostRPInitiatedLogoutFormdataRequestBody defines body for PostRPInitiatedLogout for application/x-www-form-urlencoded ContentType.
+type PostRPInitiatedLogoutFormdataRequestBody PostRPInitiatedLogoutFormdataBody
+
+// PostRPInitiatedLogoutConfirmationFormdataRequestBody defines body for PostRPInitiatedLogoutConfirmation for application/x-www-form-urlencoded ContentType.
+type PostRPInitiatedLogoutConfirmationFormdataRequestBody PostRPInitiatedLogoutConfirmationFormdataBody
 
 // RevokeTokenFormdataRequestBody defines body for RevokeToken for application/x-www-form-urlencoded ContentType.
 type RevokeTokenFormdataRequestBody = RevokeRequest
