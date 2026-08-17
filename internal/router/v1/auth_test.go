@@ -287,12 +287,7 @@ func TestGetRPInitiatedLogoutValidatesExplicitClientID(t *testing.T) {
 		"auth_time": now.Add(-time.Minute).Unix(),
 	})
 
-	handler := NewHandler(nil, nil, nil, nil, OAuthConfig{
-		Issuer:        issuer,
-		SessionSecret: []byte("test-session-secret-32-characters"), //nolint:gosec
-		PrivateKey:    privateKey,
-		IDTokenSigner: newTestIDTokenSigner(privateKey),
-	})
+	handler := newRPLogoutTestHandler(newTestIDTokenSigner(privateKey))
 	e := echo.New()
 	gen.RegisterHandlers(e, handler)
 
@@ -309,7 +304,7 @@ func TestGetRPInitiatedLogoutValidatesExplicitClientID(t *testing.T) {
 	}
 }
 
-func TestGetRPInitiatedLogoutRequiresConfirmationForDifferentLoggedInUser(t *testing.T) {
+func TestRPInitiatedLogoutUntrustedHintRequiresConfirmation(t *testing.T) {
 	t.Parallel()
 
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -334,42 +329,41 @@ func TestGetRPInitiatedLogoutRequiresConfirmationForDifferentLoggedInUser(t *tes
 		"auth_time": authTime.Unix(),
 	})
 
-	handler := NewHandler(nil, nil, nil, nil, OAuthConfig{
-		Issuer:        issuer,
-		SessionSecret: []byte("test-session-secret-32-characters"), //nolint:gosec
-		PrivateKey:    privateKey,
-		IDTokenSigner: newTestIDTokenSigner(privateKey),
-	})
+	handler := newRPLogoutTestHandler(newTestIDTokenSigner(privateKey))
 	e := echo.New()
 	gen.RegisterHandlers(e, handler)
-	sessionCookie := createAuthenticatedSessionCookie(t, handler, loggedInUser, authTime)
 
-	query := url.Values{"id_token_hint": {rawToken}}
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/oauth2/logout?"+query.Encode(), nil)
-	req.AddCookie(sessionCookie)
-	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
+	tests := []struct {
+		name        string
+		idTokenHint string
+	}{
+		{name: "malformed hint", idTokenHint: "not-a-token"},
+		{name: "different logged-in user", idTokenHint: rawToken},
+	}
 
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d, body = %s", rec.Code, http.StatusOK, rec.Body.String())
-	}
-	if !strings.Contains(rec.Body.String(), "Confirm logout") {
-		t.Fatalf("body does not contain logout confirmation: %s", rec.Body.String())
-	}
-	confirmationCookie := singleResponseCookie(t, rec)
-	confirmationSession := readSessionCookie(t, handler, confirmationCookie)
-	if authenticated, _ := confirmationSession.Values["authenticated"].(bool); !authenticated {
-		t.Fatal("current session was logged out before confirmation")
-	}
-	if userID, _ := confirmationSession.Values["user_id"].(string); userID != loggedInUser {
-		t.Fatalf("current session user_id = %q, want %q", userID, loggedInUser)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			sessionCookie := createAuthenticatedSessionCookie(t, handler, loggedInUser, authTime)
+			query := url.Values{"id_token_hint": {test.idTokenHint}}
+			req := httptest.NewRequestWithContext(
+				context.Background(),
+				http.MethodGet,
+				"/oauth2/logout?"+query.Encode(),
+				nil,
+			)
+			req.AddCookie(sessionCookie)
+			rec := httptest.NewRecorder()
+			e.ServeHTTP(rec, req)
+
+			requireLogoutConfirmation(t, handler, rec, loggedInUser)
+		})
 	}
 }
 
 func TestRPInitiatedLogoutWithoutHintRequiresConfirmation(t *testing.T) {
 	t.Parallel()
 
-	handler := newRPLogoutTestHandler(t)
+	handler := newRPLogoutTestHandler(nil)
 	e := echo.New()
 	gen.RegisterHandlers(e, handler)
 
@@ -382,12 +376,6 @@ func TestRPInitiatedLogoutWithoutHintRequiresConfirmation(t *testing.T) {
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusOK {
-		t.Fatalf("GET status = %d, want %d, body = %s", rec.Code, http.StatusOK, rec.Body.String())
-	}
-	if !strings.Contains(rec.Body.String(), "Confirm logout") {
-		t.Fatalf("GET body does not contain confirmation page: %s", rec.Body.String())
-	}
 	if location := rec.Header().Get("Location"); location != "" {
 		t.Fatalf("GET Location = %q, want empty", location)
 	}
@@ -395,11 +383,7 @@ func TestRPInitiatedLogoutWithoutHintRequiresConfirmation(t *testing.T) {
 		t.Fatalf("GET Cache-Control = %q, want no-store", cacheControl)
 	}
 
-	confirmationCookie := singleResponseCookie(t, rec)
-	confirmationSession := readSessionCookie(t, handler, confirmationCookie)
-	if authenticated, _ := confirmationSession.Values["authenticated"].(bool); !authenticated {
-		t.Fatal("GET cleared the authenticated session before confirmation")
-	}
+	confirmationCookie, confirmationSession := requireLogoutConfirmation(t, handler, rec, userID)
 	challenge, ok := confirmationSession.Values[logoutConfirmationChallengeKey].(string)
 	if !ok || challenge == "" {
 		t.Fatal("GET did not store a logout confirmation challenge")
@@ -429,44 +413,11 @@ func TestRPInitiatedLogoutWithoutHintRequiresConfirmation(t *testing.T) {
 	}
 }
 
-func TestRPInitiatedLogoutInvalidHintRequiresConfirmation(t *testing.T) {
-	t.Parallel()
-
-	handler := newRPLogoutTestHandler(t)
-	e := echo.New()
-	gen.RegisterHandlers(e, handler)
-	authTime := time.Now().UTC().Truncate(time.Second).Add(-time.Minute)
-	authenticatedCookie := createAuthenticatedSessionCookie(
-		t,
-		handler,
-		"00000000-0000-0000-0000-000000000001",
-		authTime,
-	)
-
-	req := httptest.NewRequestWithContext(
-		context.Background(),
-		http.MethodGet,
-		"/oauth2/logout?id_token_hint=not-a-token",
-		nil,
-	)
-	req.AddCookie(authenticatedCookie)
-	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d, body = %s", rec.Code, http.StatusOK, rec.Body.String())
-	}
-	if !strings.Contains(rec.Body.String(), "Confirm logout") {
-		t.Fatalf("body does not contain confirmation page: %s", rec.Body.String())
-	}
-	confirmationSession := readSessionCookie(t, handler, singleResponseCookie(t, rec))
-	if authenticated, _ := confirmationSession.Values["authenticated"].(bool); !authenticated {
-		t.Fatal("invalid id_token_hint cleared the authenticated session before confirmation")
-	}
-}
-
 func TestRPInitiatedLogoutConfirmationRejectsInvalidState(t *testing.T) {
 	t.Parallel()
+	handler := newRPLogoutTestHandler(nil)
+	e := echo.New()
+	gen.RegisterHandlers(e, handler)
 
 	tests := []struct {
 		name   string
@@ -495,9 +446,6 @@ func TestRPInitiatedLogoutConfirmationRejectsInvalidState(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			handler := newRPLogoutTestHandler(t)
-			e := echo.New()
-			gen.RegisterHandlers(e, handler)
 			authTime := time.Now().UTC().Truncate(time.Second).Add(-time.Minute)
 			authenticatedCookie := createAuthenticatedSessionCookie(
 				t,
@@ -620,18 +568,37 @@ func createAuthenticatedSessionCookie(
 	return cookies[0]
 }
 
-func newRPLogoutTestHandler(t *testing.T) *Handler {
-	t.Helper()
-	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("failed to generate signing key: %v", err)
-	}
+func newRPLogoutTestHandler(idTokenSigner fositejwt.Signer) *Handler {
 	return NewHandler(nil, nil, nil, nil, OAuthConfig{
 		Issuer:        "https://oidc.example.com",
 		SessionSecret: []byte("test-session-secret-32-characters"), //nolint:gosec
-		PrivateKey:    privateKey,
-		IDTokenSigner: newTestIDTokenSigner(privateKey),
+		IDTokenSigner: idTokenSigner,
 	})
+}
+
+func requireLogoutConfirmation(
+	t *testing.T,
+	handler *Handler,
+	rec *httptest.ResponseRecorder,
+	wantUserID string,
+) (*http.Cookie, *sessions.Session) {
+	t.Helper()
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d, body = %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "Confirm logout") {
+		t.Fatalf("body does not contain logout confirmation: %s", rec.Body.String())
+	}
+
+	confirmationCookie := singleResponseCookie(t, rec)
+	confirmationSession := readSessionCookie(t, handler, confirmationCookie)
+	if authenticated, _ := confirmationSession.Values["authenticated"].(bool); !authenticated {
+		t.Fatal("current session was logged out before confirmation")
+	}
+	if userID, _ := confirmationSession.Values["user_id"].(string); userID != wantUserID {
+		t.Fatalf("current session user_id = %q, want %q", userID, wantUserID)
+	}
+	return confirmationCookie, confirmationSession
 }
 
 func singleResponseCookie(t *testing.T, rec *httptest.ResponseRecorder) *http.Cookie {
