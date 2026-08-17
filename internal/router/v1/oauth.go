@@ -379,6 +379,8 @@ func (h *Handler) GetOpenIDConfiguration(ctx *echo.Context) error {
 func (h *Handler) GetOAuthAuthorizationServerMetadata(ctx *echo.Context) error {
 	issuer := strings.TrimRight(h.config.Issuer, "/")
 	jwksURI := issuer + "/.well-known/jwks.json"
+	revocationEndpoint := issuer + "/oauth2/revoke"
+	introspectionEndpoint := issuer + "/oauth2/introspect"
 	scopesSupported := []string{"openid", "profile", "email"}
 	grantTypesSupported := []string{"authorization_code", "refresh_token"}
 	responseModesSupported := []string{"query"}
@@ -395,6 +397,8 @@ func (h *Handler) GetOAuthAuthorizationServerMetadata(ctx *echo.Context) error {
 		AuthorizationEndpoint:             issuer + "/oauth2/authorize",
 		TokenEndpoint:                     issuer + "/oauth2/token",
 		JwksUri:                           &jwksURI,
+		RevocationEndpoint:                &revocationEndpoint,
+		IntrospectionEndpoint:             &introspectionEndpoint,
 		ResponseTypesSupported:            []string{"code"},
 		ResponseModesSupported:            &responseModesSupported,
 		GrantTypesSupported:               &grantTypesSupported,
