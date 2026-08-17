@@ -377,10 +377,11 @@ func (h *Handler) GetOpenIDConfiguration(ctx *echo.Context) error {
 //   - RFC 8414 §3.1 (.well-known/oauth-authorization-server)
 //     https://datatracker.ietf.org/doc/html/rfc8414#section-3.1
 func (h *Handler) GetOAuthAuthorizationServerMetadata(ctx *echo.Context) error {
-	issuer := strings.TrimRight(h.config.Issuer, "/")
-	jwksURI := issuer + "/.well-known/jwks.json"
-	revocationEndpoint := issuer + "/oauth2/revoke"
-	introspectionEndpoint := issuer + "/oauth2/introspect"
+	issuer := h.config.Issuer
+	issuerBase := strings.TrimRight(issuer, "/")
+	jwksURI := issuerBase + "/.well-known/jwks.json"
+	revocationEndpoint := issuerBase + "/oauth2/revoke"
+	introspectionEndpoint := issuerBase + "/oauth2/introspect"
 	scopesSupported := []string{"openid", "profile", "email"}
 	grantTypesSupported := []string{"authorization_code"}
 	responseModesSupported := []string{"query"}
@@ -394,8 +395,8 @@ func (h *Handler) GetOAuthAuthorizationServerMetadata(ctx *echo.Context) error {
 
 	return ctx.JSON(http.StatusOK, gen.OAuthAuthorizationServerMetadata{
 		Issuer:                            issuer,
-		AuthorizationEndpoint:             issuer + "/oauth2/authorize",
-		TokenEndpoint:                     issuer + "/oauth2/token",
+		AuthorizationEndpoint:             issuerBase + "/oauth2/authorize",
+		TokenEndpoint:                     issuerBase + "/oauth2/token",
 		JwksUri:                           &jwksURI,
 		RevocationEndpoint:                &revocationEndpoint,
 		IntrospectionEndpoint:             &introspectionEndpoint,

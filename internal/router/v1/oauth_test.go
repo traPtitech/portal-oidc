@@ -50,6 +50,9 @@ func TestGetOAuthAuthorizationServerMetadataAdvertisesImplementedEndpoints(t *te
 		t.Fatalf("decode metadata: %v", err)
 	}
 
+	if metadata.Issuer != "https://issuer.example/" {
+		t.Fatalf("issuer = %q, want %q", metadata.Issuer, "https://issuer.example/")
+	}
 	if metadata.RevocationEndpoint == nil || *metadata.RevocationEndpoint != "https://issuer.example/oauth2/revoke" {
 		t.Fatalf("revocation_endpoint = %v, want %q", metadata.RevocationEndpoint, "https://issuer.example/oauth2/revoke")
 	}
