@@ -224,6 +224,49 @@ paths:
           description: ログアウト完了確認ページ (post_logout_redirect_uri 無し / 未登録時)
         "400":
           description: Bad Request (id_token_hint 不正等)
+    post:
+      operationId: postRPInitiatedLogout
+      summary: RP-Initiated Logout (OpenID Connect)
+      description: |
+        OpenID Connect RP-Initiated Logout 1.0 のエンドユーザーセッション終了
+        エンドポイント。application/x-www-form-urlencoded で受け取った
+        id_token_hint を検証し、GET と同じログアウト処理を行う。
+      tags:
+        - oauth2/oidc
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                id_token_hint:
+                  type: string
+                  description: |
+                    事前に発行された ID Token (検証用)。OIDC Core 1.0 の
+                    id_token_hint と同じ形式。
+                post_logout_redirect_uri:
+                  type: string
+                  format: uri
+                  description: |
+                    ログアウト後のリダイレクト先。client が事前登録した URI と
+                    完全一致する必要がある。
+                client_id:
+                  type: string
+                  format: uuid
+                  description: |
+                    id_token_hint が無いがリダイレクト URI を指定したい場合に必須。
+                state:
+                  type: string
+                  description: post_logout_redirect_uri 戻り時に echo back される
+                ui_locales:
+                  type: string
+      responses:
+        "302":
+          description: ログアウト完了 → post_logout_redirect_uri (登録済みの場合)
+        "200":
+          description: ログアウト完了確認ページ (post_logout_redirect_uri 無し / 未登録時)
+        "400":
+          description: Bad Request (id_token_hint 不正等)
 
   /oauth2/logout/confirm:
     post:

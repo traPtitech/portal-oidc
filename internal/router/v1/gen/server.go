@@ -56,6 +56,9 @@ type ServerInterface interface {
 	// GetRPInitiatedLogout RP-Initiated Logout (OpenID Connect)
 	// (GET /oauth2/logout)
 	GetRPInitiatedLogout(ctx *echo.Context, params GetRPInitiatedLogoutParams) error
+	// PostRPInitiatedLogout RP-Initiated Logout (OpenID Connect)
+	// (POST /oauth2/logout)
+	PostRPInitiatedLogout(ctx *echo.Context) error
 	// PostRPInitiatedLogoutConfirmation RP-Initiated Logout のユーザー確認
 	// (POST /oauth2/logout/confirm)
 	PostRPInitiatedLogoutConfirmation(ctx *echo.Context) error
@@ -332,6 +335,15 @@ func (w *ServerInterfaceWrapper) GetRPInitiatedLogout(ctx *echo.Context) error {
 	return err
 }
 
+// PostRPInitiatedLogout converts echo context to params.
+func (w *ServerInterfaceWrapper) PostRPInitiatedLogout(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.PostRPInitiatedLogout(ctx)
+	return err
+}
+
 // PostRPInitiatedLogoutConfirmation converts echo context to params.
 func (w *ServerInterfaceWrapper) PostRPInitiatedLogoutConfirmation(ctx *echo.Context) error {
 	var err error
@@ -433,6 +445,7 @@ func RegisterHandlersWithOptions(router EchoRouter, si ServerInterface, options 
 	router.GET(options.BaseURL+"/.well-known/openid-configuration", wrapper.GetOpenIDConfiguration, options.OperationMiddlewares["getOpenIDConfiguration"]...)
 	router.GET(options.BaseURL+"/.well-known/jwks.json", wrapper.GetJWKS, options.OperationMiddlewares["getJWKS"]...)
 	router.GET(options.BaseURL+"/oauth2/logout", wrapper.GetRPInitiatedLogout, options.OperationMiddlewares["getRPInitiatedLogout"]...)
+	router.POST(options.BaseURL+"/oauth2/logout", wrapper.PostRPInitiatedLogout, options.OperationMiddlewares["postRPInitiatedLogout"]...)
 	router.POST(options.BaseURL+"/oauth2/logout/confirm", wrapper.PostRPInitiatedLogoutConfirmation, options.OperationMiddlewares["postRPInitiatedLogoutConfirmation"]...)
 	router.GET(options.BaseURL+"/.well-known/oauth-authorization-server", wrapper.GetOAuthAuthorizationServerMetadata, options.OperationMiddlewares["getOAuthAuthorizationServerMetadata"]...)
 	router.POST(options.BaseURL+"/oauth2/introspect", wrapper.IntrospectToken, options.OperationMiddlewares["introspectToken"]...)
@@ -872,6 +885,38 @@ func (response GetRPInitiatedLogout400Response) VisitGetRPInitiatedLogoutRespons
 	return nil
 }
 
+type PostRPInitiatedLogoutRequestObject struct {
+	Body *PostRPInitiatedLogoutFormdataRequestBody
+}
+
+type PostRPInitiatedLogoutResponseObject interface {
+	VisitPostRPInitiatedLogoutResponse(w http.ResponseWriter) error
+}
+
+type PostRPInitiatedLogout200Response struct {
+}
+
+func (response PostRPInitiatedLogout200Response) VisitPostRPInitiatedLogoutResponse(w http.ResponseWriter) error {
+	w.WriteHeader(200)
+	return nil
+}
+
+type PostRPInitiatedLogout302Response struct {
+}
+
+func (response PostRPInitiatedLogout302Response) VisitPostRPInitiatedLogoutResponse(w http.ResponseWriter) error {
+	w.WriteHeader(302)
+	return nil
+}
+
+type PostRPInitiatedLogout400Response struct {
+}
+
+func (response PostRPInitiatedLogout400Response) VisitPostRPInitiatedLogoutResponse(w http.ResponseWriter) error {
+	w.WriteHeader(400)
+	return nil
+}
+
 type PostRPInitiatedLogoutConfirmationRequestObject struct {
 	Body *PostRPInitiatedLogoutConfirmationFormdataRequestBody
 }
@@ -1089,6 +1134,9 @@ type StrictServerInterface interface {
 	// GetRPInitiatedLogout RP-Initiated Logout (OpenID Connect)
 	// (GET /oauth2/logout)
 	GetRPInitiatedLogout(ctx context.Context, request GetRPInitiatedLogoutRequestObject) (GetRPInitiatedLogoutResponseObject, error)
+	// PostRPInitiatedLogout RP-Initiated Logout (OpenID Connect)
+	// (POST /oauth2/logout)
+	PostRPInitiatedLogout(ctx context.Context, request PostRPInitiatedLogoutRequestObject) (PostRPInitiatedLogoutResponseObject, error)
 	// PostRPInitiatedLogoutConfirmation RP-Initiated Logout のユーザー確認
 	// (POST /oauth2/logout/confirm)
 	PostRPInitiatedLogoutConfirmation(ctx context.Context, request PostRPInitiatedLogoutConfirmationRequestObject) (PostRPInitiatedLogoutConfirmationResponseObject, error)
@@ -1475,6 +1523,39 @@ func (sh *strictHandler) GetRPInitiatedLogout(ctx *echo.Context, params GetRPIni
 		return err
 	} else if validResponse, ok := response.(GetRPInitiatedLogoutResponseObject); ok {
 		return validResponse.VisitGetRPInitiatedLogoutResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// PostRPInitiatedLogout operation middleware
+func (sh *strictHandler) PostRPInitiatedLogout(ctx *echo.Context) error {
+	var request PostRPInitiatedLogoutRequestObject
+
+	if form, err := ctx.FormValues(); err == nil {
+		var body PostRPInitiatedLogoutFormdataRequestBody
+		if err := runtime.BindForm(&body, form, nil, nil); err != nil {
+			return err
+		}
+		request.Body = &body
+	} else {
+		return err
+	}
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.PostRPInitiatedLogout(ctx.Request().Context(), request.(PostRPInitiatedLogoutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostRPInitiatedLogout")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(PostRPInitiatedLogoutResponseObject); ok {
+		return validResponse.VisitPostRPInitiatedLogoutResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}

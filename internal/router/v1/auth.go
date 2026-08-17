@@ -18,6 +18,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/sessions"
 	"github.com/labstack/echo/v5"
+	"github.com/oapi-codegen/runtime"
 	fositejwt "github.com/ory/fosite/token/jwt"
 
 	"github.com/traPtitech/portal-oidc/internal/router/v1/gen"
@@ -172,6 +173,31 @@ func (h *Handler) Logout(ctx *echo.Context) error {
 //   - OpenID Connect RP-Initiated Logout 1.0 §3 (Redirect URI Validation)
 //     https://openid.net/specs/openid-connect-rpinitiated-1_0.html#ValidationAndErrorHandling
 func (h *Handler) GetRPInitiatedLogout(ctx *echo.Context, params gen.GetRPInitiatedLogoutParams) error {
+	return h.rpInitiatedLogout(ctx, params)
+}
+
+// PostRPInitiatedLogout accepts Logout Request parameters using HTML Form
+// Serialization, as required by OpenID Connect RP-Initiated Logout 1.0.
+func (h *Handler) PostRPInitiatedLogout(ctx *echo.Context) error {
+	if err := ctx.Request().ParseForm(); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid RP-initiated logout form")
+	}
+
+	var body gen.PostRPInitiatedLogoutFormdataRequestBody
+	if err := runtime.BindForm(&body, ctx.Request().PostForm, nil, nil); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid RP-initiated logout form")
+	}
+
+	return h.rpInitiatedLogout(ctx, gen.GetRPInitiatedLogoutParams{
+		IdTokenHint:           body.IdTokenHint,
+		PostLogoutRedirectUri: body.PostLogoutRedirectUri,
+		ClientId:              body.ClientId,
+		State:                 body.State,
+		UiLocales:             body.UiLocales,
+	})
+}
+
+func (h *Handler) rpInitiatedLogout(ctx *echo.Context, params gen.GetRPInitiatedLogoutParams) error {
 	idTokenHint := ""
 	if params.IdTokenHint != nil {
 		idTokenHint = *params.IdTokenHint

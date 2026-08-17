@@ -629,6 +629,24 @@ type GetRPInitiatedLogoutParams struct {
 	UiLocales *string `form:"ui_locales,omitempty" json:"ui_locales,omitempty"`
 }
 
+// PostRPInitiatedLogoutFormdataBody defines parameters for PostRPInitiatedLogout.
+type PostRPInitiatedLogoutFormdataBody struct {
+	// ClientId id_token_hint が無いがリダイレクト URI を指定したい場合に必須。
+	ClientId *openapi_types.UUID `form:"client_id,omitempty" json:"client_id,omitempty"`
+
+	// IdTokenHint 事前に発行された ID Token (検証用)。OIDC Core 1.0 の
+	// id_token_hint と同じ形式。
+	IdTokenHint *string `form:"id_token_hint,omitempty" json:"id_token_hint,omitempty"`
+
+	// PostLogoutRedirectUri ログアウト後のリダイレクト先。client が事前登録した URI と
+	// 完全一致する必要がある。
+	PostLogoutRedirectUri *string `form:"post_logout_redirect_uri,omitempty" json:"post_logout_redirect_uri,omitempty"`
+
+	// State post_logout_redirect_uri 戻り時に echo back される
+	State     *string `form:"state,omitempty" json:"state,omitempty"`
+	UiLocales *string `form:"ui_locales,omitempty" json:"ui_locales,omitempty"`
+}
+
 // PostRPInitiatedLogoutConfirmationFormdataBody defines parameters for PostRPInitiatedLogoutConfirmation.
 type PostRPInitiatedLogoutConfirmationFormdataBody struct {
 	// LogoutChallenge 確認画面と署名済みセッションに結合された期限付きchallenge
@@ -646,6 +664,9 @@ type PostAuthorizeFormdataRequestBody = AuthorizeRequest
 
 // IntrospectTokenFormdataRequestBody defines body for IntrospectToken for application/x-www-form-urlencoded ContentType.
 type IntrospectTokenFormdataRequestBody = IntrospectRequest
+
+// PostRPInitiatedLogoutFormdataRequestBody defines body for PostRPInitiatedLogout for application/x-www-form-urlencoded ContentType.
+type PostRPInitiatedLogoutFormdataRequestBody PostRPInitiatedLogoutFormdataBody
 
 // PostRPInitiatedLogoutConfirmationFormdataRequestBody defines body for PostRPInitiatedLogoutConfirmation for application/x-www-form-urlencoded ContentType.
 type PostRPInitiatedLogoutConfirmationFormdataRequestBody PostRPInitiatedLogoutConfirmationFormdataBody

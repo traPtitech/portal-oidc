@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -264,7 +265,7 @@ func TestHasRegisteredAudience(t *testing.T) {
 	}
 }
 
-func TestGetRPInitiatedLogoutValidatesExplicitClientID(t *testing.T) {
+func TestRPInitiatedLogoutValidatesExplicitClientIDForGETAndPOST(t *testing.T) {
 	t.Parallel()
 
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -291,16 +292,34 @@ func TestGetRPInitiatedLogoutValidatesExplicitClientID(t *testing.T) {
 	e := echo.New()
 	gen.RegisterHandlers(e, handler)
 
-	query := url.Values{
+	params := url.Values{
 		"id_token_hint": {rawToken},
 		"client_id":     {clientB},
 	}
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/oauth2/logout?"+query.Encode(), nil)
-	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want %d, body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	for _, method := range []string{http.MethodGet, http.MethodPost} {
+		t.Run(method, func(t *testing.T) {
+			t.Parallel()
+
+			target := "/oauth2/logout"
+			var body io.Reader
+			if method == http.MethodGet {
+				target += "?" + params.Encode()
+			} else {
+				body = strings.NewReader(params.Encode())
+			}
+
+			req := httptest.NewRequestWithContext(context.Background(), method, target, body)
+			if method == http.MethodPost {
+				req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+			}
+			rec := httptest.NewRecorder()
+			e.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want %d, body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+			}
+		})
 	}
 }
 
