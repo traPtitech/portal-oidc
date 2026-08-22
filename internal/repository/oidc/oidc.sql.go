@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sqlc-dev/pqtype"
 )
 
 const clearAuthorizationCodePKCE = `-- name: ClearAuthorizationCodePKCE :exec
@@ -76,16 +77,42 @@ INSERT INTO clients (
     client_secret_hash,
     name,
     client_type,
-    redirect_uris
-) VALUES ($1, $2, $3, $4, $5)
+    redirect_uris,
+    client_uri,
+    logo_uri,
+    post_logout_redirect_uris,
+    allowed_origins,
+    grant_types,
+    response_types,
+    scopes,
+    token_endpoint_auth,
+    jwks_uri,
+    jwks,
+    id_token_alg,
+    status,
+    owner_id
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
 `
 
 type CreateClientParams struct {
-	ClientID         uuid.UUID       `json:"client_id"`
-	ClientSecretHash sql.NullString  `json:"client_secret_hash"`
-	Name             string          `json:"name"`
-	ClientType       string          `json:"client_type"`
-	RedirectUris     json.RawMessage `json:"redirect_uris"`
+	ClientID               uuid.UUID             `json:"client_id"`
+	ClientSecretHash       sql.NullString        `json:"client_secret_hash"`
+	Name                   string                `json:"name"`
+	ClientType             string                `json:"client_type"`
+	RedirectUris           json.RawMessage       `json:"redirect_uris"`
+	ClientUri              sql.NullString        `json:"client_uri"`
+	LogoUri                sql.NullString        `json:"logo_uri"`
+	PostLogoutRedirectUris json.RawMessage       `json:"post_logout_redirect_uris"`
+	AllowedOrigins         json.RawMessage       `json:"allowed_origins"`
+	GrantTypes             json.RawMessage       `json:"grant_types"`
+	ResponseTypes          json.RawMessage       `json:"response_types"`
+	Scopes                 json.RawMessage       `json:"scopes"`
+	TokenEndpointAuth      string                `json:"token_endpoint_auth"`
+	JwksUri                sql.NullString        `json:"jwks_uri"`
+	Jwks                   pqtype.NullRawMessage `json:"jwks"`
+	IDTokenAlg             string                `json:"id_token_alg"`
+	Status                 string                `json:"status"`
+	OwnerID                uuid.NullUUID         `json:"owner_id"`
 }
 
 // Client queries
@@ -96,6 +123,19 @@ func (q *Queries) CreateClient(ctx context.Context, arg CreateClientParams) erro
 		arg.Name,
 		arg.ClientType,
 		arg.RedirectUris,
+		arg.ClientUri,
+		arg.LogoUri,
+		arg.PostLogoutRedirectUris,
+		arg.AllowedOrigins,
+		arg.GrantTypes,
+		arg.ResponseTypes,
+		arg.Scopes,
+		arg.TokenEndpointAuth,
+		arg.JwksUri,
+		arg.Jwks,
+		arg.IDTokenAlg,
+		arg.Status,
+		arg.OwnerID,
 	)
 	return err
 }
@@ -332,7 +372,7 @@ func (q *Queries) GetAuthorizationCode(ctx context.Context, code string) (Author
 }
 
 const getClient = `-- name: GetClient :one
-SELECT client_id, client_secret_hash, name, client_type, redirect_uris, created_at, updated_at FROM clients WHERE client_id = $1
+SELECT client_id, client_secret_hash, name, client_type, redirect_uris, client_uri, logo_uri, post_logout_redirect_uris, allowed_origins, grant_types, response_types, scopes, token_endpoint_auth, jwks_uri, jwks, id_token_alg, status, owner_id, created_at, updated_at FROM clients WHERE client_id = $1
 `
 
 func (q *Queries) GetClient(ctx context.Context, clientID uuid.UUID) (Client, error) {
@@ -344,6 +384,19 @@ func (q *Queries) GetClient(ctx context.Context, clientID uuid.UUID) (Client, er
 		&i.Name,
 		&i.ClientType,
 		&i.RedirectUris,
+		&i.ClientUri,
+		&i.LogoUri,
+		&i.PostLogoutRedirectUris,
+		&i.AllowedOrigins,
+		&i.GrantTypes,
+		&i.ResponseTypes,
+		&i.Scopes,
+		&i.TokenEndpointAuth,
+		&i.JwksUri,
+		&i.Jwks,
+		&i.IDTokenAlg,
+		&i.Status,
+		&i.OwnerID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -434,7 +487,7 @@ func (q *Queries) GetTokenByRefreshToken(ctx context.Context, refreshToken sql.N
 }
 
 const listClients = `-- name: ListClients :many
-SELECT client_id, client_secret_hash, name, client_type, redirect_uris, created_at, updated_at FROM clients
+SELECT client_id, client_secret_hash, name, client_type, redirect_uris, client_uri, logo_uri, post_logout_redirect_uris, allowed_origins, grant_types, response_types, scopes, token_endpoint_auth, jwks_uri, jwks, id_token_alg, status, owner_id, created_at, updated_at FROM clients
 `
 
 func (q *Queries) ListClients(ctx context.Context) ([]Client, error) {
@@ -452,6 +505,19 @@ func (q *Queries) ListClients(ctx context.Context) ([]Client, error) {
 			&i.Name,
 			&i.ClientType,
 			&i.RedirectUris,
+			&i.ClientUri,
+			&i.LogoUri,
+			&i.PostLogoutRedirectUris,
+			&i.AllowedOrigins,
+			&i.GrantTypes,
+			&i.ResponseTypes,
+			&i.Scopes,
+			&i.TokenEndpointAuth,
+			&i.JwksUri,
+			&i.Jwks,
+			&i.IDTokenAlg,
+			&i.Status,
+			&i.OwnerID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -503,15 +569,41 @@ const updateClient = `-- name: UpdateClient :exec
 UPDATE clients SET
     name = $1,
     client_type = $2,
-    redirect_uris = $3
-WHERE client_id = $4
+    redirect_uris = $3,
+    client_uri = $4,
+    logo_uri = $5,
+    post_logout_redirect_uris = $6,
+    allowed_origins = $7,
+    grant_types = $8,
+    response_types = $9,
+    scopes = $10,
+    token_endpoint_auth = $11,
+    jwks_uri = $12,
+    jwks = $13,
+    id_token_alg = $14,
+    status = $15,
+    owner_id = $16
+WHERE client_id = $17
 `
 
 type UpdateClientParams struct {
-	Name         string          `json:"name"`
-	ClientType   string          `json:"client_type"`
-	RedirectUris json.RawMessage `json:"redirect_uris"`
-	ClientID     uuid.UUID       `json:"client_id"`
+	Name                   string                `json:"name"`
+	ClientType             string                `json:"client_type"`
+	RedirectUris           json.RawMessage       `json:"redirect_uris"`
+	ClientUri              sql.NullString        `json:"client_uri"`
+	LogoUri                sql.NullString        `json:"logo_uri"`
+	PostLogoutRedirectUris json.RawMessage       `json:"post_logout_redirect_uris"`
+	AllowedOrigins         json.RawMessage       `json:"allowed_origins"`
+	GrantTypes             json.RawMessage       `json:"grant_types"`
+	ResponseTypes          json.RawMessage       `json:"response_types"`
+	Scopes                 json.RawMessage       `json:"scopes"`
+	TokenEndpointAuth      string                `json:"token_endpoint_auth"`
+	JwksUri                sql.NullString        `json:"jwks_uri"`
+	Jwks                   pqtype.NullRawMessage `json:"jwks"`
+	IDTokenAlg             string                `json:"id_token_alg"`
+	Status                 string                `json:"status"`
+	OwnerID                uuid.NullUUID         `json:"owner_id"`
+	ClientID               uuid.UUID             `json:"client_id"`
 }
 
 func (q *Queries) UpdateClient(ctx context.Context, arg UpdateClientParams) error {
@@ -519,6 +611,19 @@ func (q *Queries) UpdateClient(ctx context.Context, arg UpdateClientParams) erro
 		arg.Name,
 		arg.ClientType,
 		arg.RedirectUris,
+		arg.ClientUri,
+		arg.LogoUri,
+		arg.PostLogoutRedirectUris,
+		arg.AllowedOrigins,
+		arg.GrantTypes,
+		arg.ResponseTypes,
+		arg.Scopes,
+		arg.TokenEndpointAuth,
+		arg.JwksUri,
+		arg.Jwks,
+		arg.IDTokenAlg,
+		arg.Status,
+		arg.OwnerID,
 		arg.ClientID,
 	)
 	return err
