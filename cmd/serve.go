@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -78,6 +79,8 @@ func newServer(cfg Config) (http.Handler, error) {
 
 	e := echo.New()
 	e.Use(middleware.Recover())
+	e.Use(middleware.BodyLimit(1 * middleware.MB))
+	e.Use(middleware.SecureWithConfig(secureConfig(cfg.Host)))
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
 		AllowHeaders: []string{"*"},
@@ -92,6 +95,19 @@ func newServer(cfg Config) (http.Handler, error) {
 	})
 
 	return e, nil
+}
+
+func secureConfig(host string) middleware.SecureConfig {
+	cfg := middleware.SecureConfig{
+		XSSProtection:      "1; mode=block",
+		ContentTypeNosniff: "nosniff",
+		XFrameOptions:      "DENY",
+		ReferrerPolicy:     "no-referrer",
+	}
+	if strings.HasPrefix(host, "https://") {
+		cfg.HSTSMaxAge = 31536000
+	}
+	return cfg
 }
 
 func loginRateLimiter() echo.MiddlewareFunc {
