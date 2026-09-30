@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
+	"github.com/labstack/echo/v5"
 )
 
 const shutdownTimeout = 30 * time.Second
@@ -28,38 +28,29 @@ func (s *ServeCmd) Run(cfg *Config) error {
 		return err
 	}
 
-	srv := &http.Server{
-		Addr:              ":8080",
-		Handler:           handler,
-		ReadHeaderTimeout: 10 * time.Second,
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	var shutdownErr error
+	sc := echo.StartConfig{
+		Address:         ":8080",
+		HideBanner:      true,
+		GracefulTimeout: shutdownTimeout,
+		BeforeServeFunc: func(srv *http.Server) error {
+			// Preserve the existing timeouts instead of Echo's default ReadTimeout.
+			srv.ReadTimeout = 0
+			srv.ReadHeaderTimeout = 10 * time.Second
+			return nil
+		},
+		OnShutdownError: func(err error) {
+			shutdownErr = err
+		},
 	}
-
-	serveErr := make(chan error, 1)
-	go func() {
-		log.Printf("Starting server on %s", srv.Addr)
-		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			serveErr <- err
-			return
-		}
-		serveErr <- nil
-	}()
-
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
-
-	select {
-	case err := <-serveErr:
-		return err
-	case sig := <-signals:
-		log.Printf("Received %s, shutting down...", sig)
-	}
-
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
-	defer cancel()
-	if err := srv.Shutdown(shutdownCtx); err != nil {
+	if err := sc.Start(ctx, handler); err != nil {
 		return err
 	}
-	return <-serveErr
+	// Start waits for shutdown, including OnShutdownError, before returning.
+	return shutdownErr
 }
 
 func main() {
