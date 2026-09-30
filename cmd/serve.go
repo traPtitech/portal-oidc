@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/labstack/echo/v5"
@@ -44,7 +45,7 @@ func newServer(cfg Config) (http.Handler, error) {
 		repository.NewOIDCSessionRepository(queries),
 	)
 	defaults := defaultOAuthProviderConfig()
-	oauth2Provider := newOAuthProvider(oauthStorage, OAuthProviderConfig{
+	oauth2Provider, idTokenSigner := newOAuthProvider(oauthStorage, OAuthProviderConfig{
 		Issuer:               cfg.Host,
 		AccessTokenLifespan:  defaults.AccessTokenLifespan,
 		RefreshTokenLifespan: defaults.RefreshTokenLifespan,
@@ -63,13 +64,14 @@ func newServer(cfg Config) (http.Handler, error) {
 	}
 	handler := v1.NewHandler(
 		usecase.NewClientUseCase(clientRepo),
-		usecase.NewOAuthUseCase(),
+		usecase.NewOAuthUseCase(oauth2Provider, oauthStorage),
 		oauth2Provider,
 		userUseCase,
 		v1.OAuthConfig{
 			Issuer:        cfg.Host,
 			SessionSecret: []byte(cfg.OAuth.Secret),
 			PrivateKey:    privateKey,
+			IDTokenSigner: idTokenSigner,
 			Environment:   cfg.Environment,
 			TestUserID:    cfg.OAuth.TestUserID,
 		},
@@ -86,7 +88,7 @@ func newServer(cfg Config) (http.Handler, error) {
 	}))
 	gen.RegisterHandlers(e, handler)
 	e.GET("/login", handler.GetLogin)
-	e.POST("/login", handler.PostLogin)
+	e.POST("/login", handler.PostLogin, loginRateLimiter())
 	e.GET("/logout", handler.Logout)
 	e.GET("/health", func(c *echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
@@ -108,6 +110,20 @@ func secureConfig(host string) middleware.SecureConfig {
 	return cfg
 }
 
+func loginRateLimiter() echo.MiddlewareFunc {
+	store := middleware.NewRateLimiterMemoryStoreWithConfig(middleware.RateLimiterMemoryStoreConfig{
+		Rate:      0.2,
+		Burst:     10,
+		ExpiresIn: 10 * time.Minute,
+	})
+	return middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{
+		Store: store,
+		IdentifierExtractor: func(c *echo.Context) (string, error) {
+			return c.RealIP(), nil
+		},
+	})
+}
+
 func postgresDSN(cfg DatabaseConfig) string {
 	sslMode := cfg.SSLMode
 	if sslMode == "" {
@@ -125,11 +141,26 @@ func postgresDSN(cfg DatabaseConfig) string {
 	return u.String()
 }
 
+const (
+	dbMaxOpenConns    = 25
+	dbMaxIdleConns    = 5
+	dbConnMaxLifetime = 30 * time.Minute
+	dbConnMaxIdleTime = 5 * time.Minute
+)
+
+func tunePool(db *sql.DB) {
+	db.SetMaxOpenConns(dbMaxOpenConns)
+	db.SetMaxIdleConns(dbMaxIdleConns)
+	db.SetConnMaxLifetime(dbConnMaxLifetime)
+	db.SetConnMaxIdleTime(dbConnMaxIdleTime)
+}
+
 func setupOIDCDatabase(cfg DatabaseConfig) (*sql.DB, *oidc.Queries, error) {
 	db, err := sql.Open("pgx", postgresDSN(cfg))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to open oidc database: %w", err)
 	}
+	tunePool(db)
 
 	if err := db.PingContext(context.Background()); err != nil {
 		return nil, nil, fmt.Errorf("failed to ping oidc database: %w", err)
@@ -148,6 +179,7 @@ func setupPortalDatabase(cfg DatabaseConfig) (*portal.Queries, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open portal database: %w", err)
 	}
+	tunePool(db)
 
 	if err := db.PingContext(context.Background()); err != nil {
 		return nil, fmt.Errorf("failed to ping portal database: %w", err)

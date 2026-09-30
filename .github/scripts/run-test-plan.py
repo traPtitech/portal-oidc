@@ -70,53 +70,151 @@ def get_test_log(client: httpx.Client, module_id: str) -> list:
 
 
 def find_authorize_url(log_entries: list) -> str | None:
-    for entry in log_entries:
+    # Multi-step modules append a new authorization redirect for each round.
+    # Always drive the newest one instead of repeatedly selecting the first.
+    for entry in reversed(log_entries):
         url = entry.get("redirect_to_authorization_endpoint", "")
         if url:
             return url
     return None
 
 
+TEST_USERNAME = os.environ.get("CONFORMANCE_TEST_USERNAME", "testuser")
+TEST_PASSWORD = os.environ.get("CONFORMANCE_TEST_PASSWORD", "password")
+LOGIN_INPUT_DELAY_SECONDS = 1
+RUNNER_DRIVEN_BROWSER_MODULES = {
+    "oidcc-prompt-login",
+    "oidcc-max-age-1",
+}
+
+
+def submit_login_form(
+    browser: httpx.Client, login_url: str
+) -> httpx.Response | None:
+    """POST credentials to the login form and return the resulting redirect.
+
+    The /login page on portal-oidc is a static HTML form whose action target is
+    /login itself. After successful auth it issues a 302 back to the authorize
+    URL embedded in the `return_url` hidden field.
+    """
+    parsed = httpx.URL(login_url)
+    return_url = ""
+    for key, value in parsed.params.multi_items():
+        if key == "return_url":
+            return_url = value
+            break
+
+    # portal-oidc records reauthentication times in whole seconds. The real UI
+    # naturally crosses that boundary while a test posts the form immediately.
+    time.sleep(LOGIN_INPUT_DELAY_SECONDS)
+    print("  Browser: submitting login credentials")
+    try:
+        return browser.post(
+            login_url,
+            data={
+                "username": TEST_USERNAME,
+                "password": TEST_PASSWORD,
+                "return_url": return_url,
+            },
+            follow_redirects=False,
+        )
+    except httpx.HTTPError as e:
+        print(f"  Browser: login submission failed: {e}")
+        return None
+
+
+def follow_authorize(
+    browser: httpx.Client, auth_url: str, max_hops: int = 5
+) -> httpx.Response | None:
+    """Drive the authorize → (login →) callback redirect chain.
+
+    Conformance tests that exercise prompt=login or max_age cause portal-oidc
+    to redirect to /login even when there is an existing session, so we may
+    bounce login → authorize → callback multiple times. Location headers may
+    be relative URLs, so resolve them against the previous request URL on each
+    hop.
+    """
+    current_url = httpx.URL(auth_url)
+    for _ in range(max_hops):
+        try:
+            resp = browser.get(current_url, follow_redirects=False)
+        except httpx.HTTPError as e:
+            print(f"  Browser: request failed: {e}")
+            return None
+
+        if resp.status_code in (301, 302, 303, 307, 308):
+            location = resp.headers.get("location", "")
+            if not location:
+                return resp
+            current_url = httpx.URL(location)
+            if not current_url.host:
+                current_url = resp.url.join(current_url)
+            continue
+
+        if resp.status_code == 200 and "/login" in str(resp.url):
+            login_resp = submit_login_form(browser, str(resp.url))
+            if not login_resp:
+                return None
+            if login_resp.status_code in (301, 302, 303, 307, 308):
+                location = login_resp.headers.get("location", "")
+                if not location:
+                    return login_resp
+                current_url = httpx.URL(location)
+                if not current_url.host:
+                    current_url = login_resp.url.join(current_url)
+                continue
+            # A successful login always answers with a redirect back to the
+            # authorize URL; anything else (401 failure page, re-rendered
+            # form) means the credentials were rejected.
+            print(
+                f"  Browser: login failed: status {login_resp.status_code}"
+                f" at {login_resp.url}"
+            )
+            return None
+
+        return resp
+
+    print("  Browser: exceeded redirect hop limit")
+    return None
+
+
 def perform_browser_interaction(
-    api_client: httpx.Client,
     browser: httpx.Client,
-    module_id: str,
+    auth_url: str,
     oidc_server_url: str,
 ) -> None:
-    log = get_test_log(api_client, module_id)
-    auth_url = find_authorize_url(log)
-    if not auth_url:
-        return
-
     if oidc_server_url:
         auth_url = auth_url.replace("host.docker.internal:8080", oidc_server_url)
 
     print("  Browser: visiting authorize URL")
-    try:
-        resp = browser.get(auth_url, follow_redirects=False)
-    except httpx.HTTPError as e:
-        print(f"  Browser: authorize request failed: {e}")
+    resp = follow_authorize(browser, auth_url)
+    if resp is None:
         return
 
-    if resp.status_code not in (301, 302, 303, 307, 308):
-        print(f"  Browser: OP returned {resp.status_code} (no redirect)")
+    # follow_authorize already drives the authorize → (login →) callback chain
+    # all the way through, so resp is normally the 200 callback page served by
+    # the conformance suite. If we somehow stopped at a 30x without following,
+    # do one more GET to land on the callback page.
+    if resp.status_code in (301, 302, 303, 307, 308):
+        callback_url = resp.headers.get("location", "")
+        if not callback_url:
+            print("  Browser: redirect with no location header")
+            return
+        print("  Browser: following redirect to callback")
+        try:
+            resp = browser.get(callback_url)
+        except httpx.HTTPError as e:
+            print(f"  Browser: callback request failed: {e}")
+            return
+
+    if resp.status_code != 200:
+        print(f"  Browser: OP returned {resp.status_code} (expected callback page)")
         return
 
-    callback_url = resp.headers.get("location", "")
-    if not callback_url:
-        print("  Browser: redirect with no location header")
-        return
-
-    print("  Browser: following redirect to callback")
-    try:
-        cb_resp = browser.get(callback_url)
-    except httpx.HTTPError as e:
-        print(f"  Browser: callback request failed: {e}")
-        return
-
-    match = re.search(r"xhr\.open\('POST',\s*\"([^\"]+)\"", cb_resp.text)
+    match = re.search(r"xhr\.open\('POST',\s*\"([^\"]+)\"", resp.text)
     if not match:
-        print("  Browser: no implicit submit URL found in callback page")
+        # Some callback pages do not need a fragment submission step (e.g.
+        # response_mode=query), so the auth code is already in the test's hands.
         return
 
     implicit_url = match.group(1).replace("\\/", "/")
@@ -129,23 +227,23 @@ def perform_browser_interaction(
 
 def wait_for_test(
     api_client: httpx.Client,
-    browser: httpx.Client,
+    browser: httpx.Client | None,
     module_id: str,
     oidc_server_url: str,
     timeout: int = 60,
 ) -> dict:
     start = time.time()
-    browser_tried = False
+    handled_authorize_urls: set[str] = set()
     while time.time() - start < timeout:
         info = get_test_module_info(api_client, module_id)
         status = info.get("status", "UNKNOWN")
         if status in ("FINISHED", "INTERRUPTED"):
             return info
-        if status == "WAITING" and not browser_tried:
-            browser_tried = True
-            perform_browser_interaction(
-                api_client, browser, module_id, oidc_server_url
-            )
+        if status == "WAITING" and browser is not None:
+            auth_url = find_authorize_url(get_test_log(api_client, module_id))
+            if auth_url and auth_url not in handled_authorize_urls:
+                handled_authorize_urls.add(auth_url)
+                perform_browser_interaction(browser, auth_url, oidc_server_url)
         time.sleep(2)
     raise TimeoutError(f"Test {module_id} did not finish within {timeout}s")
 
@@ -158,9 +256,17 @@ def load_expected_skips(path: str | None) -> set[str]:
     return {e["test_module"] for e in entries}
 
 
+def module_uses_suite_browser(config: dict, module_name: str) -> bool:
+    """Return whether this module has native suite browser automation."""
+    # These modules still use the suite browser to capture the required login
+    # screenshot, while this runner drives the delayed login and callback.
+    if module_name in RUNNER_DRIVEN_BROWSER_MODULES:
+        return False
+    return "browser" in config.get("override", {}).get(module_name, {})
+
+
 def run_plan(
     api_client: httpx.Client,
-    browser: httpx.Client,
     plan_name: str,
     variant: dict | None,
     config: dict,
@@ -193,9 +299,18 @@ def run_plan(
         print(f"Module ID: {module_id}")
 
         try:
-            info = wait_for_test(
-                api_client, browser, module_id, oidc_server_url
-            )
+            if module_uses_suite_browser(config, module_name):
+                print("  Browser: using conformance suite automation")
+                info = wait_for_test(
+                    api_client, None, module_id, oidc_server_url
+                )
+            else:
+                # Cookies persist within a module but never leak into the next
+                # one (notably prompt=none while logged out).
+                with create_browser_client() as browser:
+                    info = wait_for_test(
+                        api_client, browser, module_id, oidc_server_url
+                    )
         except TimeoutError as e:
             print(f"TIMEOUT: {e}")
             all_passed = False
@@ -272,16 +387,14 @@ def main() -> None:
     os.makedirs(args.output, exist_ok=True)
 
     api_client = create_api_client(args.server, args.token)
-    browser = create_browser_client()
 
     try:
         passed = run_plan(
-            api_client, browser, args.plan, variant, config, args.output,
+            api_client, args.plan, variant, config, args.output,
             args.oidc_server, skips,
         )
     finally:
         api_client.close()
-        browser.close()
 
     if not passed:
         print("\nSome tests failed.")

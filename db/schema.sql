@@ -47,13 +47,14 @@ CREATE TABLE IF NOT EXISTS tokens (
   request_id TEXT NOT NULL,
   client_id UUID NOT NULL,
   user_id UUID NOT NULL,
-  access_token TEXT NOT NULL,
+  access_token TEXT NULL,
   refresh_token TEXT NULL,
   scopes TEXT NOT NULL,
   expires_at TIMESTAMPTZ NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   CONSTRAINT idx_tokens_access_token UNIQUE (access_token),
+  CONSTRAINT chk_tokens_at_least_one_token CHECK (access_token IS NOT NULL OR refresh_token IS NOT NULL),
   CONSTRAINT fk_tokens_client FOREIGN KEY (client_id) REFERENCES clients (client_id) ON DELETE CASCADE
 );
 
@@ -74,7 +75,9 @@ CREATE TABLE IF NOT EXISTS oidc_sessions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (authorize_code),
   CONSTRAINT fk_oidc_sessions_client FOREIGN KEY (client_id)
-    REFERENCES clients (client_id) ON DELETE CASCADE
+    REFERENCES clients (client_id) ON DELETE CASCADE,
+  CONSTRAINT fk_oidc_sessions_authorize_code FOREIGN KEY (authorize_code)
+    REFERENCES authorization_codes (code) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_oidc_sessions_client_id ON oidc_sessions (client_id);
