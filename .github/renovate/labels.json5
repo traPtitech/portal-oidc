@@ -29,6 +29,10 @@
       "addLabels": ["renovate/mise"],
     },
     {
+      "matchManagers": ["pep621"],
+      "addLabels": ["renovate/python"],
+    },
+    {
       "matchDatasources": ["docker"],
       "addLabels": ["renovate/docker"],
     },

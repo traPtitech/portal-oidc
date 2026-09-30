@@ -12,6 +12,18 @@
       "matchDatasources": ["docker"],
       "automerge": false,
       "matchUpdateTypes": ["major"]
+    },
+
+    // for conformance suite test
+    {
+      "matchManagers": ["docker-compose"],
+      "matchPackageNames": [
+        "ghcr.io/traptitech/portal-oidc/conformance-httpd",
+        "ghcr.io/traptitech/portal-oidc/conformance-server",
+      ],
+      "versioning": "regex:^release-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      "groupName": "OpenID conformance suite images",
+      "minimumGroupSize": 2,
     }
   ]
 }

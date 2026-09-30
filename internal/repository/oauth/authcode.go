@@ -48,8 +48,10 @@ func (s *Storage) GetAuthorizeCodeSession(ctx context.Context, code string, sess
 		return nil, err
 	}
 
+	// ErrNotFound, not ErrTokenExpired: fosite turns anything else returned here into
+	// 500, while RFC 6749 §5.2 puts an expired grant under invalid_grant.
 	if time.Now().After(authCode.ExpiresAt) {
-		return nil, fosite.ErrTokenExpired
+		return nil, fosite.ErrNotFound
 	}
 
 	client, err := s.GetClient(ctx, authCode.ClientID.String())
@@ -75,6 +77,13 @@ func (s *Storage) GetAuthorizeCodeSession(ctx context.Context, code string, sess
 	req := newFositeRequest(code, authCode.CreatedAt, client, sess, authCode.Scopes, form)
 
 	if authCode.Used {
+		// RFC 6749 §4.1.2: on authorization code reuse, the server SHOULD revoke
+		// all tokens previously issued from this code. The code itself was used as
+		// the fosite request ID (see newFositeRequest in storage.go), so all tokens
+		// derived from it carry the same request_id.
+		if delErr := s.getTokens(ctx).DeleteByRequestID(ctx, code); delErr != nil {
+			return req, errors.Join(fosite.ErrInvalidatedAuthorizeCode, delErr)
+		}
 		return req, fosite.ErrInvalidatedAuthorizeCode
 	}
 
@@ -86,7 +95,14 @@ func (s *Storage) InvalidateAuthorizeCodeSession(ctx context.Context, code strin
 }
 
 func (s *Storage) GetPKCERequestSession(ctx context.Context, signature string, session fosite.Session) (fosite.Requester, error) {
-	return s.GetAuthorizeCodeSession(ctx, signature, session)
+	req, err := s.GetAuthorizeCodeSession(ctx, signature, session)
+	if err != nil {
+		return nil, err
+	}
+	if req.GetRequestForm().Get("code_challenge") == "" {
+		return nil, fosite.ErrNotFound
+	}
+	return req, nil
 }
 
 func (s *Storage) CreatePKCERequestSession(ctx context.Context, signature string, requester fosite.Requester) error {
@@ -100,6 +116,7 @@ func (s *Storage) CreatePKCERequestSession(ctx context.Context, signature string
 	return s.getAuthCodes(ctx).UpdatePKCE(ctx, signature, challenge, method)
 }
 
-func (s *Storage) DeletePKCERequestSession(ctx context.Context, signature string) error {
+// Defer PKCE cleanup to authorization-code invalidation because Fosite calls this before verifier validation.
+func (s *Storage) DeletePKCERequestSession(_ context.Context, _ string) error {
 	return nil
 }

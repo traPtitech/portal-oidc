@@ -35,11 +35,14 @@ func NewTokenRepository(queries *oidc.Queries) TokenRepository {
 
 func (r *tokenRepository) Create(ctx context.Context, token domain.Token) error {
 	return r.queries.CreateToken(ctx, oidc.CreateTokenParams{
-		ID:          token.ID,
-		RequestID:   token.RequestID,
-		ClientID:    token.ClientID,
-		UserID:      token.UserID,
-		AccessToken: token.AccessToken,
+		ID:        token.ID,
+		RequestID: token.RequestID,
+		ClientID:  token.ClientID,
+		UserID:    token.UserID,
+		AccessToken: sql.NullString{
+			String: token.AccessToken,
+			Valid:  token.AccessToken != "",
+		},
 		RefreshToken: sql.NullString{
 			String: token.RefreshToken,
 			Valid:  token.RefreshToken != "",
@@ -50,7 +53,10 @@ func (r *tokenRepository) Create(ctx context.Context, token domain.Token) error 
 }
 
 func (r *tokenRepository) GetByAccessToken(ctx context.Context, accessToken string) (domain.Token, error) {
-	dbToken, err := r.queries.GetTokenByAccessToken(ctx, accessToken)
+	dbToken, err := r.queries.GetTokenByAccessToken(ctx, sql.NullString{
+		String: accessToken,
+		Valid:  true,
+	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return domain.Token{}, ErrTokenNotFound
@@ -89,7 +95,10 @@ func (r *tokenRepository) GetByID(ctx context.Context, id uuid.UUID) (domain.Tok
 }
 
 func (r *tokenRepository) DeleteByAccessToken(ctx context.Context, accessToken string) error {
-	return r.queries.DeleteTokenByAccessToken(ctx, accessToken)
+	return r.queries.DeleteTokenByAccessToken(ctx, sql.NullString{
+		String: accessToken,
+		Valid:  true,
+	})
 }
 
 func (r *tokenRepository) DeleteByRefreshToken(ctx context.Context, refreshToken string) error {
@@ -113,7 +122,7 @@ func toDomainToken(db oidc.Token) domain.Token {
 		RequestID:    db.RequestID,
 		ClientID:     db.ClientID,
 		UserID:       db.UserID,
-		AccessToken:  db.AccessToken,
+		AccessToken:  db.AccessToken.String,
 		RefreshToken: db.RefreshToken.String,
 		Scopes:       splitScopes(db.Scopes),
 		ExpiresAt:    db.ExpiresAt,

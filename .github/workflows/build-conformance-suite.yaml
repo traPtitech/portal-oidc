@@ -4,9 +4,8 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Conformance suite release tag (e.g. release-v5.1.35)"
+        description: "Conformance suite release tag (e.g. release-vX.Y.Z)"
         required: true
-        default: "release-v5.1.35"
 
 permissions:
   contents: read

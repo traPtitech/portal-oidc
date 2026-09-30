@@ -1,16 +1,25 @@
 services:
   mongodb:
-    image: mongo:8.2.7
+    image: mongo:8.3.8
   httpd:
-    image: ${CONFORMANCE_HTTPD_IMAGE}
+    image: ghcr.io/traptitech/portal-oidc/conformance-httpd:release-v5.1.35
     ports:
       - "8443:8443"
     depends_on:
       - server
+    # TODO: Use a dedicated /healthz endpoint when the conformance suite provides one.
+    healthcheck:
+      test: >-
+        printf 'GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n'
+        | openssl s_client -quiet -connect localhost:8443 -servername localhost
+        2>/dev/null | grep -q '^HTTP/.* 200'
+      interval: 5s
+      timeout: 5s
+      retries: 60
   server:
-    image: ${CONFORMANCE_SERVER_IMAGE}
+    image: ghcr.io/traptitech/portal-oidc/conformance-server:release-v5.1.35
     environment:
-      - openid.mongodb.targetFeatureCompatibilityVersion=8.2
+      - openid.mongodb.targetFeatureCompatibilityVersion=8.3
     command: >
       java
       -Djdk.tls.maxHandshakeMessageSize=65536

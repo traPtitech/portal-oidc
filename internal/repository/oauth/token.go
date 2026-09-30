@@ -92,8 +92,8 @@ func (s *Storage) CreateRefreshTokenSession(ctx context.Context, signature strin
 	})
 }
 
-func (s *Storage) RotateRefreshToken(ctx context.Context, requestID string, refreshTokenSignature string) error {
-	return nil
+func (s *Storage) RotateRefreshToken(ctx context.Context, _ string, refreshTokenSignature string) error {
+	return s.getTokens(ctx).DeleteByRefreshToken(ctx, refreshTokenSignature)
 }
 
 func (s *Storage) GetRefreshTokenSession(ctx context.Context, signature string, session fosite.Session) (fosite.Requester, error) {
