@@ -85,13 +85,27 @@ func newServer(cfg Config) (http.Handler, error) {
 	}))
 	gen.RegisterHandlers(e, handler)
 	e.GET("/login", handler.GetLogin)
-	e.POST("/login", handler.PostLogin)
+	e.POST("/login", handler.PostLogin, loginRateLimiter())
 	e.GET("/logout", handler.Logout)
 	e.GET("/health", func(c *echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 	})
 
 	return e, nil
+}
+
+func loginRateLimiter() echo.MiddlewareFunc {
+	store := middleware.NewRateLimiterMemoryStoreWithConfig(middleware.RateLimiterMemoryStoreConfig{
+		Rate:      0.2,
+		Burst:     10,
+		ExpiresIn: 10 * time.Minute,
+	})
+	return middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{
+		Store: store,
+		IdentifierExtractor: func(c *echo.Context) (string, error) {
+			return c.RealIP(), nil
+		},
+	})
 }
 
 func postgresDSN(cfg DatabaseConfig) string {
