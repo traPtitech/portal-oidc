@@ -3,7 +3,7 @@
 # ============================================================================
 # Base stage: Common setup for all stages
 # ============================================================================
-FROM golang:1.27.1-alpine AS base
+FROM golang:1.27.2-alpine AS base
 
 WORKDIR /app
 
