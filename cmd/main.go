@@ -35,7 +35,6 @@ func (s *ServeCmd) Run(cfg *Config) error {
 		HideBanner:      true,
 		GracefulTimeout: 30 * time.Second,
 		BeforeServeFunc: func(srv *http.Server) error {
-			// Preserve the existing timeouts instead of Echo's default ReadTimeout.
 			srv.ReadTimeout = 0
 			srv.ReadHeaderTimeout = 10 * time.Second
 			return nil
