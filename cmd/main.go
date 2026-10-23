@@ -13,8 +13,6 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
-const shutdownTimeout = 30 * time.Second
-
 type CLI struct {
 	Config string   `short:"c" help:"Config file path" type:"path"`
 	Serve  ServeCmd `cmd:"" help:"Start the server"`
@@ -35,7 +33,7 @@ func (s *ServeCmd) Run(cfg *Config) error {
 	sc := echo.StartConfig{
 		Address:         ":8080",
 		HideBanner:      true,
-		GracefulTimeout: shutdownTimeout,
+		GracefulTimeout: 30 * time.Second,
 		BeforeServeFunc: func(srv *http.Server) error {
 			// Preserve the existing timeouts instead of Echo's default ReadTimeout.
 			srv.ReadTimeout = 0
