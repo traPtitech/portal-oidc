@@ -11,9 +11,9 @@ tbls = "1.96.1"
 pre-commit = "4.7.0"
 uv = "0.13.5"
 "go:github.com/sqlc-dev/sqlc/cmd/sqlc" = "1.31.1"
-"go:github.com/securego/gosec/v2/cmd/gosec" = "v2.29.0"
+"go:github.com/securego/gosec/v2/cmd/gosec" = "v2.30.0"
 "go:github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen" = "2.8.0"
-"go:golang.org/x/vuln/cmd/govulncheck" = "v1.8.0"
+"go:golang.org/x/vuln/cmd/govulncheck" = "v1.9.0"
 
 # =============================================================================
 # Development
