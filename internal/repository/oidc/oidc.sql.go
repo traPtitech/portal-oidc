@@ -14,6 +14,18 @@ import (
 	"github.com/google/uuid"
 )
 
+const clearAuthorizationCodePKCE = `-- name: ClearAuthorizationCodePKCE :exec
+UPDATE authorization_codes SET
+    code_challenge = NULL,
+    code_challenge_method = NULL
+WHERE code = $1
+`
+
+func (q *Queries) ClearAuthorizationCodePKCE(ctx context.Context, code string) error {
+	_, err := q.exec(ctx, q.clearAuthorizationCodePKCEStmt, clearAuthorizationCodePKCE, code)
+	return err
+}
+
 const createAuthorizationCode = `-- name: CreateAuthorizationCode :exec
 
 INSERT INTO authorization_codes (
@@ -144,7 +156,7 @@ type CreateTokenParams struct {
 	RequestID    string         `json:"request_id"`
 	ClientID     uuid.UUID      `json:"client_id"`
 	UserID       uuid.UUID      `json:"user_id"`
-	AccessToken  string         `json:"access_token"`
+	AccessToken  sql.NullString `json:"access_token"`
 	RefreshToken sql.NullString `json:"refresh_token"`
 	Scopes       string         `json:"scopes"`
 	ExpiresAt    time.Time      `json:"expires_at"`
@@ -259,7 +271,7 @@ const deleteTokenByAccessToken = `-- name: DeleteTokenByAccessToken :exec
 DELETE FROM tokens WHERE access_token = $1
 `
 
-func (q *Queries) DeleteTokenByAccessToken(ctx context.Context, accessToken string) error {
+func (q *Queries) DeleteTokenByAccessToken(ctx context.Context, accessToken sql.NullString) error {
 	_, err := q.exec(ctx, q.deleteTokenByAccessTokenStmt, deleteTokenByAccessToken, accessToken)
 	return err
 }
@@ -362,7 +374,7 @@ const getTokenByAccessToken = `-- name: GetTokenByAccessToken :one
 SELECT id, request_id, client_id, user_id, access_token, refresh_token, scopes, expires_at, created_at FROM tokens WHERE access_token = $1
 `
 
-func (q *Queries) GetTokenByAccessToken(ctx context.Context, accessToken string) (Token, error) {
+func (q *Queries) GetTokenByAccessToken(ctx context.Context, accessToken sql.NullString) (Token, error) {
 	row := q.queryRow(ctx, q.getTokenByAccessTokenStmt, getTokenByAccessToken, accessToken)
 	var i Token
 	err := row.Scan(
@@ -457,7 +469,11 @@ func (q *Queries) ListClients(ctx context.Context) ([]Client, error) {
 }
 
 const markAuthorizationCodeUsed = `-- name: MarkAuthorizationCodeUsed :exec
-UPDATE authorization_codes SET used = TRUE WHERE code = $1
+UPDATE authorization_codes SET
+    used = TRUE,
+    code_challenge = NULL,
+    code_challenge_method = NULL
+WHERE code = $1
 `
 
 func (q *Queries) MarkAuthorizationCodeUsed(ctx context.Context, code string) error {
