@@ -134,9 +134,9 @@ func (s *Storage) GetClient(ctx context.Context, id string) (fosite.Client, erro
 		ID:            client.ClientID.String(),
 		Secret:        []byte(secretHash),
 		RedirectURIs:  client.RedirectURIs,
-		GrantTypes:    []string{"authorization_code", "refresh_token"},
-		ResponseTypes: []string{"code"},
-		Scopes:        []string{"openid", "profile", "email"},
+		GrantTypes:    client.GrantTypes,
+		ResponseTypes: client.ResponseTypes,
+		Scopes:        client.Scopes,
 		Public:        client.ClientType == "public",
 	}, nil
 }
