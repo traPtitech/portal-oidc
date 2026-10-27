@@ -67,7 +67,7 @@ services:
     restart: unless-stopped
 
   adminer:
-    image: adminer:6.1.2-standalone
+    image: adminer:6.2.0-standalone
     environment:
       ADMINER_DEFAULT_SERVER: portal
       ADMINER_DESIGN: pepa-linha
