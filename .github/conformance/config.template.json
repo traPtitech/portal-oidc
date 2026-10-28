@@ -7,5 +7,52 @@
   "client": {
     "client_id": "${CLIENT_ID}",
     "client_secret": "${CLIENT_SECRET}"
+  },
+  "client_secret_post": {
+    "client_id": "${CLIENT_SECRET_POST_ID}",
+    "client_secret": "${CLIENT_SECRET_POST_SECRET}"
+  },
+  "client2": {
+    "client_id": "${CLIENT2_ID}",
+    "client_secret": "${CLIENT2_SECRET}"
+  },
+
+  "_browser_flows": {
+    "reauth_prompt": [
+      {
+        "match": "${OIDC_ORIGIN}/oauth2/authorize*",
+        "tasks": [
+          {
+            "task": "Capture reauthentication prompt",
+            "optional": true,
+            "match": "${OIDC_ORIGIN}/login*",
+            "commands": [
+              ["wait", "xpath", "//*", 10, "(?s).*Login.*", "update-image-placeholder-optional"]
+            ]
+          }
+        ]
+      }
+    ],
+    "redirect_uri_error": [
+      {
+        "match": "${OIDC_ORIGIN}/oauth2/authorize*",
+        "tasks": [
+          {
+            "task": "Verify invalid redirect URI error page",
+            "match": "${OIDC_ORIGIN}/oauth2/authorize*",
+            "commands": [
+              ["wait", "xpath", "//*", 10, "(?s).*invalid_request.*", "update-image-placeholder"]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+
+  "_override_flows": {
+    "oidcc-prompt-login": "reauth_prompt",
+    "oidcc-max-age-1": "reauth_prompt",
+    "oidcc-ensure-registered-redirect-uri": "redirect_uri_error",
+    "oidcc-ensure-request-object-with-redirect-uri": "redirect_uri_error"
   }
 }
