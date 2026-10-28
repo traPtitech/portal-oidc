@@ -12,7 +12,13 @@ import (
 	"github.com/traPtitech/portal-oidc/internal/repository/oidc"
 )
 
-var ErrRefreshTokenNotFound = errors.New("refresh token not found")
+var (
+	ErrRefreshTokenNotFound = errors.New("refresh token not found")
+	// ErrRefreshTokenNotRotated is returned by RotateBySignature when no
+	// active row matched, i.e. a concurrent request already rotated (or
+	// removed) the token.
+	ErrRefreshTokenNotRotated = errors.New("refresh token not rotated")
+)
 
 type RefreshTokenRepository interface {
 	Create(ctx context.Context, t domain.RefreshToken) error
@@ -20,7 +26,6 @@ type RefreshTokenRepository interface {
 	DeleteBySignature(ctx context.Context, signature string) error
 	RotateBySignature(ctx context.Context, signature string) error
 	RevokeByRequestID(ctx context.Context, requestID string) error
-	DeleteByRequestID(ctx context.Context, requestID string) error
 }
 
 type refreshTokenRepository struct {
@@ -63,15 +68,18 @@ func (r *refreshTokenRepository) DeleteBySignature(ctx context.Context, signatur
 }
 
 func (r *refreshTokenRepository) RotateBySignature(ctx context.Context, signature string) error {
-	return r.queries.RotateRefreshTokenBySignature(ctx, signature)
+	n, err := r.queries.RotateRefreshTokenBySignature(ctx, signature)
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrRefreshTokenNotRotated
+	}
+	return nil
 }
 
 func (r *refreshTokenRepository) RevokeByRequestID(ctx context.Context, requestID string) error {
 	return r.queries.RevokeRefreshTokensByRequestID(ctx, requestID)
-}
-
-func (r *refreshTokenRepository) DeleteByRequestID(ctx context.Context, requestID string) error {
-	return r.queries.DeleteRefreshTokensByRequestID(ctx, requestID)
 }
 
 func toDomainRefreshToken(row oidc.RefreshToken) domain.RefreshToken {

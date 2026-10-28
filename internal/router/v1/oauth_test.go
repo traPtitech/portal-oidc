@@ -447,11 +447,19 @@ func TestIntegration_TokenAuthorizationCodeReuseRevokesTokens(t *testing.T) {
 	response := exchangeAuthorizationCode(t, e, clientID.String(), clientSecret, code, redirectURI, "")
 	assertTokenError(t, response, http.StatusBadRequest, gen.InvalidGrant)
 
-	if _, err := accessTokenRepo.GetBySignature(ctx, accessToken); !errors.Is(err, repository.ErrAccessTokenNotFound) {
-		t.Fatalf("access token lookup error = %v, want repository.ErrAccessTokenNotFound", err)
+	access, err := accessTokenRepo.GetBySignature(ctx, accessToken)
+	if err != nil {
+		t.Fatalf("get access token: %v", err)
 	}
-	if _, err := refreshTokenRepo.GetBySignature(ctx, refreshToken); !errors.Is(err, repository.ErrRefreshTokenNotFound) {
-		t.Fatalf("refresh token lookup error = %v, want repository.ErrRefreshTokenNotFound", err)
+	if access.RevokedAt == nil {
+		t.Fatal("access token issued for the reused code was not revoked")
+	}
+	refresh, err := refreshTokenRepo.GetBySignature(ctx, refreshToken)
+	if err != nil {
+		t.Fatalf("get refresh token: %v", err)
+	}
+	if refresh.RevokedAt == nil {
+		t.Fatal("refresh token issued for the reused code was not revoked")
 	}
 }
 
@@ -579,6 +587,21 @@ func TestIntegration_TokenRefreshRotationAndReuse(t *testing.T) {
 		}
 		if otherAccessToken.RevokedAt != nil {
 			t.Fatal("access token of another request was revoked")
+		}
+	})
+
+	t.Run("second rotation of the same token is rejected", func(t *testing.T) {
+		requestID := uuid.NewString()
+		refreshToken, _ := issue(t, requestID)
+		signature := strategy.RefreshTokenSignature(ctx, refreshToken)
+
+		// Simulates the losing side of two concurrent refreshes: both passed
+		// the lookup, but only the first UPDATE may match.
+		if err := refreshTokenRepo.RotateBySignature(ctx, signature); err != nil {
+			t.Fatalf("first rotation: %v", err)
+		}
+		if err := refreshTokenRepo.RotateBySignature(ctx, signature); !errors.Is(err, repository.ErrRefreshTokenNotRotated) {
+			t.Fatalf("second rotation error = %v, want repository.ErrRefreshTokenNotRotated", err)
 		}
 	})
 

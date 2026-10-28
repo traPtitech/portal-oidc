@@ -23,13 +23,11 @@ type Querier interface {
 	// Refresh token queries
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) error
 	DeleteAccessTokenBySignature(ctx context.Context, signature string) error
-	DeleteAccessTokensByRequestID(ctx context.Context, requestID string) error
 	DeleteAllClients(ctx context.Context) error
 	DeleteAuthorizationCode(ctx context.Context, code string) error
 	DeleteClient(ctx context.Context, clientID uuid.UUID) error
 	DeleteOIDCSession(ctx context.Context, authorizeCode string) error
 	DeleteRefreshTokenBySignature(ctx context.Context, signature string) error
-	DeleteRefreshTokensByRequestID(ctx context.Context, requestID string) error
 	GetAccessTokenBySignature(ctx context.Context, signature string) (AccessToken, error)
 	GetAuthorizationCode(ctx context.Context, code string) (AuthorizationCode, error)
 	GetClient(ctx context.Context, clientID uuid.UUID) (Client, error)
@@ -39,7 +37,7 @@ type Querier interface {
 	MarkAuthorizationCodeUsed(ctx context.Context, code string) error
 	RevokeAccessTokensByRequestID(ctx context.Context, requestID string) error
 	RevokeRefreshTokensByRequestID(ctx context.Context, requestID string) error
-	RotateRefreshTokenBySignature(ctx context.Context, signature string) error
+	RotateRefreshTokenBySignature(ctx context.Context, signature string) (int64, error)
 	UpdateAuthorizationCodePKCE(ctx context.Context, arg UpdateAuthorizationCodePKCEParams) error
 	UpdateClient(ctx context.Context, arg UpdateClientParams) error
 	UpdateClientSecret(ctx context.Context, arg UpdateClientSecretParams) error

@@ -108,9 +108,6 @@ SELECT * FROM access_tokens WHERE signature = $1;
 -- name: DeleteAccessTokenBySignature :exec
 DELETE FROM access_tokens WHERE signature = $1;
 
--- name: DeleteAccessTokensByRequestID :exec
-DELETE FROM access_tokens WHERE request_id = $1;
-
 -- name: RevokeAccessTokensByRequestID :exec
 UPDATE access_tokens SET revoked_at = CURRENT_TIMESTAMP
 WHERE request_id = $1 AND revoked_at IS NULL;
@@ -134,16 +131,13 @@ SELECT * FROM refresh_tokens WHERE signature = $1;
 -- name: DeleteRefreshTokenBySignature :exec
 DELETE FROM refresh_tokens WHERE signature = $1;
 
--- name: RotateRefreshTokenBySignature :exec
+-- name: RotateRefreshTokenBySignature :execrows
 UPDATE refresh_tokens SET rotated_at = CURRENT_TIMESTAMP
 WHERE signature = $1 AND rotated_at IS NULL;
 
 -- name: RevokeRefreshTokensByRequestID :exec
 UPDATE refresh_tokens SET revoked_at = CURRENT_TIMESTAMP
 WHERE request_id = $1 AND revoked_at IS NULL;
-
--- name: DeleteRefreshTokensByRequestID :exec
-DELETE FROM refresh_tokens WHERE request_id = $1;
 
 -- OIDC Session queries
 

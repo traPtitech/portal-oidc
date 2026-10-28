@@ -244,15 +244,6 @@ func (q *Queries) DeleteAccessTokenBySignature(ctx context.Context, signature st
 	return err
 }
 
-const deleteAccessTokensByRequestID = `-- name: DeleteAccessTokensByRequestID :exec
-DELETE FROM access_tokens WHERE request_id = $1
-`
-
-func (q *Queries) DeleteAccessTokensByRequestID(ctx context.Context, requestID string) error {
-	_, err := q.exec(ctx, q.deleteAccessTokensByRequestIDStmt, deleteAccessTokensByRequestID, requestID)
-	return err
-}
-
 const deleteAllClients = `-- name: DeleteAllClients :exec
 DELETE FROM clients
 `
@@ -295,15 +286,6 @@ DELETE FROM refresh_tokens WHERE signature = $1
 
 func (q *Queries) DeleteRefreshTokenBySignature(ctx context.Context, signature string) error {
 	_, err := q.exec(ctx, q.deleteRefreshTokenBySignatureStmt, deleteRefreshTokenBySignature, signature)
-	return err
-}
-
-const deleteRefreshTokensByRequestID = `-- name: DeleteRefreshTokensByRequestID :exec
-DELETE FROM refresh_tokens WHERE request_id = $1
-`
-
-func (q *Queries) DeleteRefreshTokensByRequestID(ctx context.Context, requestID string) error {
-	_, err := q.exec(ctx, q.deleteRefreshTokensByRequestIDStmt, deleteRefreshTokensByRequestID, requestID)
 	return err
 }
 
@@ -496,14 +478,17 @@ func (q *Queries) RevokeRefreshTokensByRequestID(ctx context.Context, requestID 
 	return err
 }
 
-const rotateRefreshTokenBySignature = `-- name: RotateRefreshTokenBySignature :exec
+const rotateRefreshTokenBySignature = `-- name: RotateRefreshTokenBySignature :execrows
 UPDATE refresh_tokens SET rotated_at = CURRENT_TIMESTAMP
 WHERE signature = $1 AND rotated_at IS NULL
 `
 
-func (q *Queries) RotateRefreshTokenBySignature(ctx context.Context, signature string) error {
-	_, err := q.exec(ctx, q.rotateRefreshTokenBySignatureStmt, rotateRefreshTokenBySignature, signature)
-	return err
+func (q *Queries) RotateRefreshTokenBySignature(ctx context.Context, signature string) (int64, error) {
+	result, err := q.exec(ctx, q.rotateRefreshTokenBySignatureStmt, rotateRefreshTokenBySignature, signature)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const updateAuthorizationCodePKCE = `-- name: UpdateAuthorizationCodePKCE :exec

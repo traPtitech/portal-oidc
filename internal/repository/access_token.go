@@ -18,7 +18,6 @@ type AccessTokenRepository interface {
 	Create(ctx context.Context, t domain.AccessToken) error
 	GetBySignature(ctx context.Context, signature string) (domain.AccessToken, error)
 	DeleteBySignature(ctx context.Context, signature string) error
-	DeleteByRequestID(ctx context.Context, requestID string) error
 	RevokeByRequestID(ctx context.Context, requestID string) error
 }
 
@@ -59,10 +58,6 @@ func (r *accessTokenRepository) GetBySignature(ctx context.Context, signature st
 
 func (r *accessTokenRepository) DeleteBySignature(ctx context.Context, signature string) error {
 	return r.queries.DeleteAccessTokenBySignature(ctx, signature)
-}
-
-func (r *accessTokenRepository) DeleteByRequestID(ctx context.Context, requestID string) error {
-	return r.queries.DeleteAccessTokensByRequestID(ctx, requestID)
 }
 
 func (r *accessTokenRepository) RevokeByRequestID(ctx context.Context, requestID string) error {

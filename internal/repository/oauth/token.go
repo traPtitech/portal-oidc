@@ -80,10 +80,10 @@ func (s *Storage) DeleteAccessTokenSession(ctx context.Context, signature string
 	return s.getAccessTokens(ctx).DeleteBySignature(ctx, signature)
 }
 
-// CreateRefreshTokenSession persists a fosite-issued refresh token. fosite
-// supplies the access-token signature as the second argument so the rotation
-// chain can be reconstructed; we record it on the row indirectly via
-// request_id which both halves share.
+// CreateRefreshTokenSession persists a fosite-issued refresh token. The
+// access-token signature fosite passes as the second argument is not stored;
+// the two halves are linked only through the shared request_id, which
+// identifies the whole token family rather than a specific access token.
 func (s *Storage) CreateRefreshTokenSession(ctx context.Context, signature string, _ string, request fosite.Requester) error {
 	sess, ok := request.GetSession().(*Session)
 	if !ok {
@@ -113,8 +113,16 @@ func (s *Storage) CreateRefreshTokenSession(ctx context.Context, signature strin
 // revokes the whole family. Access tokens issued earlier under the same
 // request_id are revoked; the replacement pair is created afterwards in the
 // same transaction.
+//
+// fosite loads the refresh token outside this transaction, so two concurrent
+// requests with the same token can both get here. Only one of them can match
+// the rotated_at IS NULL guard; the other is reported as
+// fosite.ErrSerializationFailure so fosite rolls back and asks for a retry.
 func (s *Storage) RotateRefreshToken(ctx context.Context, requestID string, refreshTokenSignature string) error {
 	if err := s.getRefreshTokens(ctx).RotateBySignature(ctx, refreshTokenSignature); err != nil {
+		if errors.Is(err, repository.ErrRefreshTokenNotRotated) {
+			return fosite.ErrSerializationFailure
+		}
 		return err
 	}
 	return s.getAccessTokens(ctx).RevokeByRequestID(ctx, requestID)

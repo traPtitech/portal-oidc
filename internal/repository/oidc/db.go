@@ -45,9 +45,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.deleteAccessTokenBySignatureStmt, err = db.PrepareContext(ctx, deleteAccessTokenBySignature); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteAccessTokenBySignature: %w", err)
 	}
-	if q.deleteAccessTokensByRequestIDStmt, err = db.PrepareContext(ctx, deleteAccessTokensByRequestID); err != nil {
-		return nil, fmt.Errorf("error preparing query DeleteAccessTokensByRequestID: %w", err)
-	}
 	if q.deleteAllClientsStmt, err = db.PrepareContext(ctx, deleteAllClients); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteAllClients: %w", err)
 	}
@@ -62,9 +59,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.deleteRefreshTokenBySignatureStmt, err = db.PrepareContext(ctx, deleteRefreshTokenBySignature); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteRefreshTokenBySignature: %w", err)
-	}
-	if q.deleteRefreshTokensByRequestIDStmt, err = db.PrepareContext(ctx, deleteRefreshTokensByRequestID); err != nil {
-		return nil, fmt.Errorf("error preparing query DeleteRefreshTokensByRequestID: %w", err)
 	}
 	if q.getAccessTokenBySignatureStmt, err = db.PrepareContext(ctx, getAccessTokenBySignature); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAccessTokenBySignature: %w", err)
@@ -145,11 +139,6 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deleteAccessTokenBySignatureStmt: %w", cerr)
 		}
 	}
-	if q.deleteAccessTokensByRequestIDStmt != nil {
-		if cerr := q.deleteAccessTokensByRequestIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deleteAccessTokensByRequestIDStmt: %w", cerr)
-		}
-	}
 	if q.deleteAllClientsStmt != nil {
 		if cerr := q.deleteAllClientsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteAllClientsStmt: %w", cerr)
@@ -173,11 +162,6 @@ func (q *Queries) Close() error {
 	if q.deleteRefreshTokenBySignatureStmt != nil {
 		if cerr := q.deleteRefreshTokenBySignatureStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteRefreshTokenBySignatureStmt: %w", cerr)
-		}
-	}
-	if q.deleteRefreshTokensByRequestIDStmt != nil {
-		if cerr := q.deleteRefreshTokensByRequestIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deleteRefreshTokensByRequestIDStmt: %w", cerr)
 		}
 	}
 	if q.getAccessTokenBySignatureStmt != nil {
@@ -291,13 +275,11 @@ type Queries struct {
 	createOIDCSessionStmt              *sql.Stmt
 	createRefreshTokenStmt             *sql.Stmt
 	deleteAccessTokenBySignatureStmt   *sql.Stmt
-	deleteAccessTokensByRequestIDStmt  *sql.Stmt
 	deleteAllClientsStmt               *sql.Stmt
 	deleteAuthorizationCodeStmt        *sql.Stmt
 	deleteClientStmt                   *sql.Stmt
 	deleteOIDCSessionStmt              *sql.Stmt
 	deleteRefreshTokenBySignatureStmt  *sql.Stmt
-	deleteRefreshTokensByRequestIDStmt *sql.Stmt
 	getAccessTokenBySignatureStmt      *sql.Stmt
 	getAuthorizationCodeStmt           *sql.Stmt
 	getClientStmt                      *sql.Stmt
@@ -324,13 +306,11 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createOIDCSessionStmt:              q.createOIDCSessionStmt,
 		createRefreshTokenStmt:             q.createRefreshTokenStmt,
 		deleteAccessTokenBySignatureStmt:   q.deleteAccessTokenBySignatureStmt,
-		deleteAccessTokensByRequestIDStmt:  q.deleteAccessTokensByRequestIDStmt,
 		deleteAllClientsStmt:               q.deleteAllClientsStmt,
 		deleteAuthorizationCodeStmt:        q.deleteAuthorizationCodeStmt,
 		deleteClientStmt:                   q.deleteClientStmt,
 		deleteOIDCSessionStmt:              q.deleteOIDCSessionStmt,
 		deleteRefreshTokenBySignatureStmt:  q.deleteRefreshTokenBySignatureStmt,
-		deleteRefreshTokensByRequestIDStmt: q.deleteRefreshTokensByRequestIDStmt,
 		getAccessTokenBySignatureStmt:      q.getAccessTokenBySignatureStmt,
 		getAuthorizationCodeStmt:           q.getAuthorizationCodeStmt,
 		getClientStmt:                      q.getClientStmt,
