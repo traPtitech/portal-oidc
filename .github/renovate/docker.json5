@@ -17,6 +17,12 @@
     // for conformance suite test
     {
       "matchManagers": ["docker-compose"],
+      "matchFileNames": [".github/conformance/docker-compose.yml"],
+      "matchPackageNames": ["mongo"],
+      "enabled": false,
+    },
+    {
+      "matchManagers": ["docker-compose"],
       "matchPackageNames": [
         "ghcr.io/traptitech/portal-oidc/conformance-httpd",
         "ghcr.io/traptitech/portal-oidc/conformance-server",

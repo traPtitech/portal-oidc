@@ -1,6 +1,6 @@
 services:
   mongodb:
-    image: mongo:8.3.13
+    image: mongo:6.0.27
   httpd:
     image: ghcr.io/traptitech/portal-oidc/conformance-httpd:release-v5.1.35
     ports:
@@ -18,8 +18,6 @@ services:
       retries: 60
   server:
     image: ghcr.io/traptitech/portal-oidc/conformance-server:release-v5.1.35
-    environment:
-      - openid.mongodb.targetFeatureCompatibilityVersion=8.3
     command: >
       java
       -Djdk.tls.maxHandshakeMessageSize=65536
