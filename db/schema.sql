@@ -95,3 +95,50 @@ CREATE TABLE IF NOT EXISTS oidc_sessions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_oidc_sessions_client_id ON oidc_sessions (client_id);
+
+-- Suspension permanently revokes credentials in the same transaction as the
+-- status change, including changes made outside the application repository.
+CREATE OR REPLACE FUNCTION revoke_suspended_client_credentials()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF OLD.status IS DISTINCT FROM NEW.status AND NEW.status <> 'active' THEN
+    DELETE FROM tokens WHERE client_id = NEW.client_id;
+    DELETE FROM authorization_codes WHERE client_id = NEW.client_id;
+    DELETE FROM oidc_sessions WHERE client_id = NEW.client_id;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_clients_revoke_credentials
+AFTER UPDATE OF status ON clients
+FOR EACH ROW EXECUTE FUNCTION revoke_suspended_client_credentials();
+
+-- Serialize credential issuance with suspension. An issuance that finishes
+-- first is removed by suspension; an issuance that loses the race is rejected.
+CREATE OR REPLACE FUNCTION require_active_client()
+RETURNS TRIGGER AS $$
+DECLARE
+  client_status TEXT;
+BEGIN
+  SELECT status INTO client_status FROM clients
+  WHERE client_id = NEW.client_id FOR SHARE;
+  IF client_status IS DISTINCT FROM 'active' THEN
+    RAISE EXCEPTION 'cannot issue credentials for an inactive client'
+      USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_tokens_require_active_client
+BEFORE INSERT ON tokens
+FOR EACH ROW EXECUTE FUNCTION require_active_client();
+
+CREATE TRIGGER trg_authorization_codes_require_active_client
+BEFORE INSERT ON authorization_codes
+FOR EACH ROW EXECUTE FUNCTION require_active_client();
+
+CREATE TRIGGER trg_oidc_sessions_require_active_client
+BEFORE INSERT ON oidc_sessions
+FOR EACH ROW EXECUTE FUNCTION require_active_client();
