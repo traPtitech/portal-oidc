@@ -25,12 +25,14 @@ func (s *Storage) CreateAccessTokenSession(ctx context.Context, signature string
 		return err
 	}
 
+	// An empty subject is stored as NULL; a non-empty one must be a user UUID.
 	var userID *uuid.UUID
 	if sub := sess.GetSubject(); sub != "" {
-		uid, perr := uuid.Parse(sub)
-		if perr == nil {
-			userID = &uid
+		uid, err := uuid.Parse(sub)
+		if err != nil {
+			return err
 		}
+		userID = &uid
 	}
 
 	return s.getAccessTokens(ctx).Create(ctx, domain.AccessToken{
@@ -106,10 +108,16 @@ func (s *Storage) CreateRefreshTokenSession(ctx context.Context, signature strin
 	})
 }
 
-// RotateRefreshToken removes the previous refresh token in the same transaction
-// that creates its replacement via CreateRefreshTokenSession.
-func (s *Storage) RotateRefreshToken(ctx context.Context, _ string, refreshTokenSignature string) error {
-	return s.getRefreshTokens(ctx).DeleteByHash(ctx, refreshTokenSignature)
+// RotateRefreshToken marks the previous refresh token as rotated (instead of
+// deleting it) so that a replay surfaces as fosite.ErrInactiveToken and fosite
+// revokes the whole family. Access tokens issued earlier under the same
+// request_id are revoked; the replacement pair is created afterwards in the
+// same transaction.
+func (s *Storage) RotateRefreshToken(ctx context.Context, requestID string, refreshTokenSignature string) error {
+	if err := s.getRefreshTokens(ctx).MarkRotated(ctx, refreshTokenSignature); err != nil {
+		return err
+	}
+	return s.getAccessTokens(ctx).RevokeByRequestID(ctx, requestID)
 }
 
 func (s *Storage) GetRefreshTokenSession(ctx context.Context, signature string, _ fosite.Session) (fosite.Requester, error) {
@@ -121,10 +129,6 @@ func (s *Storage) GetRefreshTokenSession(ctx context.Context, signature string, 
 		return nil, err
 	}
 
-	if token.RevokedAt != nil || token.RotatedAt != nil {
-		return nil, fosite.ErrInactiveToken
-	}
-
 	client, err := s.GetClient(ctx, token.ClientID.String())
 	if err != nil {
 		return nil, err
@@ -132,8 +136,15 @@ func (s *Storage) GetRefreshTokenSession(ctx context.Context, signature string, 
 
 	sess := NewSession(token.UserID.String(), time.Time{})
 	sess.SetExpiresAt(fosite.RefreshToken, token.ExpiresAt)
+	req := newFositeRequest(token.RequestID, token.IssuedAt, client, sess, token.Scopes, nil)
 
-	return newFositeRequest(token.RequestID, token.IssuedAt, client, sess, token.Scopes, nil), nil
+	// fosite's reuse handling calls GetID() on the returned requester, so it
+	// must accompany ErrInactiveToken.
+	if token.RevokedAt != nil || token.RotatedAt != nil {
+		return req, fosite.ErrInactiveToken
+	}
+
+	return req, nil
 }
 
 func (s *Storage) DeleteRefreshTokenSession(ctx context.Context, signature string) error {
