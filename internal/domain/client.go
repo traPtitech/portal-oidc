@@ -18,19 +18,14 @@ type Client struct {
 	Name                   string
 	ClientType             ClientType
 	RedirectURIs           []string
-	ClientURI              string
-	LogoURI                string
 	PostLogoutRedirectURIs []string
 	AllowedOrigins         []string
 	GrantTypes             []string
 	ResponseTypes          []string
 	Scopes                 []string
 	TokenEndpointAuth      string
-	JWKSURI                string
-	JWKS                   []byte // raw JSON, nil when unset
 	IDTokenAlg             string
 	Status                 string // "active" or "suspended"
-	OwnerID                *uuid.UUID
 	CreatedAt              time.Time
 	UpdatedAt              time.Time
 }
