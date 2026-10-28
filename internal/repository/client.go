@@ -216,6 +216,23 @@ func marshalStringArray(values []string) (json.RawMessage, error) {
 }
 
 func buildCreateParams(client *domain.Client, secretHash string) (oidc.CreateClientParams, error) {
+	normalized := *client
+	normalized.GrantTypes = orDefault(client.GrantTypes, defaultGrantTypes)
+	normalized.ResponseTypes = orDefault(client.ResponseTypes, defaultResponseTypes)
+	normalized.Scopes = orDefault(client.Scopes, defaultScopes)
+	normalized.TokenEndpointAuth = orDefaultStr(client.TokenEndpointAuth, defaultTokenEndpointAuth)
+	normalized.IDTokenAlg = orDefaultStr(client.IDTokenAlg, defaultIDTokenAlg)
+	normalized.Status = orDefaultStr(client.Status, defaultStatus)
+	params, err := marshalClientMetadata(&normalized)
+	if err != nil {
+		return oidc.CreateClientParams{}, err
+	}
+	params.ClientSecretHash = nullString(secretHash)
+	return params, nil
+}
+
+// marshalClientMetadata only encodes values; callers own defaulting and validation.
+func marshalClientMetadata(client *domain.Client) (oidc.CreateClientParams, error) {
 	redirectURIs, err := marshalStringArray(client.RedirectURIs)
 	if err != nil {
 		return oidc.CreateClientParams{}, err
@@ -229,15 +246,15 @@ func buildCreateParams(client *domain.Client, secretHash string) (oidc.CreateCli
 	if err != nil {
 		return oidc.CreateClientParams{}, err
 	}
-	grantTypes, err := marshalStringArray(orDefault(client.GrantTypes, defaultGrantTypes))
+	grantTypes, err := marshalStringArray(client.GrantTypes)
 	if err != nil {
 		return oidc.CreateClientParams{}, err
 	}
-	responseTypes, err := marshalStringArray(orDefault(client.ResponseTypes, defaultResponseTypes))
+	responseTypes, err := marshalStringArray(client.ResponseTypes)
 	if err != nil {
 		return oidc.CreateClientParams{}, err
 	}
-	scopes, err := marshalStringArray(orDefault(client.Scopes, defaultScopes))
+	scopes, err := marshalStringArray(client.Scopes)
 	if err != nil {
 		return oidc.CreateClientParams{}, err
 	}
@@ -248,74 +265,6 @@ func buildCreateParams(client *domain.Client, secretHash string) (oidc.CreateCli
 	}
 
 	return oidc.CreateClientParams{
-		ClientID: client.ClientID,
-		ClientSecretHash: sql.NullString{
-			String: secretHash,
-			Valid:  secretHash != "",
-		},
-		Name:                   client.Name,
-		ClientType:             string(client.ClientType),
-		RedirectUris:           redirectURIs,
-		ClientUri:              nullString(client.ClientURI),
-		LogoUri:                nullString(client.LogoURI),
-		PostLogoutRedirectUris: postLogoutURIs,
-		AllowedOrigins:         allowedOrigins,
-		GrantTypes:             grantTypes,
-		ResponseTypes:          responseTypes,
-		Scopes:                 scopes,
-		TokenEndpointAuth:      orDefaultStr(client.TokenEndpointAuth, defaultTokenEndpointAuth),
-		JwksUri:                nullString(client.JWKSURI),
-		Jwks:                   jwks,
-		IDTokenAlg:             orDefaultStr(client.IDTokenAlg, defaultIDTokenAlg),
-		Status:                 orDefaultStr(client.Status, defaultStatus),
-		OwnerID:                nullUUID(client.OwnerID),
-	}, nil
-}
-
-func buildUpdateParams(client *domain.Client) (oidc.UpdateClientParams, error) {
-	if client.GrantTypes == nil || client.ResponseTypes == nil || client.Scopes == nil {
-		return oidc.UpdateClientParams{}, fmt.Errorf("%w: permission slices must be specified (use empty slices to clear)", ErrInvalidClientMetadata)
-	}
-
-	if client.Status != "active" && client.Status != "suspended" {
-		return oidc.UpdateClientParams{}, fmt.Errorf("%w: status must be active or suspended", ErrInvalidClientMetadata)
-	}
-	if client.TokenEndpointAuth == "" || client.IDTokenAlg == "" {
-		return oidc.UpdateClientParams{}, fmt.Errorf("%w: token authentication and ID token algorithm are required", ErrInvalidClientMetadata)
-	}
-
-	redirectURIs, err := marshalStringArray(client.RedirectURIs)
-	if err != nil {
-		return oidc.UpdateClientParams{}, err
-	}
-	postLogoutURIs, err := marshalStringArray(client.PostLogoutRedirectURIs)
-	if err != nil {
-		return oidc.UpdateClientParams{}, err
-	}
-	allowedOrigins, err := marshalStringArray(client.AllowedOrigins)
-	if err != nil {
-		return oidc.UpdateClientParams{}, err
-	}
-	grantTypes, err := marshalStringArray(client.GrantTypes)
-	if err != nil {
-		return oidc.UpdateClientParams{}, err
-	}
-	responseTypes, err := marshalStringArray(client.ResponseTypes)
-	if err != nil {
-		return oidc.UpdateClientParams{}, err
-	}
-	scopes, err := marshalStringArray(client.Scopes)
-	if err != nil {
-		return oidc.UpdateClientParams{}, err
-	}
-
-	jwks := pqtype.NullRawMessage{}
-	if len(client.JWKS) > 0 {
-		jwks = pqtype.NullRawMessage{RawMessage: client.JWKS, Valid: true}
-	}
-
-	return oidc.UpdateClientParams{
-		UpdatedAt:              client.UpdatedAt,
 		ClientID:               client.ClientID,
 		Name:                   client.Name,
 		ClientType:             string(client.ClientType),
@@ -333,6 +282,45 @@ func buildUpdateParams(client *domain.Client) (oidc.UpdateClientParams, error) {
 		IDTokenAlg:             client.IDTokenAlg,
 		Status:                 client.Status,
 		OwnerID:                nullUUID(client.OwnerID),
+	}, nil
+}
+
+func buildUpdateParams(client *domain.Client) (oidc.UpdateClientParams, error) {
+	if client.GrantTypes == nil || client.ResponseTypes == nil || client.Scopes == nil {
+		return oidc.UpdateClientParams{}, fmt.Errorf("%w: permission slices must be specified (use empty slices to clear)", ErrInvalidClientMetadata)
+	}
+
+	if client.Status != "active" && client.Status != "suspended" {
+		return oidc.UpdateClientParams{}, fmt.Errorf("%w: status must be active or suspended", ErrInvalidClientMetadata)
+	}
+	if client.TokenEndpointAuth == "" || client.IDTokenAlg == "" {
+		return oidc.UpdateClientParams{}, fmt.Errorf("%w: token authentication and ID token algorithm are required", ErrInvalidClientMetadata)
+	}
+
+	params, err := marshalClientMetadata(client)
+	if err != nil {
+		return oidc.UpdateClientParams{}, err
+	}
+
+	return oidc.UpdateClientParams{
+		UpdatedAt:              client.UpdatedAt,
+		ClientID:               params.ClientID,
+		Name:                   params.Name,
+		ClientType:             params.ClientType,
+		RedirectUris:           params.RedirectUris,
+		ClientUri:              params.ClientUri,
+		LogoUri:                params.LogoUri,
+		PostLogoutRedirectUris: params.PostLogoutRedirectUris,
+		AllowedOrigins:         params.AllowedOrigins,
+		GrantTypes:             params.GrantTypes,
+		ResponseTypes:          params.ResponseTypes,
+		Scopes:                 params.Scopes,
+		TokenEndpointAuth:      params.TokenEndpointAuth,
+		JwksUri:                params.JwksUri,
+		Jwks:                   params.Jwks,
+		IDTokenAlg:             params.IDTokenAlg,
+		Status:                 params.Status,
+		OwnerID:                params.OwnerID,
 	}, nil
 }
 
