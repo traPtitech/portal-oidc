@@ -320,7 +320,7 @@ func nullUUID(id *uuid.UUID) uuid.NullUUID {
 }
 
 func orDefault(values, fallback []string) []string {
-	if len(values) == 0 {
+	if values == nil {
 		return fallback
 	}
 	return values

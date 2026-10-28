@@ -14,6 +14,7 @@ import (
 	"github.com/traPtitech/portal-oidc/internal/repository"
 	"github.com/traPtitech/portal-oidc/internal/repository/oauth"
 	"github.com/traPtitech/portal-oidc/internal/repository/oidc"
+	"github.com/traPtitech/portal-oidc/internal/usecase"
 )
 
 func newMetadataClient(t *testing.T) (repository.ClientRepository, *domain.Client, *oauth.Storage) {
@@ -186,6 +187,30 @@ func TestIntegration_ClientSuspensionSerializesIssuance(t *testing.T) {
 				}
 				assertCredentialCount(t, client.ClientID, 0)
 			})
+		}
+	}
+}
+
+func TestIntegration_ClientUpdatePreservesEmptyPermissions(t *testing.T) {
+	repo, client, _ := newMetadataClient(t)
+	client.GrantTypes = []string{}
+	client.ResponseTypes = []string{}
+	client.Scopes = []string{}
+	if err := repo.Update(t.Context(), client); err != nil {
+		t.Fatal(err)
+	}
+	updated, err := usecase.NewClientUseCase(repo).Update(t.Context(), client.ClientID, "renamed", client.ClientType, client.RedirectURIs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Name != "renamed" {
+		t.Fatalf("name was not updated: %q", updated.Name)
+	}
+	for field, values := range map[string][]string{
+		"grant_types": updated.GrantTypes, "response_types": updated.ResponseTypes, "scopes": updated.Scopes,
+	} {
+		if values == nil || len(values) != 0 {
+			t.Errorf("%s: got %v, want explicit empty array", field, values)
 		}
 	}
 }
