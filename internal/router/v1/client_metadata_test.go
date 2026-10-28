@@ -3,6 +3,7 @@ package v1
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/google/uuid"
@@ -108,5 +109,31 @@ func TestClientSuspensionPermanentlyRevokesCredentials(t *testing.T) {
 	}
 	if err := insertToken(client.ClientID); err != nil {
 		t.Fatalf("new issuance after resuming: %v", err)
+	}
+}
+
+func TestClientCreationDefaultsMatchSchema(t *testing.T) {
+	repo, viaRepository := createMetadataClient(t)
+	id := uuid.New()
+	if _, err := testDB.ExecContext(t.Context(), `INSERT INTO clients (client_id, name, client_type, redirect_uris) VALUES ($1, 'schema defaults', $2, '["https://example.com/callback"]')`, id, domain.ClientTypeConfidential); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := repo.Delete(context.WithoutCancel(t.Context()), id); err != nil {
+			t.Error(err)
+		}
+	})
+	viaSchema, err := repo.Get(t.Context(), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Identity and database timestamps are intentionally different; all metadata
+	// must match without repeating the actual default values in this test.
+	viaSchema.ClientID = viaRepository.ClientID
+	viaSchema.Name = viaRepository.Name
+	viaSchema.CreatedAt = viaRepository.CreatedAt
+	viaSchema.UpdatedAt = viaRepository.UpdatedAt
+	if !reflect.DeepEqual(viaSchema, viaRepository) {
+		t.Fatalf("schema defaults = %+v; repository defaults = %+v", viaSchema, viaRepository)
 	}
 }
