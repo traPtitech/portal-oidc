@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/traPtitech/portal-oidc/internal/domain"
@@ -27,7 +28,7 @@ func TestClientPermissionDefaults(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client := &domain.Client{GrantTypes: tt.values, ResponseTypes: tt.values, Scopes: tt.values}
+			client := &domain.Client{Status: "active", TokenEndpointAuth: "client_secret_basic", IDTokenAlg: "RS256", GrantTypes: tt.values, ResponseTypes: tt.values, Scopes: tt.values}
 			created, err := buildCreateParams(client, "")
 			if err != nil {
 				t.Fatal(err)
@@ -56,6 +57,7 @@ func TestClientRenamePreservesPermissions(t *testing.T) {
 		t.Run(permissions[0], func(t *testing.T) {
 			r := &clientRepository{}
 			client, err := r.toDomain(oidc.Client{
+				Status: "active", TokenEndpointAuth: "client_secret_basic", IDTokenAlg: "RS256",
 				Name: "before", GrantTypes: []byte(permissions[0]),
 				ResponseTypes: []byte(permissions[1]), Scopes: []byte(permissions[2]),
 			})
@@ -70,6 +72,27 @@ func TestClientRenamePreservesPermissions(t *testing.T) {
 			got := [3]string{string(params.GrantTypes), string(params.ResponseTypes), string(params.Scopes)}
 			if got != permissions {
 				t.Errorf("rename changed permissions: %v -> %v", permissions, got)
+			}
+		})
+	}
+}
+
+func TestClientUpdateRejectsMissingSecurityMetadata(t *testing.T) {
+	for _, field := range []string{"status", "unknown_status", "token_endpoint_auth", "id_token_alg"} {
+		t.Run(field, func(t *testing.T) {
+			c := &domain.Client{Status: "suspended", TokenEndpointAuth: "client_secret_basic", IDTokenAlg: "RS256"}
+			switch field {
+			case "status":
+				c.Status = ""
+			case "unknown_status":
+				c.Status = "Active"
+			case "token_endpoint_auth":
+				c.TokenEndpointAuth = ""
+			case "id_token_alg":
+				c.IDTokenAlg = ""
+			}
+			if _, err := buildUpdateParams(c); !errors.Is(err, ErrInvalidClientMetadata) {
+				t.Fatalf("error = %v", err)
 			}
 		})
 	}

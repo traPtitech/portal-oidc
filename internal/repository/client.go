@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/sqlc-dev/pqtype"
@@ -17,6 +18,8 @@ var ErrClientNotFound = errors.New("client not found")
 
 // ErrClientConflict indicates that a client changed after it was read.
 var ErrClientConflict = errors.New("client was concurrently updated")
+
+var ErrInvalidClientMetadata = errors.New("invalid client metadata")
 
 // Default per-client metadata applied when callers do not specify values.
 // These match the historical hard-coded behaviour from before the spec-aligned
@@ -267,6 +270,13 @@ func buildCreateParams(client *domain.Client, secretHash string) (oidc.CreateCli
 }
 
 func buildUpdateParams(client *domain.Client) (oidc.UpdateClientParams, error) {
+	if client.Status != "active" && client.Status != "suspended" {
+		return oidc.UpdateClientParams{}, fmt.Errorf("%w: status must be active or suspended", ErrInvalidClientMetadata)
+	}
+	if client.TokenEndpointAuth == "" || client.IDTokenAlg == "" {
+		return oidc.UpdateClientParams{}, fmt.Errorf("%w: token authentication and ID token algorithm are required", ErrInvalidClientMetadata)
+	}
+
 	redirectURIs, err := marshalStringArray(client.RedirectURIs)
 	if err != nil {
 		return oidc.UpdateClientParams{}, err
@@ -310,11 +320,11 @@ func buildUpdateParams(client *domain.Client) (oidc.UpdateClientParams, error) {
 		GrantTypes:             grantTypes,
 		ResponseTypes:          responseTypes,
 		Scopes:                 scopes,
-		TokenEndpointAuth:      orDefaultStr(client.TokenEndpointAuth, defaultTokenEndpointAuth),
+		TokenEndpointAuth:      client.TokenEndpointAuth,
 		JwksUri:                nullString(client.JWKSURI),
 		Jwks:                   jwks,
-		IDTokenAlg:             orDefaultStr(client.IDTokenAlg, defaultIDTokenAlg),
-		Status:                 orDefaultStr(client.Status, defaultStatus),
+		IDTokenAlg:             client.IDTokenAlg,
+		Status:                 client.Status,
 		OwnerID:                nullUUID(client.OwnerID),
 	}, nil
 }
