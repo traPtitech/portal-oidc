@@ -46,7 +46,7 @@ func TestClientUpdateRejectsStaleSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if current.Status != "suspended" || len(current.Scopes) != 0 || current.Name != "metadata" {
+	if current.Status != domain.ClientStatusSuspended || len(current.Scopes) != 0 || current.Name != "metadata" {
 		t.Fatalf("concurrent changes overwritten: %+v", current)
 	}
 	current.Name = "renamed"
@@ -79,7 +79,7 @@ func TestClientSuspensionPermanentlyRevokesCredentials(t *testing.T) {
 	if _, err := testDB.ExecContext(t.Context(), `INSERT INTO oidc_sessions (authorize_code, client_id, user_id, scopes, requested_at) VALUES ($1, $2, $3, 'openid', NOW())`, code, client.ClientID, uuid.New()); err != nil {
 		t.Fatal(err)
 	}
-	client.Status = "suspended"
+	client.Status = domain.ClientStatusSuspended
 	if err := repo.Update(t.Context(), client); err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +90,7 @@ func TestClientSuspensionPermanentlyRevokesCredentials(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	client.Status = "active"
+	client.Status = domain.ClientStatusActive
 	if err := repo.Update(t.Context(), client); err != nil {
 		t.Fatal(err)
 	}

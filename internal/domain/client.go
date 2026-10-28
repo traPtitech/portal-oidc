@@ -13,6 +13,17 @@ const (
 	ClientTypeConfidential ClientType = "confidential"
 )
 
+type ClientStatus string
+
+const (
+	ClientStatusActive    ClientStatus = "active"
+	ClientStatusSuspended ClientStatus = "suspended"
+)
+
+func (s ClientStatus) Valid() bool {
+	return s == ClientStatusActive || s == ClientStatusSuspended
+}
+
 // Client contains the persisted per-client OAuth metadata.
 // Creation defaults are applied by the repository and the database schema;
 // their equivalence is covered by TestClientCreationDefaultsMatchSchema.
@@ -24,7 +35,7 @@ type Client struct {
 	GrantTypes    []string
 	ResponseTypes []string
 	Scopes        []string
-	Status        string // "active" or "suspended"
+	Status        ClientStatus
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 }

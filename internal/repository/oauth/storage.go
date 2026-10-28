@@ -14,6 +14,7 @@ import (
 	"github.com/ory/fosite/handler/pkce"
 	"github.com/ory/fosite/storage"
 
+	"github.com/traPtitech/portal-oidc/internal/domain"
 	"github.com/traPtitech/portal-oidc/internal/repository"
 	"github.com/traPtitech/portal-oidc/internal/repository/oidc"
 )
@@ -130,7 +131,7 @@ func (s *Storage) GetClient(ctx context.Context, id string) (fosite.Client, erro
 		return nil, err
 	}
 
-	if client.Status != "active" {
+	if client.Status != domain.ClientStatusActive {
 		return nil, fosite.ErrNotFound
 	}
 

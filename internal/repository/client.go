@@ -27,7 +27,6 @@ var (
 	defaultGrantTypes    = []string{"authorization_code", "refresh_token"}
 	defaultResponseTypes = []string{"code"}
 	defaultScopes        = []string{"openid", "profile", "email"}
-	defaultStatus        = "active"
 )
 
 type ClientRepository interface {
@@ -161,7 +160,7 @@ func (r *clientRepository) toDomain(dbClient oidc.Client) (*domain.Client, error
 		GrantTypes:    grantTypes,
 		ResponseTypes: responseTypes,
 		Scopes:        scopes,
-		Status:        dbClient.Status,
+		Status:        domain.ClientStatus(dbClient.Status),
 		CreatedAt:     dbClient.CreatedAt,
 		UpdatedAt:     dbClient.UpdatedAt,
 	}, nil
@@ -190,7 +189,12 @@ func buildCreateParams(client *domain.Client, secretHash string) (oidc.CreateCli
 	normalized.GrantTypes = orDefault(client.GrantTypes, defaultGrantTypes)
 	normalized.ResponseTypes = orDefault(client.ResponseTypes, defaultResponseTypes)
 	normalized.Scopes = orDefault(client.Scopes, defaultScopes)
-	normalized.Status = orDefaultStr(client.Status, defaultStatus)
+	if normalized.Status == "" {
+		normalized.Status = domain.ClientStatusActive
+	}
+	if !normalized.Status.Valid() {
+		return oidc.CreateClientParams{}, fmt.Errorf("%w: invalid client status %q", ErrInvalidClientMetadata, normalized.Status)
+	}
 	params, err := marshalClientMetadata(&normalized)
 	if err != nil {
 		return oidc.CreateClientParams{}, err
@@ -226,7 +230,7 @@ func marshalClientMetadata(client *domain.Client) (oidc.CreateClientParams, erro
 		GrantTypes:    grantTypes,
 		ResponseTypes: responseTypes,
 		Scopes:        scopes,
-		Status:        client.Status,
+		Status:        string(client.Status),
 	}, nil
 }
 
@@ -235,8 +239,8 @@ func buildUpdateParams(client *domain.Client) (oidc.UpdateClientParams, error) {
 		return oidc.UpdateClientParams{}, fmt.Errorf("%w: permission slices must be specified (use empty slices to clear)", ErrInvalidClientMetadata)
 	}
 
-	if client.Status != "active" && client.Status != "suspended" {
-		return oidc.UpdateClientParams{}, fmt.Errorf("%w: status must be active or suspended", ErrInvalidClientMetadata)
+	if !client.Status.Valid() {
+		return oidc.UpdateClientParams{}, fmt.Errorf("%w: invalid client status %q", ErrInvalidClientMetadata, client.Status)
 	}
 
 	params, err := marshalClientMetadata(client)
@@ -266,11 +270,4 @@ func orDefault(values, fallback []string) []string {
 		return fallback
 	}
 	return values
-}
-
-func orDefaultStr(value, fallback string) string {
-	if value == "" {
-		return fallback
-	}
-	return value
 }

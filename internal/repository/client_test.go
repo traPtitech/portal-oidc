@@ -30,7 +30,7 @@ func TestClientPermissionDefaults(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client := &domain.Client{Status: "active", GrantTypes: tt.values, ResponseTypes: tt.values, Scopes: tt.values}
+			client := &domain.Client{Status: domain.ClientStatusActive, GrantTypes: tt.values, ResponseTypes: tt.values, Scopes: tt.values}
 			created, err := buildCreateParams(client, "")
 			if err != nil {
 				t.Fatal(err)
@@ -65,7 +65,7 @@ func TestClientRenamePreservesPermissions(t *testing.T) {
 		t.Run(permissions[0], func(t *testing.T) {
 			r := &clientRepository{}
 			client, err := r.toDomain(oidc.Client{
-				Status: "active",
+				Status: string(domain.ClientStatusActive),
 				Name:   "before", GrantTypes: []byte(permissions[0]),
 				ResponseTypes: []byte(permissions[1]), Scopes: []byte(permissions[2]),
 			})
@@ -85,18 +85,42 @@ func TestClientRenamePreservesPermissions(t *testing.T) {
 	}
 }
 
-func TestClientUpdateRejectsInvalidStatus(t *testing.T) {
-	for _, field := range []string{"status", "unknown_status"} {
-		t.Run(field, func(t *testing.T) {
-			c := &domain.Client{GrantTypes: []string{}, ResponseTypes: []string{}, Scopes: []string{}, Status: "suspended"}
-			switch field {
-			case "status":
-				c.Status = ""
-			case "unknown_status":
-				c.Status = "Active"
+func TestClientStatusValidation(t *testing.T) {
+	tests := []struct {
+		name            string
+		status          domain.ClientStatus
+		wantCreate      domain.ClientStatus
+		wantCreateError bool
+		wantUpdateError bool
+	}{
+		{name: "omitted", wantCreate: domain.ClientStatusActive, wantUpdateError: true},
+		{name: "active", status: domain.ClientStatusActive, wantCreate: domain.ClientStatusActive},
+		{name: "suspended", status: domain.ClientStatusSuspended, wantCreate: domain.ClientStatusSuspended},
+		{name: "wrong case", status: "Active", wantCreateError: true, wantUpdateError: true},
+		{name: "whitespace", status: "active ", wantCreateError: true, wantUpdateError: true},
+		{name: "unknown", status: "unknown", wantCreateError: true, wantUpdateError: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := &domain.Client{Status: tt.status, GrantTypes: []string{}, ResponseTypes: []string{}, Scopes: []string{}}
+			created, err := buildCreateParams(client, "")
+			if tt.wantCreateError {
+				if !errors.Is(err, ErrInvalidClientMetadata) {
+					t.Fatalf("create error = %v, want ErrInvalidClientMetadata", err)
+				}
+			} else if err != nil || created.Status != string(tt.wantCreate) {
+				t.Fatalf("create status = %q, error = %v; want %q", created.Status, err, tt.wantCreate)
 			}
-			if _, err := buildUpdateParams(c); !errors.Is(err, ErrInvalidClientMetadata) {
-				t.Fatalf("error = %v", err)
+			updated, err := buildUpdateParams(client)
+			if tt.wantUpdateError {
+				if !errors.Is(err, ErrInvalidClientMetadata) {
+					t.Fatalf("update error = %v, want ErrInvalidClientMetadata", err)
+				}
+			} else if err != nil || updated.Status != string(tt.status) {
+				t.Fatalf("update status = %q, error = %v; want %q", updated.Status, err, tt.status)
+			}
+			if client.Status != tt.status {
+				t.Fatalf("validation mutated the caller's status: %q", client.Status)
 			}
 		})
 	}
@@ -105,7 +129,7 @@ func TestClientUpdateRejectsInvalidStatus(t *testing.T) {
 func TestClientUpdateRequiresEachPermissionSlice(t *testing.T) {
 	for _, field := range []string{"grant_types", "response_types", "scopes"} {
 		t.Run(field, func(t *testing.T) {
-			c := &domain.Client{Status: "active", GrantTypes: []string{}, ResponseTypes: []string{}, Scopes: []string{}}
+			c := &domain.Client{Status: domain.ClientStatusActive, GrantTypes: []string{}, ResponseTypes: []string{}, Scopes: []string{}}
 			switch field {
 			case "grant_types":
 				c.GrantTypes = nil

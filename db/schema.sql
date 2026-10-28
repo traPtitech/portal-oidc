@@ -22,7 +22,8 @@ CREATE TABLE IF NOT EXISTS clients (
   status TEXT NOT NULL DEFAULT 'active',
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (client_id)
+  PRIMARY KEY (client_id),
+  CONSTRAINT clients_status_check CHECK (status IN ('active', 'suspended'))
 );
 
 CREATE TRIGGER trg_clients_set_updated_at

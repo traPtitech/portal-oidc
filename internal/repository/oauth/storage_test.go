@@ -38,8 +38,8 @@ func (r tokenRepositoryStub) GetByRefreshToken(context.Context, string) (domain.
 }
 
 func TestStorageClientStatus(t *testing.T) {
-	for _, status := range []string{"active", "suspended", "", "unknown"} {
-		t.Run(status, func(t *testing.T) {
+	for _, status := range []domain.ClientStatus{domain.ClientStatusActive, domain.ClientStatusSuspended, "", "unknown", "Active"} {
+		t.Run(string(status), func(t *testing.T) {
 			ctx := t.Context()
 			client := &domain.Client{
 				ClientID: uuid.New(), ClientType: domain.ClientTypeConfidential,
@@ -53,7 +53,7 @@ func TestStorageClientStatus(t *testing.T) {
 			}
 			storage := NewStorage(nil, nil, clientRepositoryStub{client: client}, nil, tokenRepositoryStub{token: token}, nil)
 			_, err := storage.GetClient(ctx, client.ClientID.String())
-			if status == "active" {
+			if status == domain.ClientStatusActive {
 				if err != nil {
 					t.Fatalf("GetClient() = %v", err)
 				}
@@ -69,7 +69,7 @@ func TestStorageClientStatus(t *testing.T) {
 				}
 				request := httptest.NewRequestWithContext(t.Context(), "GET", "https://issuer.example/oauth2/authorize?"+query.Encode(), nil)
 				_, err := provider.NewAuthorizeRequest(t.Context(), request)
-				if status == "active" {
+				if status == domain.ClientStatusActive {
 					if err != nil {
 						t.Fatalf("NewAuthorizeRequest() = %v", err)
 					}
@@ -84,7 +84,7 @@ func TestStorageClientStatus(t *testing.T) {
 			} {
 				t.Run(name, func(t *testing.T) {
 					_, err := lookup(t.Context(), "existing-token", nil)
-					if status == "active" {
+					if status == domain.ClientStatusActive {
 						if err != nil {
 							t.Fatalf("token lookup = %v", err)
 						}
@@ -99,7 +99,7 @@ func TestStorageClientStatus(t *testing.T) {
 
 func TestStorageEmptyResponseTypes(t *testing.T) {
 	client := &domain.Client{
-		ClientID: uuid.New(), ClientType: domain.ClientTypeConfidential, Status: "active",
+		ClientID: uuid.New(), ClientType: domain.ClientTypeConfidential, Status: domain.ClientStatusActive,
 		RedirectURIs: []string{"https://example.com/callback"},
 		GrantTypes:   []string{"authorization_code"}, ResponseTypes: []string{}, Scopes: []string{"openid"},
 	}
