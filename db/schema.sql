@@ -15,6 +15,20 @@ CREATE TABLE IF NOT EXISTS clients (
   name TEXT NOT NULL,
   client_type TEXT NOT NULL,
   redirect_uris JSONB NOT NULL,
+  -- traPortal v2 spec: per-client OAuth metadata
+  client_uri TEXT NULL,
+  logo_uri TEXT NULL,
+  post_logout_redirect_uris JSONB NOT NULL DEFAULT '[]'::jsonb,
+  allowed_origins JSONB NOT NULL DEFAULT '[]'::jsonb,
+  grant_types JSONB NOT NULL DEFAULT '["authorization_code"]'::jsonb,
+  response_types JSONB NOT NULL DEFAULT '["code"]'::jsonb,
+  scopes JSONB NOT NULL DEFAULT '["openid","profile","email"]'::jsonb,
+  token_endpoint_auth TEXT NOT NULL DEFAULT 'client_secret_basic',
+  jwks_uri TEXT NULL,
+  jwks JSONB NULL,
+  id_token_alg TEXT NOT NULL DEFAULT 'RS256',
+  status TEXT NOT NULL DEFAULT 'active',
+  owner_id UUID NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (client_id)
@@ -81,3 +95,49 @@ CREATE TABLE IF NOT EXISTS oidc_sessions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_oidc_sessions_client_id ON oidc_sessions (client_id);
+
+-- Revoke stored credentials atomically, including status changes made directly
+-- in the database while client metadata is not exposed by the admin API.
+CREATE OR REPLACE FUNCTION revoke_inactive_client_sessions()
+RETURNS TRIGGER AS $$
+BEGIN
+  DELETE FROM tokens WHERE client_id = NEW.client_id;
+  DELETE FROM authorization_codes WHERE client_id = NEW.client_id;
+  DELETE FROM oidc_sessions WHERE client_id = NEW.client_id;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_clients_revoke_sessions
+AFTER UPDATE OF status ON clients
+FOR EACH ROW
+WHEN (OLD.status IS DISTINCT FROM NEW.status AND NEW.status <> 'active')
+EXECUTE FUNCTION revoke_inactive_client_sessions();
+
+-- Serialize issuance against status updates. The shared row lock is held until
+-- the issuing transaction ends, so suspension either deletes its credentials
+-- after commit or prevents their creation in the first place.
+CREATE OR REPLACE FUNCTION require_active_client()
+RETURNS TRIGGER AS $$
+BEGIN
+  PERFORM 1 FROM clients
+  WHERE client_id = NEW.client_id AND status = 'active'
+  FOR SHARE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'client is not active' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_authorization_codes_require_active_client
+BEFORE INSERT ON authorization_codes
+FOR EACH ROW EXECUTE FUNCTION require_active_client();
+
+CREATE TRIGGER trg_tokens_require_active_client
+BEFORE INSERT ON tokens
+FOR EACH ROW EXECUTE FUNCTION require_active_client();
+
+CREATE TRIGGER trg_oidc_sessions_require_active_client
+BEFORE INSERT ON oidc_sessions
+FOR EACH ROW EXECUTE FUNCTION require_active_client();
