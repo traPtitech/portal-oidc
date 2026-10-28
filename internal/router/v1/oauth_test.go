@@ -425,7 +425,7 @@ func TestIntegration_TokenAuthorizationCodeReuseRevokesTokens(t *testing.T) {
 		RequestID: signature,
 		ClientID:  clientID,
 		UserID:    &userID,
-		JTI:       accessToken,
+		Signature: accessToken,
 		ExpiresAt: time.Now().Add(time.Hour),
 	}); err != nil {
 		t.Fatalf("create access token: %v", err)
@@ -436,7 +436,7 @@ func TestIntegration_TokenAuthorizationCodeReuseRevokesTokens(t *testing.T) {
 		RequestID: signature,
 		ClientID:  clientID,
 		UserID:    userID,
-		TokenHash: refreshToken,
+		Signature: refreshToken,
 		ExpiresAt: time.Now().Add(time.Hour),
 	}); err != nil {
 		t.Fatalf("create refresh token: %v", err)
@@ -447,10 +447,10 @@ func TestIntegration_TokenAuthorizationCodeReuseRevokesTokens(t *testing.T) {
 	response := exchangeAuthorizationCode(t, e, clientID.String(), clientSecret, code, redirectURI, "")
 	assertTokenError(t, response, http.StatusBadRequest, gen.InvalidGrant)
 
-	if _, err := accessTokenRepo.GetByJTI(ctx, accessToken); !errors.Is(err, repository.ErrAccessTokenNotFound) {
+	if _, err := accessTokenRepo.GetBySignature(ctx, accessToken); !errors.Is(err, repository.ErrAccessTokenNotFound) {
 		t.Fatalf("access token lookup error = %v, want repository.ErrAccessTokenNotFound", err)
 	}
-	if _, err := refreshTokenRepo.GetByHash(ctx, refreshToken); !errors.Is(err, repository.ErrRefreshTokenNotFound) {
+	if _, err := refreshTokenRepo.GetBySignature(ctx, refreshToken); !errors.Is(err, repository.ErrRefreshTokenNotFound) {
 		t.Fatalf("refresh token lookup error = %v, want repository.ErrRefreshTokenNotFound", err)
 	}
 }
@@ -495,7 +495,7 @@ func TestIntegration_TokenRefreshRotationAndReuse(t *testing.T) {
 			t.Fatalf("generate refresh token: %v", err)
 		}
 		if err := refreshTokenRepo.Create(ctx, domain.RefreshToken{
-			TokenHash: refreshSignature,
+			Signature: refreshSignature,
 			RequestID: requestID,
 			ClientID:  clientID,
 			UserID:    userID,
@@ -504,9 +504,9 @@ func TestIntegration_TokenRefreshRotationAndReuse(t *testing.T) {
 		}); err != nil {
 			t.Fatalf("create refresh token: %v", err)
 		}
-		accessJTI := "access-" + requestID
+		accessSignature := "access-" + requestID
 		if err := accessTokenRepo.Create(ctx, domain.AccessToken{
-			JTI:       accessJTI,
+			Signature: accessSignature,
 			RequestID: requestID,
 			ClientID:  clientID,
 			UserID:    &userID,
@@ -515,7 +515,7 @@ func TestIntegration_TokenRefreshRotationAndReuse(t *testing.T) {
 		}); err != nil {
 			t.Fatalf("create access token: %v", err)
 		}
-		return refreshToken, accessJTI
+		return refreshToken, accessSignature
 	}
 
 	e := echo.New()
@@ -524,6 +524,7 @@ func TestIntegration_TokenRefreshRotationAndReuse(t *testing.T) {
 	t.Run("rotation then replay revokes the family", func(t *testing.T) {
 		requestID := uuid.NewString()
 		oldRefresh, oldAccess := issue(t, requestID)
+		otherRefresh, otherAccess := issue(t, uuid.NewString())
 
 		response := refreshTokenGrant(ctx, t, e, clientID.String(), clientSecret, oldRefresh)
 		if response.Code != http.StatusOK {
@@ -536,14 +537,14 @@ func TestIntegration_TokenRefreshRotationAndReuse(t *testing.T) {
 			t.Fatalf("decode refresh response: %v, body = %s", err, response.Body.String())
 		}
 
-		rotated, err := refreshTokenRepo.GetByHash(ctx, strategy.RefreshTokenSignature(ctx, oldRefresh))
+		rotated, err := refreshTokenRepo.GetBySignature(ctx, strategy.RefreshTokenSignature(ctx, oldRefresh))
 		if err != nil {
 			t.Fatalf("get rotated refresh token: %v", err)
 		}
 		if rotated.RotatedAt == nil {
-			t.Fatal("previous refresh token was not marked rotated")
+			t.Fatal("previous refresh token was not rotated")
 		}
-		access, err := accessTokenRepo.GetByJTI(ctx, oldAccess)
+		access, err := accessTokenRepo.GetBySignature(ctx, oldAccess)
 		if err != nil {
 			t.Fatalf("get previous access token: %v", err)
 		}
@@ -554,7 +555,7 @@ func TestIntegration_TokenRefreshRotationAndReuse(t *testing.T) {
 		replay := refreshTokenGrant(ctx, t, e, clientID.String(), clientSecret, oldRefresh)
 		assertTokenError(t, replay, http.StatusBadRequest, gen.InvalidGrant)
 
-		current, err := refreshTokenRepo.GetByHash(ctx, strategy.RefreshTokenSignature(ctx, body.RefreshToken))
+		current, err := refreshTokenRepo.GetBySignature(ctx, strategy.RefreshTokenSignature(ctx, body.RefreshToken))
 		if err != nil {
 			t.Fatalf("get rotated-in refresh token: %v", err)
 		}
@@ -563,6 +564,22 @@ func TestIntegration_TokenRefreshRotationAndReuse(t *testing.T) {
 		}
 		afterReplay := refreshTokenGrant(ctx, t, e, clientID.String(), clientSecret, body.RefreshToken)
 		assertTokenError(t, afterReplay, http.StatusBadRequest, gen.InvalidGrant)
+
+		// Neither rotation nor reuse detection may touch tokens of another request.
+		other, err := refreshTokenRepo.GetBySignature(ctx, strategy.RefreshTokenSignature(ctx, otherRefresh))
+		if err != nil {
+			t.Fatalf("get refresh token of another request: %v", err)
+		}
+		if other.RotatedAt != nil || other.RevokedAt != nil {
+			t.Fatal("refresh token of another request was rotated or revoked")
+		}
+		otherAccessToken, err := accessTokenRepo.GetBySignature(ctx, otherAccess)
+		if err != nil {
+			t.Fatalf("get access token of another request: %v", err)
+		}
+		if otherAccessToken.RevokedAt != nil {
+			t.Fatal("access token of another request was revoked")
+		}
 	})
 
 	t.Run("revoked refresh token is rejected", func(t *testing.T) {

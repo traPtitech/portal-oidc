@@ -16,8 +16,8 @@ var ErrAccessTokenNotFound = errors.New("access token not found")
 
 type AccessTokenRepository interface {
 	Create(ctx context.Context, t domain.AccessToken) error
-	GetByJTI(ctx context.Context, jti string) (domain.AccessToken, error)
-	DeleteByJTI(ctx context.Context, jti string) error
+	GetBySignature(ctx context.Context, signature string) (domain.AccessToken, error)
+	DeleteBySignature(ctx context.Context, signature string) error
 	DeleteByRequestID(ctx context.Context, requestID string) error
 	RevokeByRequestID(ctx context.Context, requestID string) error
 }
@@ -37,7 +37,7 @@ func (r *accessTokenRepository) Create(ctx context.Context, t domain.AccessToken
 	}
 	return r.queries.CreateAccessToken(ctx, oidc.CreateAccessTokenParams{
 		ID:        id,
-		Jti:       t.JTI,
+		Signature: t.Signature,
 		RequestID: t.RequestID,
 		ClientID:  t.ClientID,
 		UserID:    nullUUID(t.UserID),
@@ -46,8 +46,8 @@ func (r *accessTokenRepository) Create(ctx context.Context, t domain.AccessToken
 	})
 }
 
-func (r *accessTokenRepository) GetByJTI(ctx context.Context, jti string) (domain.AccessToken, error) {
-	row, err := r.queries.GetAccessTokenByJTI(ctx, jti)
+func (r *accessTokenRepository) GetBySignature(ctx context.Context, signature string) (domain.AccessToken, error) {
+	row, err := r.queries.GetAccessTokenBySignature(ctx, signature)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return domain.AccessToken{}, ErrAccessTokenNotFound
@@ -57,8 +57,8 @@ func (r *accessTokenRepository) GetByJTI(ctx context.Context, jti string) (domai
 	return toDomainAccessToken(row), nil
 }
 
-func (r *accessTokenRepository) DeleteByJTI(ctx context.Context, jti string) error {
-	return r.queries.DeleteAccessTokenByJTI(ctx, jti)
+func (r *accessTokenRepository) DeleteBySignature(ctx context.Context, signature string) error {
+	return r.queries.DeleteAccessTokenBySignature(ctx, signature)
 }
 
 func (r *accessTokenRepository) DeleteByRequestID(ctx context.Context, requestID string) error {
@@ -77,7 +77,7 @@ func toDomainAccessToken(row oidc.AccessToken) domain.AccessToken {
 	}
 	t := domain.AccessToken{
 		ID:        row.ID,
-		JTI:       row.Jti,
+		Signature: row.Signature,
 		RequestID: row.RequestID,
 		ClientID:  row.ClientID,
 		UserID:    userID,

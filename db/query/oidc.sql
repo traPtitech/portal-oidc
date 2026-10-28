@@ -89,18 +89,12 @@ UPDATE authorization_codes SET
     code_challenge_method = NULL
 WHERE code = $1;
 
--- name: DeleteExpiredAuthorizationCodes :exec
-DELETE FROM authorization_codes WHERE expires_at < NOW();
-
--- name: DeleteAllAuthorizationCodes :exec
-DELETE FROM authorization_codes;
-
 -- Access token queries
 
 -- name: CreateAccessToken :exec
 INSERT INTO access_tokens (
     id,
-    jti,
+    signature,
     request_id,
     client_id,
     user_id,
@@ -108,11 +102,11 @@ INSERT INTO access_tokens (
     expires_at
 ) VALUES ($1, $2, $3, $4, $5, $6, $7);
 
--- name: GetAccessTokenByJTI :one
-SELECT * FROM access_tokens WHERE jti = $1;
+-- name: GetAccessTokenBySignature :one
+SELECT * FROM access_tokens WHERE signature = $1;
 
--- name: DeleteAccessTokenByJTI :exec
-DELETE FROM access_tokens WHERE jti = $1;
+-- name: DeleteAccessTokenBySignature :exec
+DELETE FROM access_tokens WHERE signature = $1;
 
 -- name: DeleteAccessTokensByRequestID :exec
 DELETE FROM access_tokens WHERE request_id = $1;
@@ -121,18 +115,12 @@ DELETE FROM access_tokens WHERE request_id = $1;
 UPDATE access_tokens SET revoked_at = CURRENT_TIMESTAMP
 WHERE request_id = $1 AND revoked_at IS NULL;
 
--- name: DeleteExpiredAccessTokens :exec
-DELETE FROM access_tokens WHERE expires_at < NOW();
-
--- name: DeleteAllAccessTokens :exec
-DELETE FROM access_tokens;
-
 -- Refresh token queries
 
 -- name: CreateRefreshToken :exec
 INSERT INTO refresh_tokens (
     id,
-    token_hash,
+    signature,
     request_id,
     client_id,
     user_id,
@@ -140,15 +128,15 @@ INSERT INTO refresh_tokens (
     expires_at
 ) VALUES ($1, $2, $3, $4, $5, $6, $7);
 
--- name: GetRefreshTokenByHash :one
-SELECT * FROM refresh_tokens WHERE token_hash = $1;
+-- name: GetRefreshTokenBySignature :one
+SELECT * FROM refresh_tokens WHERE signature = $1;
 
--- name: DeleteRefreshTokenByHash :exec
-DELETE FROM refresh_tokens WHERE token_hash = $1;
+-- name: DeleteRefreshTokenBySignature :exec
+DELETE FROM refresh_tokens WHERE signature = $1;
 
--- name: MarkRefreshTokenRotated :exec
+-- name: RotateRefreshTokenBySignature :exec
 UPDATE refresh_tokens SET rotated_at = CURRENT_TIMESTAMP
-WHERE token_hash = $1 AND rotated_at IS NULL;
+WHERE signature = $1 AND rotated_at IS NULL;
 
 -- name: RevokeRefreshTokensByRequestID :exec
 UPDATE refresh_tokens SET revoked_at = CURRENT_TIMESTAMP
@@ -156,12 +144,6 @@ WHERE request_id = $1 AND revoked_at IS NULL;
 
 -- name: DeleteRefreshTokensByRequestID :exec
 DELETE FROM refresh_tokens WHERE request_id = $1;
-
--- name: DeleteExpiredRefreshTokens :exec
-DELETE FROM refresh_tokens WHERE expires_at < NOW();
-
--- name: DeleteAllRefreshTokens :exec
-DELETE FROM refresh_tokens;
 
 -- OIDC Session queries
 
@@ -181,6 +163,3 @@ SELECT * FROM oidc_sessions WHERE authorize_code = $1;
 
 -- name: DeleteOIDCSession :exec
 DELETE FROM oidc_sessions WHERE authorize_code = $1;
-
--- name: DeleteAllOIDCSessions :exec
-DELETE FROM oidc_sessions;

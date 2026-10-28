@@ -43,9 +43,9 @@ func newMetadataClient(t *testing.T) (repository.ClientRepository, *domain.Clien
 }
 
 var credentialInserts = map[string]string{ //nolint:gosec // parameterized SQL for test credentials, not embedded secrets
-	"access_tokens": `INSERT INTO access_tokens (id, request_id, client_id, user_id, jti, scopes, expires_at)
+	"access_tokens": `INSERT INTO access_tokens (id, request_id, client_id, user_id, signature, scopes, expires_at)
 		VALUES ($2::text::uuid, $2::text, $1, $2::text::uuid, $2::text, 'openid', now() + interval '1 hour')`,
-	"refresh_tokens": `INSERT INTO refresh_tokens (id, request_id, client_id, user_id, token_hash, scopes, expires_at)
+	"refresh_tokens": `INSERT INTO refresh_tokens (id, request_id, client_id, user_id, signature, scopes, expires_at)
 		VALUES ($2::text::uuid, $2::text, $1, $2::text::uuid, $2::text, 'openid', now() + interval '1 hour')`,
 	"authorization_codes": `INSERT INTO authorization_codes (code, client_id, user_id, redirect_uri, scopes, expires_at)
 		VALUES ($2::text, $1, $2::text::uuid, 'https://client.example/callback', 'openid', now() + interval '1 hour')`,

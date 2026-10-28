@@ -14,7 +14,7 @@ import (
 
 type AccessToken struct {
 	ID        uuid.UUID     `json:"id"`
-	Jti       string        `json:"jti"`
+	Signature string        `json:"signature"`
 	RequestID string        `json:"request_id"`
 	ClientID  uuid.UUID     `json:"client_id"`
 	UserID    uuid.NullUUID `json:"user_id"`
@@ -69,7 +69,7 @@ type OidcSession struct {
 
 type RefreshToken struct {
 	ID        uuid.UUID    `json:"id"`
-	TokenHash string       `json:"token_hash"`
+	Signature string       `json:"signature"`
 	RequestID string       `json:"request_id"`
 	ClientID  uuid.UUID    `json:"client_id"`
 	UserID    uuid.UUID    `json:"user_id"`

@@ -52,13 +52,14 @@ CREATE INDEX IF NOT EXISTS idx_authorization_codes_client_id ON authorization_co
 CREATE INDEX IF NOT EXISTS idx_authorization_codes_expires_at ON authorization_codes (expires_at);
 
 -- traPortal v2 spec §access_tokens
--- jti is the fosite-issued signature of the opaque access token and serves as
--- the lookup key. user_id is nullable because the client_credentials grant
--- (future) issues tokens without a subject. revoked_at is the source of truth
--- for revocation; expired tokens are pruned by a separate sweep.
+-- signature is the fosite-issued signature of the opaque access token and
+-- serves as the lookup key (same as Ory Hydra's hydra_oauth2_access). user_id
+-- is nullable because the client_credentials grant (future) issues tokens
+-- without a subject. revoked_at is the source of truth for revocation.
+-- Revoked and expired rows are not pruned yet.
 CREATE TABLE IF NOT EXISTS access_tokens (
   id UUID NOT NULL,
-  jti TEXT NOT NULL,
+  signature TEXT NOT NULL,
   request_id TEXT NOT NULL,
   client_id UUID NOT NULL,
   user_id UUID NULL,
@@ -67,7 +68,7 @@ CREATE TABLE IF NOT EXISTS access_tokens (
   expires_at TIMESTAMPTZ NOT NULL,
   revoked_at TIMESTAMPTZ NULL,
   PRIMARY KEY (id),
-  CONSTRAINT idx_access_tokens_jti UNIQUE (jti),
+  CONSTRAINT idx_access_tokens_signature UNIQUE (signature),
   CONSTRAINT fk_access_tokens_client FOREIGN KEY (client_id) REFERENCES clients (client_id) ON DELETE CASCADE
 );
 
@@ -77,14 +78,14 @@ CREATE INDEX IF NOT EXISTS idx_access_tokens_request_id ON access_tokens (reques
 CREATE INDEX IF NOT EXISTS idx_access_tokens_expires_at ON access_tokens (expires_at);
 
 -- traPortal v2 spec §refresh_tokens
--- token_hash is the fosite signature. fosite carries request_id over on every
+-- signature is the fosite signature of the refresh token. fosite carries request_id over on every
 -- refresh, so all generations of a rotation family share it and OAuth 2.1
 -- §4.13.2 family-revocation is a revoke by request_id. revoked_at + rotated_at
 -- separate "we intentionally retired this token" from "the user explicitly
 -- revoked it".
 CREATE TABLE IF NOT EXISTS refresh_tokens (
   id UUID NOT NULL,
-  token_hash TEXT NOT NULL,
+  signature TEXT NOT NULL,
   request_id TEXT NOT NULL,
   client_id UUID NOT NULL,
   user_id UUID NOT NULL,
@@ -94,7 +95,7 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
   rotated_at TIMESTAMPTZ NULL,
   revoked_at TIMESTAMPTZ NULL,
   PRIMARY KEY (id),
-  CONSTRAINT idx_refresh_tokens_token_hash UNIQUE (token_hash),
+  CONSTRAINT idx_refresh_tokens_signature UNIQUE (signature),
   CONSTRAINT fk_refresh_tokens_client FOREIGN KEY (client_id) REFERENCES clients (client_id) ON DELETE CASCADE
 );
 

@@ -16,9 +16,9 @@ var ErrRefreshTokenNotFound = errors.New("refresh token not found")
 
 type RefreshTokenRepository interface {
 	Create(ctx context.Context, t domain.RefreshToken) error
-	GetByHash(ctx context.Context, tokenHash string) (domain.RefreshToken, error)
-	DeleteByHash(ctx context.Context, tokenHash string) error
-	MarkRotated(ctx context.Context, tokenHash string) error
+	GetBySignature(ctx context.Context, signature string) (domain.RefreshToken, error)
+	DeleteBySignature(ctx context.Context, signature string) error
+	RotateBySignature(ctx context.Context, signature string) error
 	RevokeByRequestID(ctx context.Context, requestID string) error
 	DeleteByRequestID(ctx context.Context, requestID string) error
 }
@@ -38,7 +38,7 @@ func (r *refreshTokenRepository) Create(ctx context.Context, t domain.RefreshTok
 	}
 	return r.queries.CreateRefreshToken(ctx, oidc.CreateRefreshTokenParams{
 		ID:        id,
-		TokenHash: t.TokenHash,
+		Signature: t.Signature,
 		RequestID: t.RequestID,
 		ClientID:  t.ClientID,
 		UserID:    t.UserID,
@@ -47,8 +47,8 @@ func (r *refreshTokenRepository) Create(ctx context.Context, t domain.RefreshTok
 	})
 }
 
-func (r *refreshTokenRepository) GetByHash(ctx context.Context, tokenHash string) (domain.RefreshToken, error) {
-	row, err := r.queries.GetRefreshTokenByHash(ctx, tokenHash)
+func (r *refreshTokenRepository) GetBySignature(ctx context.Context, signature string) (domain.RefreshToken, error) {
+	row, err := r.queries.GetRefreshTokenBySignature(ctx, signature)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return domain.RefreshToken{}, ErrRefreshTokenNotFound
@@ -58,12 +58,12 @@ func (r *refreshTokenRepository) GetByHash(ctx context.Context, tokenHash string
 	return toDomainRefreshToken(row), nil
 }
 
-func (r *refreshTokenRepository) DeleteByHash(ctx context.Context, tokenHash string) error {
-	return r.queries.DeleteRefreshTokenByHash(ctx, tokenHash)
+func (r *refreshTokenRepository) DeleteBySignature(ctx context.Context, signature string) error {
+	return r.queries.DeleteRefreshTokenBySignature(ctx, signature)
 }
 
-func (r *refreshTokenRepository) MarkRotated(ctx context.Context, tokenHash string) error {
-	return r.queries.MarkRefreshTokenRotated(ctx, tokenHash)
+func (r *refreshTokenRepository) RotateBySignature(ctx context.Context, signature string) error {
+	return r.queries.RotateRefreshTokenBySignature(ctx, signature)
 }
 
 func (r *refreshTokenRepository) RevokeByRequestID(ctx context.Context, requestID string) error {
@@ -77,7 +77,7 @@ func (r *refreshTokenRepository) DeleteByRequestID(ctx context.Context, requestI
 func toDomainRefreshToken(row oidc.RefreshToken) domain.RefreshToken {
 	t := domain.RefreshToken{
 		ID:        row.ID,
-		TokenHash: row.TokenHash,
+		Signature: row.Signature,
 		RequestID: row.RequestID,
 		ClientID:  row.ClientID,
 		UserID:    row.UserID,

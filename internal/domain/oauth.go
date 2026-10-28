@@ -20,12 +20,12 @@ type AuthCode struct {
 	CreatedAt           time.Time
 }
 
-// AccessToken mirrors traPortal v2 spec §access_tokens. JTI is the fosite
-// signature used as the lookup key. UserID is optional because the
+// AccessToken mirrors traPortal v2 spec §access_tokens. Signature is the
+// fosite token signature used as the lookup key. UserID is optional because the
 // client_credentials grant (future) issues subject-less tokens.
 type AccessToken struct {
 	ID        uuid.UUID
-	JTI       string
+	Signature string
 	RequestID string
 	ClientID  uuid.UUID
 	UserID    *uuid.UUID
@@ -39,7 +39,7 @@ type AccessToken struct {
 // family shares RequestID, which OAuth 2.1 §4.13.2 family-revocation keys on.
 type RefreshToken struct {
 	ID        uuid.UUID
-	TokenHash string
+	Signature string
 	RequestID string
 	ClientID  uuid.UUID
 	UserID    uuid.UUID

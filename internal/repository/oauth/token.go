@@ -12,9 +12,9 @@ import (
 	"github.com/traPtitech/portal-oidc/internal/repository"
 )
 
-// CreateAccessTokenSession persists a fosite-issued access token. The
-// signature is what fosite uses as the lookup key on subsequent
-// GetAccessTokenSession calls, so we store it in jti.
+// CreateAccessTokenSession persists a fosite-issued access token keyed by its
+// signature, which fosite uses as the lookup key on subsequent
+// GetAccessTokenSession calls.
 func (s *Storage) CreateAccessTokenSession(ctx context.Context, signature string, request fosite.Requester) error {
 	sess, ok := request.GetSession().(*Session)
 	if !ok {
@@ -36,7 +36,7 @@ func (s *Storage) CreateAccessTokenSession(ctx context.Context, signature string
 	}
 
 	return s.getAccessTokens(ctx).Create(ctx, domain.AccessToken{
-		JTI:       signature,
+		Signature: signature,
 		RequestID: request.GetID(),
 		ClientID:  clientID,
 		UserID:    userID,
@@ -46,7 +46,7 @@ func (s *Storage) CreateAccessTokenSession(ctx context.Context, signature string
 }
 
 func (s *Storage) GetAccessTokenSession(ctx context.Context, signature string, _ fosite.Session) (fosite.Requester, error) {
-	token, err := s.getAccessTokens(ctx).GetByJTI(ctx, signature)
+	token, err := s.getAccessTokens(ctx).GetBySignature(ctx, signature)
 	if err != nil {
 		if errors.Is(err, repository.ErrAccessTokenNotFound) {
 			return nil, fosite.ErrNotFound
@@ -77,7 +77,7 @@ func (s *Storage) GetAccessTokenSession(ctx context.Context, signature string, _
 }
 
 func (s *Storage) DeleteAccessTokenSession(ctx context.Context, signature string) error {
-	return s.getAccessTokens(ctx).DeleteByJTI(ctx, signature)
+	return s.getAccessTokens(ctx).DeleteBySignature(ctx, signature)
 }
 
 // CreateRefreshTokenSession persists a fosite-issued refresh token. fosite
@@ -99,7 +99,7 @@ func (s *Storage) CreateRefreshTokenSession(ctx context.Context, signature strin
 	}
 
 	return s.getRefreshTokens(ctx).Create(ctx, domain.RefreshToken{
-		TokenHash: signature,
+		Signature: signature,
 		RequestID: request.GetID(),
 		ClientID:  clientID,
 		UserID:    userID,
@@ -114,14 +114,14 @@ func (s *Storage) CreateRefreshTokenSession(ctx context.Context, signature strin
 // request_id are revoked; the replacement pair is created afterwards in the
 // same transaction.
 func (s *Storage) RotateRefreshToken(ctx context.Context, requestID string, refreshTokenSignature string) error {
-	if err := s.getRefreshTokens(ctx).MarkRotated(ctx, refreshTokenSignature); err != nil {
+	if err := s.getRefreshTokens(ctx).RotateBySignature(ctx, refreshTokenSignature); err != nil {
 		return err
 	}
 	return s.getAccessTokens(ctx).RevokeByRequestID(ctx, requestID)
 }
 
 func (s *Storage) GetRefreshTokenSession(ctx context.Context, signature string, _ fosite.Session) (fosite.Requester, error) {
-	token, err := s.getRefreshTokens(ctx).GetByHash(ctx, signature)
+	token, err := s.getRefreshTokens(ctx).GetBySignature(ctx, signature)
 	if err != nil {
 		if errors.Is(err, repository.ErrRefreshTokenNotFound) {
 			return nil, fosite.ErrNotFound
@@ -148,7 +148,7 @@ func (s *Storage) GetRefreshTokenSession(ctx context.Context, signature string, 
 }
 
 func (s *Storage) DeleteRefreshTokenSession(ctx context.Context, signature string) error {
-	return s.getRefreshTokens(ctx).DeleteByHash(ctx, signature)
+	return s.getRefreshTokens(ctx).DeleteBySignature(ctx, signature)
 }
 
 // RevokeRefreshToken marks every refresh token issued under this request_id

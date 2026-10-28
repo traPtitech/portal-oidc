@@ -22,31 +22,24 @@ type Querier interface {
 	CreateOIDCSession(ctx context.Context, arg CreateOIDCSessionParams) error
 	// Refresh token queries
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) error
-	DeleteAccessTokenByJTI(ctx context.Context, jti string) error
+	DeleteAccessTokenBySignature(ctx context.Context, signature string) error
 	DeleteAccessTokensByRequestID(ctx context.Context, requestID string) error
-	DeleteAllAccessTokens(ctx context.Context) error
-	DeleteAllAuthorizationCodes(ctx context.Context) error
 	DeleteAllClients(ctx context.Context) error
-	DeleteAllOIDCSessions(ctx context.Context) error
-	DeleteAllRefreshTokens(ctx context.Context) error
 	DeleteAuthorizationCode(ctx context.Context, code string) error
 	DeleteClient(ctx context.Context, clientID uuid.UUID) error
-	DeleteExpiredAccessTokens(ctx context.Context) error
-	DeleteExpiredAuthorizationCodes(ctx context.Context) error
-	DeleteExpiredRefreshTokens(ctx context.Context) error
 	DeleteOIDCSession(ctx context.Context, authorizeCode string) error
-	DeleteRefreshTokenByHash(ctx context.Context, tokenHash string) error
+	DeleteRefreshTokenBySignature(ctx context.Context, signature string) error
 	DeleteRefreshTokensByRequestID(ctx context.Context, requestID string) error
-	GetAccessTokenByJTI(ctx context.Context, jti string) (AccessToken, error)
+	GetAccessTokenBySignature(ctx context.Context, signature string) (AccessToken, error)
 	GetAuthorizationCode(ctx context.Context, code string) (AuthorizationCode, error)
 	GetClient(ctx context.Context, clientID uuid.UUID) (Client, error)
 	GetOIDCSession(ctx context.Context, authorizeCode string) (OidcSession, error)
-	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (RefreshToken, error)
+	GetRefreshTokenBySignature(ctx context.Context, signature string) (RefreshToken, error)
 	ListClients(ctx context.Context) ([]Client, error)
 	MarkAuthorizationCodeUsed(ctx context.Context, code string) error
-	MarkRefreshTokenRotated(ctx context.Context, tokenHash string) error
 	RevokeAccessTokensByRequestID(ctx context.Context, requestID string) error
 	RevokeRefreshTokensByRequestID(ctx context.Context, requestID string) error
+	RotateRefreshTokenBySignature(ctx context.Context, signature string) error
 	UpdateAuthorizationCodePKCE(ctx context.Context, arg UpdateAuthorizationCodePKCEParams) error
 	UpdateClient(ctx context.Context, arg UpdateClientParams) error
 	UpdateClientSecret(ctx context.Context, arg UpdateClientSecretParams) error
