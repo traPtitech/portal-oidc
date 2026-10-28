@@ -7,7 +7,6 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
-	"github.com/sqlc-dev/pqtype"
 
 	"github.com/traPtitech/portal-oidc/internal/domain"
 	"github.com/traPtitech/portal-oidc/internal/repository/oidc"
@@ -145,34 +144,19 @@ func (r *clientRepository) toDomain(dbClient oidc.Client) (*domain.Client, error
 		return nil, err
 	}
 
-	var jwks []byte
-	if dbClient.Jwks.Valid {
-		jwks = dbClient.Jwks.RawMessage
-	}
-	var ownerID *uuid.UUID
-	if dbClient.OwnerID.Valid {
-		id := dbClient.OwnerID.UUID
-		ownerID = &id
-	}
-
 	return &domain.Client{
 		ClientID:               dbClient.ClientID,
 		Name:                   dbClient.Name,
 		ClientType:             domain.ClientType(dbClient.ClientType),
 		RedirectURIs:           redirectURIs,
-		ClientURI:              dbClient.ClientUri.String,
-		LogoURI:                dbClient.LogoUri.String,
 		PostLogoutRedirectURIs: postLogoutURIs,
 		AllowedOrigins:         allowedOrigins,
 		GrantTypes:             grantTypes,
 		ResponseTypes:          responseTypes,
 		Scopes:                 scopes,
 		TokenEndpointAuth:      dbClient.TokenEndpointAuth,
-		JWKSURI:                dbClient.JwksUri.String,
-		JWKS:                   jwks,
 		IDTokenAlg:             dbClient.IDTokenAlg,
 		Status:                 dbClient.Status,
-		OwnerID:                ownerID,
 		CreatedAt:              dbClient.CreatedAt,
 		UpdatedAt:              dbClient.UpdatedAt,
 	}, nil
@@ -223,11 +207,6 @@ func buildCreateParams(client *domain.Client, secretHash string) (oidc.CreateCli
 		return oidc.CreateClientParams{}, err
 	}
 
-	jwks := pqtype.NullRawMessage{}
-	if len(client.JWKS) > 0 {
-		jwks = pqtype.NullRawMessage{RawMessage: client.JWKS, Valid: true}
-	}
-
 	return oidc.CreateClientParams{
 		ClientID: client.ClientID,
 		ClientSecretHash: sql.NullString{
@@ -237,19 +216,14 @@ func buildCreateParams(client *domain.Client, secretHash string) (oidc.CreateCli
 		Name:                   client.Name,
 		ClientType:             string(client.ClientType),
 		RedirectUris:           redirectURIs,
-		ClientUri:              nullString(client.ClientURI),
-		LogoUri:                nullString(client.LogoURI),
 		PostLogoutRedirectUris: postLogoutURIs,
 		AllowedOrigins:         allowedOrigins,
 		GrantTypes:             grantTypes,
 		ResponseTypes:          responseTypes,
 		Scopes:                 scopes,
 		TokenEndpointAuth:      orDefaultStr(client.TokenEndpointAuth, defaultTokenEndpointAuth),
-		JwksUri:                nullString(client.JWKSURI),
-		Jwks:                   jwks,
 		IDTokenAlg:             orDefaultStr(client.IDTokenAlg, defaultIDTokenAlg),
 		Status:                 orDefaultStr(client.Status, defaultStatus),
-		OwnerID:                nullUUID(client.OwnerID),
 	}, nil
 }
 
@@ -279,41 +253,20 @@ func buildUpdateParams(client *domain.Client) (oidc.UpdateClientParams, error) {
 		return oidc.UpdateClientParams{}, err
 	}
 
-	jwks := pqtype.NullRawMessage{}
-	if len(client.JWKS) > 0 {
-		jwks = pqtype.NullRawMessage{RawMessage: client.JWKS, Valid: true}
-	}
-
 	return oidc.UpdateClientParams{
 		ClientID:               client.ClientID,
 		Name:                   client.Name,
 		ClientType:             string(client.ClientType),
 		RedirectUris:           redirectURIs,
-		ClientUri:              nullString(client.ClientURI),
-		LogoUri:                nullString(client.LogoURI),
 		PostLogoutRedirectUris: postLogoutURIs,
 		AllowedOrigins:         allowedOrigins,
 		GrantTypes:             grantTypes,
 		ResponseTypes:          responseTypes,
 		Scopes:                 scopes,
 		TokenEndpointAuth:      orDefaultStr(client.TokenEndpointAuth, defaultTokenEndpointAuth),
-		JwksUri:                nullString(client.JWKSURI),
-		Jwks:                   jwks,
 		IDTokenAlg:             orDefaultStr(client.IDTokenAlg, defaultIDTokenAlg),
 		Status:                 orDefaultStr(client.Status, defaultStatus),
-		OwnerID:                nullUUID(client.OwnerID),
 	}, nil
-}
-
-func nullString(s string) sql.NullString {
-	return sql.NullString{String: s, Valid: s != ""}
-}
-
-func nullUUID(id *uuid.UUID) uuid.NullUUID {
-	if id == nil {
-		return uuid.NullUUID{}
-	}
-	return uuid.NullUUID{UUID: *id, Valid: true}
 }
 
 func orDefault(values, fallback []string) []string {
