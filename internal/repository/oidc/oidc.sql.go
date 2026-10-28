@@ -499,7 +499,7 @@ func (q *Queries) UpdateAuthorizationCodePKCE(ctx context.Context, arg UpdateAut
 	return err
 }
 
-const updateClient = `-- name: UpdateClient :exec
+const updateClient = `-- name: UpdateClient :execrows
 UPDATE clients SET
     name = $1,
     client_type = $2,
@@ -514,14 +514,17 @@ type UpdateClientParams struct {
 	ClientID     uuid.UUID       `json:"client_id"`
 }
 
-func (q *Queries) UpdateClient(ctx context.Context, arg UpdateClientParams) error {
-	_, err := q.exec(ctx, q.updateClientStmt, updateClient,
+func (q *Queries) UpdateClient(ctx context.Context, arg UpdateClientParams) (int64, error) {
+	result, err := q.exec(ctx, q.updateClientStmt, updateClient,
 		arg.Name,
 		arg.ClientType,
 		arg.RedirectUris,
 		arg.ClientID,
 	)
-	return err
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const updateClientSecret = `-- name: UpdateClientSecret :exec

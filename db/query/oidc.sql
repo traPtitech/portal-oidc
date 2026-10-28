@@ -15,7 +15,7 @@ SELECT * FROM clients WHERE client_id = $1;
 -- name: ListClients :many
 SELECT * FROM clients;
 
--- name: UpdateClient :exec
+-- name: UpdateClient :execrows
 UPDATE clients SET
     name = $1,
     client_type = $2,

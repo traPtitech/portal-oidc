@@ -99,11 +99,22 @@ func (u *clientUseCase) Update(ctx context.Context, clientID uuid.UUID, name str
 	existing.ClientType = clientType
 	existing.RedirectURIs = redirectURIs
 
+	// The client may be deleted after the read above.
 	if err := u.repo.Update(ctx, existing); err != nil {
+		if errors.Is(err, repository.ErrClientNotFound) {
+			return nil, ErrClientNotFound
+		}
 		return nil, err
 	}
 
-	return u.repo.Get(ctx, clientID)
+	updated, err := u.repo.Get(ctx, clientID)
+	if err != nil {
+		if errors.Is(err, repository.ErrClientNotFound) {
+			return nil, ErrClientNotFound
+		}
+		return nil, err
+	}
+	return updated, nil
 }
 
 func (u *clientUseCase) RegenerateSecret(ctx context.Context, clientID uuid.UUID) (string, error) {

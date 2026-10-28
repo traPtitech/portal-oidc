@@ -230,6 +230,31 @@ func TestClientUseCase_Update_NotFound(t *testing.T) {
 	}
 }
 
+// deletedOnUpdateRepository reports the client as missing when it is updated,
+// as when the client is deleted between the read and the update.
+type deletedOnUpdateRepository struct {
+	*mockClientRepository
+}
+
+func (r deletedOnUpdateRepository) Update(context.Context, *domain.Client) error {
+	return repository.ErrClientNotFound
+}
+
+func TestClientUseCase_Update_DeletedConcurrently(t *testing.T) {
+	repo := newMockClientRepository()
+	uc := NewClientUseCase(deletedOnUpdateRepository{repo})
+	ctx := context.Background()
+
+	created, err := uc.Create(ctx, "name", domain.ClientTypeConfidential, []string{"http://localhost:3000"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = uc.Update(ctx, created.ClientID, "renamed", domain.ClientTypeConfidential, []string{"http://localhost:3000"})
+	if err != ErrClientNotFound {
+		t.Errorf("err = %v, want ErrClientNotFound", err)
+	}
+}
+
 func TestClientUseCase_Delete(t *testing.T) {
 	repo := newMockClientRepository()
 	uc := NewClientUseCase(repo)

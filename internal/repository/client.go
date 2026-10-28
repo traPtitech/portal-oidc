@@ -103,12 +103,19 @@ func (r *clientRepository) Update(ctx context.Context, client *domain.Client) er
 		return err
 	}
 
-	return r.queries.UpdateClient(ctx, oidc.UpdateClientParams{
+	affected, err := r.queries.UpdateClient(ctx, oidc.UpdateClientParams{
 		ClientID:     client.ClientID,
 		Name:         client.Name,
 		ClientType:   string(client.ClientType),
 		RedirectUris: redirectURIsJSON,
 	})
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return ErrClientNotFound
+	}
+	return nil
 }
 
 func (r *clientRepository) UpdateSecret(ctx context.Context, clientID uuid.UUID, secretHash string) error {
