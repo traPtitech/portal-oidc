@@ -39,7 +39,7 @@ func (h *Handler) RegisterClient(ctx *echo.Context) error {
 	}
 
 	clientType := domain.ClientTypeConfidential
-	if method := str(req.TokenEndpointAuthMethod); method == "none" {
+	if method := req.TokenEndpointAuthMethod; method != nil && strings.TrimSpace(string(*method)) == "none" {
 		clientType = domain.ClientTypePublic
 	}
 

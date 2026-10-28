@@ -14,6 +14,18 @@ import (
 	"github.com/google/uuid"
 )
 
+const clearAuthorizationCodePKCE = `-- name: ClearAuthorizationCodePKCE :exec
+UPDATE authorization_codes SET
+    code_challenge = NULL,
+    code_challenge_method = NULL
+WHERE code = $1
+`
+
+func (q *Queries) ClearAuthorizationCodePKCE(ctx context.Context, code string) error {
+	_, err := q.exec(ctx, q.clearAuthorizationCodePKCEStmt, clearAuthorizationCodePKCE, code)
+	return err
+}
+
 const createAuthorizationCode = `-- name: CreateAuthorizationCode :exec
 
 INSERT INTO authorization_codes (
@@ -64,16 +76,32 @@ INSERT INTO clients (
     client_secret_hash,
     name,
     client_type,
-    redirect_uris
-) VALUES ($1, $2, $3, $4, $5)
+    redirect_uris,
+    post_logout_redirect_uris,
+    allowed_origins,
+    grant_types,
+    response_types,
+    scopes,
+    token_endpoint_auth,
+    id_token_alg,
+    status
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 `
 
 type CreateClientParams struct {
-	ClientID         uuid.UUID       `json:"client_id"`
-	ClientSecretHash sql.NullString  `json:"client_secret_hash"`
-	Name             string          `json:"name"`
-	ClientType       string          `json:"client_type"`
-	RedirectUris     json.RawMessage `json:"redirect_uris"`
+	ClientID               uuid.UUID       `json:"client_id"`
+	ClientSecretHash       sql.NullString  `json:"client_secret_hash"`
+	Name                   string          `json:"name"`
+	ClientType             string          `json:"client_type"`
+	RedirectUris           json.RawMessage `json:"redirect_uris"`
+	PostLogoutRedirectUris json.RawMessage `json:"post_logout_redirect_uris"`
+	AllowedOrigins         json.RawMessage `json:"allowed_origins"`
+	GrantTypes             json.RawMessage `json:"grant_types"`
+	ResponseTypes          json.RawMessage `json:"response_types"`
+	Scopes                 json.RawMessage `json:"scopes"`
+	TokenEndpointAuth      string          `json:"token_endpoint_auth"`
+	IDTokenAlg             string          `json:"id_token_alg"`
+	Status                 string          `json:"status"`
 }
 
 // Client queries
@@ -84,6 +112,14 @@ func (q *Queries) CreateClient(ctx context.Context, arg CreateClientParams) erro
 		arg.Name,
 		arg.ClientType,
 		arg.RedirectUris,
+		arg.PostLogoutRedirectUris,
+		arg.AllowedOrigins,
+		arg.GrantTypes,
+		arg.ResponseTypes,
+		arg.Scopes,
+		arg.TokenEndpointAuth,
+		arg.IDTokenAlg,
+		arg.Status,
 	)
 	return err
 }
@@ -144,7 +180,7 @@ type CreateTokenParams struct {
 	RequestID    string         `json:"request_id"`
 	ClientID     uuid.UUID      `json:"client_id"`
 	UserID       uuid.UUID      `json:"user_id"`
-	AccessToken  string         `json:"access_token"`
+	AccessToken  sql.NullString `json:"access_token"`
 	RefreshToken sql.NullString `json:"refresh_token"`
 	Scopes       string         `json:"scopes"`
 	ExpiresAt    time.Time      `json:"expires_at"`
@@ -259,7 +295,7 @@ const deleteTokenByAccessToken = `-- name: DeleteTokenByAccessToken :exec
 DELETE FROM tokens WHERE access_token = $1
 `
 
-func (q *Queries) DeleteTokenByAccessToken(ctx context.Context, accessToken string) error {
+func (q *Queries) DeleteTokenByAccessToken(ctx context.Context, accessToken sql.NullString) error {
 	_, err := q.exec(ctx, q.deleteTokenByAccessTokenStmt, deleteTokenByAccessToken, accessToken)
 	return err
 }
@@ -320,7 +356,7 @@ func (q *Queries) GetAuthorizationCode(ctx context.Context, code string) (Author
 }
 
 const getClient = `-- name: GetClient :one
-SELECT client_id, client_secret_hash, name, client_type, redirect_uris, created_at, updated_at FROM clients WHERE client_id = $1
+SELECT client_id, client_secret_hash, name, client_type, redirect_uris, post_logout_redirect_uris, allowed_origins, grant_types, response_types, scopes, token_endpoint_auth, id_token_alg, status, created_at, updated_at FROM clients WHERE client_id = $1
 `
 
 func (q *Queries) GetClient(ctx context.Context, clientID uuid.UUID) (Client, error) {
@@ -332,6 +368,14 @@ func (q *Queries) GetClient(ctx context.Context, clientID uuid.UUID) (Client, er
 		&i.Name,
 		&i.ClientType,
 		&i.RedirectUris,
+		&i.PostLogoutRedirectUris,
+		&i.AllowedOrigins,
+		&i.GrantTypes,
+		&i.ResponseTypes,
+		&i.Scopes,
+		&i.TokenEndpointAuth,
+		&i.IDTokenAlg,
+		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -362,7 +406,7 @@ const getTokenByAccessToken = `-- name: GetTokenByAccessToken :one
 SELECT id, request_id, client_id, user_id, access_token, refresh_token, scopes, expires_at, created_at FROM tokens WHERE access_token = $1
 `
 
-func (q *Queries) GetTokenByAccessToken(ctx context.Context, accessToken string) (Token, error) {
+func (q *Queries) GetTokenByAccessToken(ctx context.Context, accessToken sql.NullString) (Token, error) {
 	row := q.queryRow(ctx, q.getTokenByAccessTokenStmt, getTokenByAccessToken, accessToken)
 	var i Token
 	err := row.Scan(
@@ -422,7 +466,7 @@ func (q *Queries) GetTokenByRefreshToken(ctx context.Context, refreshToken sql.N
 }
 
 const listClients = `-- name: ListClients :many
-SELECT client_id, client_secret_hash, name, client_type, redirect_uris, created_at, updated_at FROM clients
+SELECT client_id, client_secret_hash, name, client_type, redirect_uris, post_logout_redirect_uris, allowed_origins, grant_types, response_types, scopes, token_endpoint_auth, id_token_alg, status, created_at, updated_at FROM clients
 `
 
 func (q *Queries) ListClients(ctx context.Context) ([]Client, error) {
@@ -440,6 +484,14 @@ func (q *Queries) ListClients(ctx context.Context) ([]Client, error) {
 			&i.Name,
 			&i.ClientType,
 			&i.RedirectUris,
+			&i.PostLogoutRedirectUris,
+			&i.AllowedOrigins,
+			&i.GrantTypes,
+			&i.ResponseTypes,
+			&i.Scopes,
+			&i.TokenEndpointAuth,
+			&i.IDTokenAlg,
+			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -457,7 +509,11 @@ func (q *Queries) ListClients(ctx context.Context) ([]Client, error) {
 }
 
 const markAuthorizationCodeUsed = `-- name: MarkAuthorizationCodeUsed :exec
-UPDATE authorization_codes SET used = TRUE WHERE code = $1
+UPDATE authorization_codes SET
+    used = TRUE,
+    code_challenge = NULL,
+    code_challenge_method = NULL
+WHERE code = $1
 `
 
 func (q *Queries) MarkAuthorizationCodeUsed(ctx context.Context, code string) error {
@@ -487,15 +543,31 @@ const updateClient = `-- name: UpdateClient :exec
 UPDATE clients SET
     name = $1,
     client_type = $2,
-    redirect_uris = $3
-WHERE client_id = $4
+    redirect_uris = $3,
+    post_logout_redirect_uris = $4,
+    allowed_origins = $5,
+    grant_types = $6,
+    response_types = $7,
+    scopes = $8,
+    token_endpoint_auth = $9,
+    id_token_alg = $10,
+    status = $11
+WHERE client_id = $12
 `
 
 type UpdateClientParams struct {
-	Name         string          `json:"name"`
-	ClientType   string          `json:"client_type"`
-	RedirectUris json.RawMessage `json:"redirect_uris"`
-	ClientID     uuid.UUID       `json:"client_id"`
+	Name                   string          `json:"name"`
+	ClientType             string          `json:"client_type"`
+	RedirectUris           json.RawMessage `json:"redirect_uris"`
+	PostLogoutRedirectUris json.RawMessage `json:"post_logout_redirect_uris"`
+	AllowedOrigins         json.RawMessage `json:"allowed_origins"`
+	GrantTypes             json.RawMessage `json:"grant_types"`
+	ResponseTypes          json.RawMessage `json:"response_types"`
+	Scopes                 json.RawMessage `json:"scopes"`
+	TokenEndpointAuth      string          `json:"token_endpoint_auth"`
+	IDTokenAlg             string          `json:"id_token_alg"`
+	Status                 string          `json:"status"`
+	ClientID               uuid.UUID       `json:"client_id"`
 }
 
 func (q *Queries) UpdateClient(ctx context.Context, arg UpdateClientParams) error {
@@ -503,6 +575,14 @@ func (q *Queries) UpdateClient(ctx context.Context, arg UpdateClientParams) erro
 		arg.Name,
 		arg.ClientType,
 		arg.RedirectUris,
+		arg.PostLogoutRedirectUris,
+		arg.AllowedOrigins,
+		arg.GrantTypes,
+		arg.ResponseTypes,
+		arg.Scopes,
+		arg.TokenEndpointAuth,
+		arg.IDTokenAlg,
+		arg.Status,
 		arg.ClientID,
 	)
 	return err
