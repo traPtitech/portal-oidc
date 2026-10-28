@@ -106,11 +106,8 @@ func (s *Storage) CreateRefreshTokenSession(ctx context.Context, signature strin
 	})
 }
 
-// RotateRefreshToken marks the previous refresh token as rotated. The new
-// refresh token is created via CreateRefreshTokenSession on the same
-// transaction (fosite's flow). Marking instead of deleting lets a follow-up
-// PR walk PreviousTokenID and revoke the whole family on detected reuse
-// (OAuth 2.1 §4.13.2).
+// RotateRefreshToken removes the previous refresh token in the same transaction
+// that creates its replacement via CreateRefreshTokenSession.
 func (s *Storage) RotateRefreshToken(ctx context.Context, _ string, refreshTokenSignature string) error {
 	return s.getRefreshTokens(ctx).DeleteByHash(ctx, refreshTokenSignature)
 }

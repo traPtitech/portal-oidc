@@ -41,13 +41,21 @@ type AuthorizationCode struct {
 }
 
 type Client struct {
-	ClientID         uuid.UUID       `json:"client_id"`
-	ClientSecretHash sql.NullString  `json:"client_secret_hash"`
-	Name             string          `json:"name"`
-	ClientType       string          `json:"client_type"`
-	RedirectUris     json.RawMessage `json:"redirect_uris"`
-	CreatedAt        time.Time       `json:"created_at"`
-	UpdatedAt        time.Time       `json:"updated_at"`
+	ClientID               uuid.UUID       `json:"client_id"`
+	ClientSecretHash       sql.NullString  `json:"client_secret_hash"`
+	Name                   string          `json:"name"`
+	ClientType             string          `json:"client_type"`
+	RedirectUris           json.RawMessage `json:"redirect_uris"`
+	PostLogoutRedirectUris json.RawMessage `json:"post_logout_redirect_uris"`
+	AllowedOrigins         json.RawMessage `json:"allowed_origins"`
+	GrantTypes             json.RawMessage `json:"grant_types"`
+	ResponseTypes          json.RawMessage `json:"response_types"`
+	Scopes                 json.RawMessage `json:"scopes"`
+	TokenEndpointAuth      string          `json:"token_endpoint_auth"`
+	IDTokenAlg             string          `json:"id_token_alg"`
+	Status                 string          `json:"status"`
+	CreatedAt              time.Time       `json:"created_at"`
+	UpdatedAt              time.Time       `json:"updated_at"`
 }
 
 type OidcSession struct {

@@ -11,6 +11,7 @@ import (
 )
 
 type Querier interface {
+	ClearAuthorizationCodePKCE(ctx context.Context, code string) error
 	// Access token queries
 	CreateAccessToken(ctx context.Context, arg CreateAccessTokenParams) error
 	// Authorization Code queries
