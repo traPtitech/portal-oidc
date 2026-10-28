@@ -130,6 +130,10 @@ func (s *Storage) GetClient(ctx context.Context, id string) (fosite.Client, erro
 		return nil, err
 	}
 
+	if client.Status != "active" {
+		return nil, fosite.ErrNotFound
+	}
+
 	return &Client{
 		ID:            client.ClientID.String(),
 		Secret:        []byte(secretHash),
