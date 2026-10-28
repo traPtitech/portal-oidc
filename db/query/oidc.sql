@@ -133,7 +133,7 @@ DELETE FROM refresh_tokens WHERE signature = $1;
 
 -- name: RotateRefreshTokenBySignature :execrows
 UPDATE refresh_tokens SET rotated_at = CURRENT_TIMESTAMP
-WHERE signature = $1 AND rotated_at IS NULL;
+WHERE signature = $1 AND rotated_at IS NULL AND revoked_at IS NULL;
 
 -- name: RevokeRefreshTokensByRequestID :exec
 UPDATE refresh_tokens SET revoked_at = CURRENT_TIMESTAMP

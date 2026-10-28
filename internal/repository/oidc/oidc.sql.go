@@ -480,7 +480,7 @@ func (q *Queries) RevokeRefreshTokensByRequestID(ctx context.Context, requestID 
 
 const rotateRefreshTokenBySignature = `-- name: RotateRefreshTokenBySignature :execrows
 UPDATE refresh_tokens SET rotated_at = CURRENT_TIMESTAMP
-WHERE signature = $1 AND rotated_at IS NULL
+WHERE signature = $1 AND rotated_at IS NULL AND revoked_at IS NULL
 `
 
 func (q *Queries) RotateRefreshTokenBySignature(ctx context.Context, signature string) (int64, error) {
