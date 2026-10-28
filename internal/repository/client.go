@@ -38,6 +38,9 @@ type ClientRepository interface {
 	Get(ctx context.Context, clientID uuid.UUID) (*domain.Client, error)
 	GetWithSecretHash(ctx context.Context, clientID uuid.UUID) (*domain.Client, string, error)
 	List(ctx context.Context) ([]*domain.Client, error)
+	// Update replaces the complete metadata snapshot read by Get. UpdatedAt is
+	// required for conflict detection. Permission slices must be non-nil; use
+	// explicit empty slices to remove permissions. No defaults are applied.
 	Update(ctx context.Context, client *domain.Client) error
 	UpdateSecret(ctx context.Context, clientID uuid.UUID, secretHash string) error
 	Delete(ctx context.Context, clientID uuid.UUID) error
@@ -270,6 +273,10 @@ func buildCreateParams(client *domain.Client, secretHash string) (oidc.CreateCli
 }
 
 func buildUpdateParams(client *domain.Client) (oidc.UpdateClientParams, error) {
+	if client.GrantTypes == nil || client.ResponseTypes == nil || client.Scopes == nil {
+		return oidc.UpdateClientParams{}, fmt.Errorf("%w: permission slices must be specified (use empty slices to clear)", ErrInvalidClientMetadata)
+	}
+
 	if client.Status != "active" && client.Status != "suspended" {
 		return oidc.UpdateClientParams{}, fmt.Errorf("%w: status must be active or suspended", ErrInvalidClientMetadata)
 	}

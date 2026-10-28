@@ -10,15 +10,17 @@ import (
 
 func TestClientPermissionDefaults(t *testing.T) {
 	tests := []struct {
-		name       string
-		values     []string
-		wantCreate [3]string
-		wantUpdate [3]string
+		name            string
+		values          []string
+		wantCreate      [3]string
+		wantUpdate      [3]string
+		wantUpdateError bool
 	}{
 		{
-			name:       "unspecified",
-			wantCreate: [3]string{`["authorization_code","refresh_token"]`, `["code"]`, `["openid","profile","email"]`},
-			wantUpdate: [3]string{`[]`, `[]`, `[]`},
+			name:            "unspecified",
+			wantUpdateError: true,
+			wantCreate:      [3]string{`["authorization_code","refresh_token"]`, `["code"]`, `["openid","profile","email"]`},
+			wantUpdate:      [3]string{`[]`, `[]`, `[]`},
 		},
 		{
 			name: "explicitly empty", values: []string{},
@@ -38,6 +40,12 @@ func TestClientPermissionDefaults(t *testing.T) {
 				t.Errorf("create permissions = %v, want %v", gotCreate, tt.wantCreate)
 			}
 			updated, err := buildUpdateParams(client)
+			if tt.wantUpdateError {
+				if !errors.Is(err, ErrInvalidClientMetadata) {
+					t.Fatalf("unspecified permissions: error = %v", err)
+				}
+				return
+			}
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -80,7 +88,7 @@ func TestClientRenamePreservesPermissions(t *testing.T) {
 func TestClientUpdateRejectsMissingSecurityMetadata(t *testing.T) {
 	for _, field := range []string{"status", "unknown_status", "token_endpoint_auth", "id_token_alg"} {
 		t.Run(field, func(t *testing.T) {
-			c := &domain.Client{Status: "suspended", TokenEndpointAuth: "client_secret_basic", IDTokenAlg: "RS256"}
+			c := &domain.Client{GrantTypes: []string{}, ResponseTypes: []string{}, Scopes: []string{}, Status: "suspended", TokenEndpointAuth: "client_secret_basic", IDTokenAlg: "RS256"}
 			switch field {
 			case "status":
 				c.Status = ""
@@ -90,6 +98,25 @@ func TestClientUpdateRejectsMissingSecurityMetadata(t *testing.T) {
 				c.TokenEndpointAuth = ""
 			case "id_token_alg":
 				c.IDTokenAlg = ""
+			}
+			if _, err := buildUpdateParams(c); !errors.Is(err, ErrInvalidClientMetadata) {
+				t.Fatalf("error = %v", err)
+			}
+		})
+	}
+}
+
+func TestClientUpdateRequiresEachPermissionSlice(t *testing.T) {
+	for _, field := range []string{"grant_types", "response_types", "scopes"} {
+		t.Run(field, func(t *testing.T) {
+			c := &domain.Client{Status: "active", TokenEndpointAuth: "client_secret_basic", IDTokenAlg: "RS256", GrantTypes: []string{}, ResponseTypes: []string{}, Scopes: []string{}}
+			switch field {
+			case "grant_types":
+				c.GrantTypes = nil
+			case "response_types":
+				c.ResponseTypes = nil
+			case "scopes":
+				c.Scopes = nil
 			}
 			if _, err := buildUpdateParams(c); !errors.Is(err, ErrInvalidClientMetadata) {
 				t.Fatalf("error = %v", err)
