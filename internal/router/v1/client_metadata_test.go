@@ -4,6 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/google/uuid"
@@ -212,5 +215,39 @@ func TestIntegration_ClientUpdatePreservesEmptyPermissions(t *testing.T) {
 		if values == nil || len(values) != 0 {
 			t.Errorf("%s: got %v, want explicit empty array", field, values)
 		}
+	}
+}
+
+func TestIntegration_AuthorizeHonorsClientResponseTypes(t *testing.T) {
+	tests := []struct {
+		name          string
+		responseTypes []string
+		wantErr       error
+	}{
+		{name: "default"},
+		{name: "explicit code", responseTypes: []string{"code"}},
+		{name: "empty", responseTypes: []string{}, wantErr: fosite.ErrUnsupportedResponseType},
+		{name: "different response", responseTypes: []string{"token"}, wantErr: fosite.ErrUnsupportedResponseType},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo, client, store := newMetadataClient(t)
+			if tt.responseTypes != nil {
+				client.ResponseTypes = tt.responseTypes
+				if err := repo.Update(t.Context(), client); err != nil {
+					t.Fatal(err)
+				}
+			}
+			provider := fosite.NewOAuth2Provider(store, &fosite.Config{ScopeStrategy: fosite.ExactScopeStrategy})
+			query := url.Values{
+				"client_id": {client.ClientID.String()}, "response_type": {"code"},
+				"redirect_uri": {client.RedirectURIs[0]}, "scope": {"profile"}, "state": {"test-state-with-enough-entropy"},
+			}
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "https://issuer.example/oauth2/authorize?"+query.Encode(), nil)
+			_, err := provider.NewAuthorizeRequest(t.Context(), req)
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("authorization: got %v, want %v", err, tt.wantErr)
+			}
+		})
 	}
 }
