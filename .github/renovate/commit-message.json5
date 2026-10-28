@@ -14,6 +14,10 @@
       "commitMessagePrefix": ":arrow_up: chore(mise-deps):",
     },
     {
+      "matchManagers": ["pep621"],
+      "commitMessagePrefix": ":arrow_up: chore(python-deps):",
+    },
+    {
       "matchDatasources": ["docker"],
       "commitMessagePrefix": ":arrow_up: chore(docker-deps):",
     },
