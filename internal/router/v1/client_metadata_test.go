@@ -50,8 +50,8 @@ var credentialInserts = map[string]string{
 		VALUES ($2::text, $1, $2::text::uuid, 'openid', now())`,
 }
 
-func insertCredential(ctx context.Context, db oidc.DBTX, table string, clientID uuid.UUID) error {
-	_, err := db.ExecContext(ctx, credentialInserts[table], clientID, uuid.NewString())
+func insertCredential(ctx context.Context, db oidc.DBTX, table string, clientID uuid.UUID, credentialID string) error {
+	_, err := db.ExecContext(ctx, credentialInserts[table], clientID, credentialID)
 	return err
 }
 
@@ -78,9 +78,11 @@ func TestIntegration_ClientSuspensionRevokesCredentials(t *testing.T) {
 		t.Run(via, func(t *testing.T) {
 			repo, client, store := newMetadataClient(t)
 			_, other, _ := newMetadataClient(t)
-			for table := range credentialInserts {
-				for _, id := range []uuid.UUID{client.ClientID, other.ClientID} {
-					if err := insertCredential(t.Context(), testDB, table, id); err != nil {
+			for _, id := range []uuid.UUID{client.ClientID, other.ClientID} {
+				credentialID := uuid.NewString()
+				// OIDC sessions must reference an existing authorization code.
+				for _, table := range []string{"authorization_codes", "tokens", "oidc_sessions"} {
+					if err := insertCredential(t.Context(), testDB, table, id, credentialID); err != nil {
 						t.Fatal(err)
 					}
 				}
@@ -132,7 +134,7 @@ func TestIntegration_InactiveClientRejectsIssuance(t *testing.T) {
 				t.Fatal(err)
 			}
 			for table := range credentialInserts {
-				assertPostgresError(t, insertCredential(t.Context(), testDB, table, client.ClientID), "23514")
+				assertPostgresError(t, insertCredential(t.Context(), testDB, table, client.ClientID, uuid.NewString()), "23514")
 			}
 			assertCredentialCount(t, client.ClientID, 0)
 		})
@@ -160,11 +162,19 @@ func TestIntegration_ClientSuspensionSerializesIssuance(t *testing.T) {
 			t.Run(table+"/"+first, func(t *testing.T) {
 				_, client, _ := newMetadataClient(t)
 				ctx := t.Context()
+				credentialID := uuid.NewString()
+				if table == "oidc_sessions" {
+					// Prepare the parent before either transaction so the session's
+					// own trigger is responsible for the locking assertions below.
+					if err := insertCredential(ctx, testDB, "authorization_codes", client.ClientID, credentialID); err != nil {
+						t.Fatal(err)
+					}
+				}
 				holder := metadataTransaction(t, false)
 				contender := metadataTransaction(t, true)
 				const suspend = "UPDATE clients SET status = 'suspended' WHERE client_id = $1"
 				if first == "issuance" {
-					if err := insertCredential(ctx, holder, table, client.ClientID); err != nil {
+					if err := insertCredential(ctx, holder, table, client.ClientID, credentialID); err != nil {
 						t.Fatal(err)
 					}
 					_, err := contender.ExecContext(ctx, suspend, client.ClientID)
@@ -173,7 +183,7 @@ func TestIntegration_ClientSuspensionSerializesIssuance(t *testing.T) {
 					if _, err := holder.ExecContext(ctx, suspend, client.ClientID); err != nil {
 						t.Fatal(err)
 					}
-					assertPostgresError(t, insertCredential(ctx, contender, table, client.ClientID), "55P03")
+					assertPostgresError(t, insertCredential(ctx, contender, table, client.ClientID, credentialID), "55P03")
 				}
 				if err := contender.Rollback(); err != nil {
 					t.Fatal(err)
@@ -186,7 +196,7 @@ func TestIntegration_ClientSuspensionSerializesIssuance(t *testing.T) {
 						t.Fatal(err)
 					}
 				} else {
-					assertPostgresError(t, insertCredential(ctx, testDB, table, client.ClientID), "23514")
+					assertPostgresError(t, insertCredential(ctx, testDB, table, client.ClientID, credentialID), "23514")
 				}
 				assertCredentialCount(t, client.ClientID, 0)
 			})
