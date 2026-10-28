@@ -96,3 +96,22 @@ func TestStorageClientStatus(t *testing.T) {
 		})
 	}
 }
+
+func TestStorageEmptyResponseTypes(t *testing.T) {
+	client := &domain.Client{
+		ClientID: uuid.New(), ClientType: domain.ClientTypeConfidential, Status: "active",
+		RedirectURIs: []string{"https://example.com/callback"},
+		GrantTypes:   []string{"authorization_code"}, ResponseTypes: []string{}, Scopes: []string{"openid"},
+	}
+	storage := NewStorage(nil, nil, clientRepositoryStub{client: client}, nil, nil, nil)
+	provider := fosite.NewOAuth2Provider(storage, &fosite.Config{ScopeStrategy: fosite.ExactScopeStrategy})
+	query := url.Values{
+		"client_id": {client.ClientID.String()}, "redirect_uri": {client.RedirectURIs[0]},
+		"response_type": {"code"}, "scope": {"openid"}, "state": {"empty-permissions-test"},
+	}
+	request := httptest.NewRequestWithContext(t.Context(), "GET", "https://issuer.example/oauth2/authorize?"+query.Encode(), nil)
+	_, err := provider.NewAuthorizeRequest(t.Context(), request)
+	if !errors.Is(err, fosite.ErrUnsupportedResponseType) {
+		t.Fatalf("NewAuthorizeRequest() = %v, want ErrUnsupportedResponseType", err)
+	}
+}

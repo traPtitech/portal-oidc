@@ -269,15 +269,15 @@ func buildUpdateParams(client *domain.Client) (oidc.UpdateClientParams, error) {
 	if err != nil {
 		return oidc.UpdateClientParams{}, err
 	}
-	grantTypes, err := marshalStringArray(orDefault(client.GrantTypes, defaultGrantTypes))
+	grantTypes, err := marshalStringArray(client.GrantTypes)
 	if err != nil {
 		return oidc.UpdateClientParams{}, err
 	}
-	responseTypes, err := marshalStringArray(orDefault(client.ResponseTypes, defaultResponseTypes))
+	responseTypes, err := marshalStringArray(client.ResponseTypes)
 	if err != nil {
 		return oidc.UpdateClientParams{}, err
 	}
-	scopes, err := marshalStringArray(orDefault(client.Scopes, defaultScopes))
+	scopes, err := marshalStringArray(client.Scopes)
 	if err != nil {
 		return oidc.UpdateClientParams{}, err
 	}
@@ -320,7 +320,7 @@ func nullUUID(id *uuid.UUID) uuid.NullUUID {
 }
 
 func orDefault(values, fallback []string) []string {
-	if len(values) == 0 {
+	if values == nil {
 		return fallback
 	}
 	return values

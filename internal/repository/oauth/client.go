@@ -22,9 +22,6 @@ func (c *Client) GetHashedSecret() []byte         { return c.Secret }
 func (c *Client) GetRedirectURIs() []string       { return c.RedirectURIs }
 func (c *Client) GetGrantTypes() fosite.Arguments { return c.GrantTypes }
 func (c *Client) GetResponseTypes() fosite.Arguments {
-	if len(c.ResponseTypes) == 0 {
-		return []string{"code"}
-	}
 	return c.ResponseTypes
 }
 func (c *Client) GetScopes() fosite.Arguments   { return c.Scopes }
