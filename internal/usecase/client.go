@@ -16,6 +16,8 @@ import (
 
 var ErrClientNotFound = errors.New("client not found")
 
+var ErrClientConflict = repository.ErrClientConflict
+
 type ClientUseCase interface {
 	Create(ctx context.Context, name string, clientType domain.ClientType, redirectURIs []string) (*domain.ClientWithSecret, error)
 	Get(ctx context.Context, clientID uuid.UUID) (*domain.Client, error)

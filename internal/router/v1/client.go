@@ -71,6 +71,9 @@ func (h *Handler) UpdateClient(ctx *echo.Context, clientId openapi_types.UUID) e
 		req.RedirectUris,
 	)
 	if err != nil {
+		if errors.Is(err, usecase.ErrClientConflict) {
+			return echo.NewHTTPError(http.StatusConflict, "client changed; retry the update")
+		}
 		if errors.Is(err, usecase.ErrClientNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "client not found")
 		}

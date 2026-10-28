@@ -100,6 +100,8 @@ paths:
           description: Bad Request
         "401":
           description: Unauthorized
+        "409":
+          description: Client changed concurrently; retry the update
         "404":
           description: Not Found
     delete:

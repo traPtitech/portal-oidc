@@ -697,6 +697,14 @@ func (response UpdateClient401Response) VisitUpdateClientResponse(w http.Respons
 	return nil
 }
 
+type UpdateClient409Response struct {
+}
+
+func (response UpdateClient409Response) VisitUpdateClientResponse(w http.ResponseWriter) error {
+	w.WriteHeader(409)
+	return nil
+}
+
 type UpdateClient404Response struct {
 }
 

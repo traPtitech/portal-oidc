@@ -15,6 +15,9 @@ import (
 
 var ErrClientNotFound = errors.New("client not found")
 
+// ErrClientConflict indicates that a client changed after it was read.
+var ErrClientConflict = errors.New("client was concurrently updated")
+
 // Default per-client metadata applied when callers do not specify values.
 // These match the historical hard-coded behaviour from before the spec-aligned
 // columns were added (see traPortal v2 §clients).
@@ -105,7 +108,14 @@ func (r *clientRepository) Update(ctx context.Context, client *domain.Client) er
 	if err != nil {
 		return err
 	}
-	return r.queries.UpdateClient(ctx, params)
+	affected, err := r.queries.UpdateClient(ctx, params)
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return ErrClientConflict
+	}
+	return nil
 }
 
 func (r *clientRepository) UpdateSecret(ctx context.Context, clientID uuid.UUID, secretHash string) error {
@@ -288,6 +298,7 @@ func buildUpdateParams(client *domain.Client) (oidc.UpdateClientParams, error) {
 	}
 
 	return oidc.UpdateClientParams{
+		UpdatedAt:              client.UpdatedAt,
 		ClientID:               client.ClientID,
 		Name:                   client.Name,
 		ClientType:             string(client.ClientType),

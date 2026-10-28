@@ -28,7 +28,7 @@ SELECT * FROM clients WHERE client_id = $1;
 -- name: ListClients :many
 SELECT * FROM clients;
 
--- name: UpdateClient :exec
+-- name: UpdateClient :execrows
 UPDATE clients SET
     name = $1,
     client_type = $2,
@@ -46,7 +46,7 @@ UPDATE clients SET
     id_token_alg = $14,
     status = $15,
     owner_id = $16
-WHERE client_id = $17;
+WHERE client_id = $17 AND updated_at = $18;
 
 -- name: UpdateClientSecret :exec
 UPDATE clients SET

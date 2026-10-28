@@ -44,7 +44,7 @@ type Querier interface {
 	ListClients(ctx context.Context) ([]Client, error)
 	MarkAuthorizationCodeUsed(ctx context.Context, code string) error
 	UpdateAuthorizationCodePKCE(ctx context.Context, arg UpdateAuthorizationCodePKCEParams) error
-	UpdateClient(ctx context.Context, arg UpdateClientParams) error
+	UpdateClient(ctx context.Context, arg UpdateClientParams) (int64, error)
 	UpdateClientSecret(ctx context.Context, arg UpdateClientSecretParams) error
 }
 
