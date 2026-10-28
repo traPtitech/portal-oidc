@@ -1,6 +1,5 @@
 services:
   mongodb:
-    # Match the MongoDB 6.0 series used by conformance-suite release-v5.1.35.
     image: mongo:6.0.27
   httpd:
     image: ghcr.io/traptitech/portal-oidc/conformance-httpd:release-v5.1.35

@@ -16,11 +16,10 @@
 
     // for conformance suite test
     {
-      "description": "Keep MongoDB aligned with the conformance suite; review this range when upgrading the suite",
       "matchManagers": ["docker-compose"],
       "matchFileNames": [".github/conformance/docker-compose.yml"],
       "matchPackageNames": ["mongo"],
-      "allowedVersions": "/^6\\.0\\.\\d+$/",
+      "enabled": false,
     },
     {
       "matchManagers": ["docker-compose"],
