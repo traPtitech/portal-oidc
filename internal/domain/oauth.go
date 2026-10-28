@@ -20,16 +20,34 @@ type AuthCode struct {
 	CreatedAt           time.Time
 }
 
-type Token struct {
-	ID           uuid.UUID
-	RequestID    string
-	ClientID     uuid.UUID
-	UserID       uuid.UUID
-	AccessToken  string // #nosec G117 -- domain field name, not a credential
-	RefreshToken string // #nosec G117 -- domain field name, not a credential
-	Scopes       []string
-	ExpiresAt    time.Time
-	CreatedAt    time.Time
+// AccessToken mirrors traPortal v2 spec §access_tokens. Signature is the
+// fosite token signature used as the lookup key. UserID is optional because the
+// client_credentials grant (future) issues subject-less tokens.
+type AccessToken struct {
+	ID        uuid.UUID
+	Signature string
+	RequestID string
+	ClientID  uuid.UUID
+	UserID    *uuid.UUID
+	Scopes    []string
+	IssuedAt  time.Time
+	ExpiresAt time.Time
+	RevokedAt *time.Time
+}
+
+// RefreshToken mirrors spec §refresh_tokens. Every generation of a rotation
+// family shares RequestID, which OAuth 2.1 §4.13.2 family-revocation keys on.
+type RefreshToken struct {
+	ID        uuid.UUID
+	Signature string
+	RequestID string
+	ClientID  uuid.UUID
+	UserID    uuid.UUID
+	Scopes    []string
+	IssuedAt  time.Time
+	ExpiresAt time.Time
+	RotatedAt *time.Time
+	RevokedAt *time.Time
 }
 
 type OIDCSession struct {

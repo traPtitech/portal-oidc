@@ -6,8 +6,16 @@ INSERT INTO clients (
     client_secret_hash,
     name,
     client_type,
-    redirect_uris
-) VALUES ($1, $2, $3, $4, $5);
+    redirect_uris,
+    post_logout_redirect_uris,
+    allowed_origins,
+    grant_types,
+    response_types,
+    scopes,
+    token_endpoint_auth,
+    id_token_alg,
+    status
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13);
 
 -- name: GetClient :one
 SELECT * FROM clients WHERE client_id = $1;
@@ -19,8 +27,16 @@ SELECT * FROM clients;
 UPDATE clients SET
     name = $1,
     client_type = $2,
-    redirect_uris = $3
-WHERE client_id = $4;
+    redirect_uris = $3,
+    post_logout_redirect_uris = $4,
+    allowed_origins = $5,
+    grant_types = $6,
+    response_types = $7,
+    scopes = $8,
+    token_endpoint_auth = $9,
+    id_token_alg = $10,
+    status = $11
+WHERE client_id = $12;
 
 -- name: UpdateClientSecret :exec
 UPDATE clients SET
@@ -55,7 +71,11 @@ SELECT * FROM authorization_codes WHERE code = $1;
 DELETE FROM authorization_codes WHERE code = $1;
 
 -- name: MarkAuthorizationCodeUsed :exec
-UPDATE authorization_codes SET used = TRUE WHERE code = $1;
+UPDATE authorization_codes SET
+    used = TRUE,
+    code_challenge = NULL,
+    code_challenge_method = NULL
+WHERE code = $1;
 
 -- name: UpdateAuthorizationCodePKCE :exec
 UPDATE authorization_codes SET
@@ -63,55 +83,61 @@ UPDATE authorization_codes SET
     code_challenge_method = $2
 WHERE code = $3;
 
--- name: DeleteExpiredAuthorizationCodes :exec
-DELETE FROM authorization_codes WHERE expires_at < NOW();
+-- name: ClearAuthorizationCodePKCE :exec
+UPDATE authorization_codes SET
+    code_challenge = NULL,
+    code_challenge_method = NULL
+WHERE code = $1;
 
--- name: DeleteAllAuthorizationCodes :exec
-DELETE FROM authorization_codes;
+-- Access token queries
 
--- Token queries
-
--- name: CreateToken :exec
-INSERT INTO tokens (
+-- name: CreateAccessToken :exec
+INSERT INTO access_tokens (
     id,
+    signature,
     request_id,
     client_id,
     user_id,
-    access_token,
-    refresh_token,
     scopes,
     expires_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+) VALUES ($1, $2, $3, $4, $5, $6, $7);
 
--- name: GetTokenByAccessToken :one
-SELECT * FROM tokens WHERE access_token = $1;
+-- name: GetAccessTokenBySignature :one
+SELECT * FROM access_tokens WHERE signature = $1;
 
--- name: GetTokenByRefreshToken :one
-SELECT * FROM tokens WHERE refresh_token = $1;
+-- name: DeleteAccessTokenBySignature :exec
+DELETE FROM access_tokens WHERE signature = $1;
 
--- name: GetTokenByID :one
-SELECT * FROM tokens WHERE id = $1;
+-- name: RevokeAccessTokensByRequestID :exec
+UPDATE access_tokens SET revoked_at = CURRENT_TIMESTAMP
+WHERE request_id = $1 AND revoked_at IS NULL;
 
--- name: DeleteToken :exec
-DELETE FROM tokens WHERE id = $1;
+-- Refresh token queries
 
--- name: DeleteTokenByAccessToken :exec
-DELETE FROM tokens WHERE access_token = $1;
+-- name: CreateRefreshToken :exec
+INSERT INTO refresh_tokens (
+    id,
+    signature,
+    request_id,
+    client_id,
+    user_id,
+    scopes,
+    expires_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7);
 
--- name: DeleteTokenByRefreshToken :exec
-DELETE FROM tokens WHERE refresh_token = $1;
+-- name: GetRefreshTokenBySignature :one
+SELECT * FROM refresh_tokens WHERE signature = $1;
 
--- name: DeleteExpiredTokens :exec
-DELETE FROM tokens WHERE expires_at < NOW();
+-- name: DeleteRefreshTokenBySignature :exec
+DELETE FROM refresh_tokens WHERE signature = $1;
 
--- name: DeleteTokensByUserAndClient :exec
-DELETE FROM tokens WHERE user_id = $1 AND client_id = $2;
+-- name: RotateRefreshTokenBySignature :execrows
+UPDATE refresh_tokens SET rotated_at = CURRENT_TIMESTAMP
+WHERE signature = $1 AND rotated_at IS NULL AND revoked_at IS NULL;
 
--- name: DeleteTokensByRequestID :exec
-DELETE FROM tokens WHERE request_id = $1;
-
--- name: DeleteAllTokens :exec
-DELETE FROM tokens;
+-- name: RevokeRefreshTokensByRequestID :exec
+UPDATE refresh_tokens SET revoked_at = CURRENT_TIMESTAMP
+WHERE request_id = $1 AND revoked_at IS NULL;
 
 -- OIDC Session queries
 
@@ -131,6 +157,3 @@ SELECT * FROM oidc_sessions WHERE authorize_code = $1;
 
 -- name: DeleteOIDCSession :exec
 DELETE FROM oidc_sessions WHERE authorize_code = $1;
-
--- name: DeleteAllOIDCSessions :exec
-DELETE FROM oidc_sessions;

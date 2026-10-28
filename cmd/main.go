@@ -1,12 +1,16 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/alecthomas/kong"
+	"github.com/labstack/echo/v5"
 )
 
 type CLI struct {
@@ -22,13 +26,28 @@ func (s *ServeCmd) Run(cfg *Config) error {
 		return err
 	}
 
-	srv := &http.Server{
-		Addr:              ":8080",
-		Handler:           handler,
-		ReadHeaderTimeout: 10 * time.Second,
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	var shutdownErr error
+	sc := echo.StartConfig{
+		Address:         ":8080",
+		HideBanner:      true,
+		GracefulTimeout: 30 * time.Second,
+		BeforeServeFunc: func(srv *http.Server) error {
+			srv.ReadTimeout = 0
+			srv.ReadHeaderTimeout = 10 * time.Second
+			return nil
+		},
+		OnShutdownError: func(err error) {
+			shutdownErr = err
+		},
 	}
-	log.Printf("Starting server on %s", srv.Addr)
-	return srv.ListenAndServe()
+	if err := sc.Start(ctx, handler); err != nil {
+		return err
+	}
+	// Start waits for shutdown, including OnShutdownError, before returning.
+	return shutdownErr
 }
 
 func main() {
