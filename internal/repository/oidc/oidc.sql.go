@@ -276,13 +276,17 @@ func (q *Queries) DeleteTokenByAccessToken(ctx context.Context, accessToken sql.
 	return err
 }
 
-const deleteTokenByRefreshToken = `-- name: DeleteTokenByRefreshToken :exec
+const deleteTokenByRefreshToken = `-- name: DeleteTokenByRefreshToken :execrows
 DELETE FROM tokens WHERE refresh_token = $1
 `
 
-func (q *Queries) DeleteTokenByRefreshToken(ctx context.Context, refreshToken sql.NullString) error {
-	_, err := q.exec(ctx, q.deleteTokenByRefreshTokenStmt, deleteTokenByRefreshToken, refreshToken)
-	return err
+// Zero rows means a concurrent request already rotated the token.
+func (q *Queries) DeleteTokenByRefreshToken(ctx context.Context, refreshToken sql.NullString) (int64, error) {
+	result, err := q.exec(ctx, q.deleteTokenByRefreshTokenStmt, deleteTokenByRefreshToken, refreshToken)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const deleteTokensByRequestID = `-- name: DeleteTokensByRequestID :exec
@@ -468,17 +472,21 @@ func (q *Queries) ListClients(ctx context.Context) ([]Client, error) {
 	return items, nil
 }
 
-const markAuthorizationCodeUsed = `-- name: MarkAuthorizationCodeUsed :exec
+const markAuthorizationCodeUsed = `-- name: MarkAuthorizationCodeUsed :execrows
 UPDATE authorization_codes SET
     used = TRUE,
     code_challenge = NULL,
     code_challenge_method = NULL
-WHERE code = $1
+WHERE code = $1 AND used = FALSE
 `
 
-func (q *Queries) MarkAuthorizationCodeUsed(ctx context.Context, code string) error {
-	_, err := q.exec(ctx, q.markAuthorizationCodeUsedStmt, markAuthorizationCodeUsed, code)
-	return err
+// Zero rows means a concurrent exchange already redeemed the code.
+func (q *Queries) MarkAuthorizationCodeUsed(ctx context.Context, code string) (int64, error) {
+	result, err := q.exec(ctx, q.markAuthorizationCodeUsedStmt, markAuthorizationCodeUsed, code)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const updateAuthorizationCodePKCE = `-- name: UpdateAuthorizationCodePKCE :exec

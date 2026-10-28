@@ -54,12 +54,13 @@ SELECT * FROM authorization_codes WHERE code = $1;
 -- name: DeleteAuthorizationCode :exec
 DELETE FROM authorization_codes WHERE code = $1;
 
--- name: MarkAuthorizationCodeUsed :exec
+-- name: MarkAuthorizationCodeUsed :execrows
+-- Zero rows means a concurrent exchange already redeemed the code.
 UPDATE authorization_codes SET
     used = TRUE,
     code_challenge = NULL,
     code_challenge_method = NULL
-WHERE code = $1;
+WHERE code = $1 AND used = FALSE;
 
 -- name: UpdateAuthorizationCodePKCE :exec
 UPDATE authorization_codes SET
@@ -108,7 +109,8 @@ DELETE FROM tokens WHERE id = $1;
 -- name: DeleteTokenByAccessToken :exec
 DELETE FROM tokens WHERE access_token = $1;
 
--- name: DeleteTokenByRefreshToken :exec
+-- name: DeleteTokenByRefreshToken :execrows
+-- Zero rows means a concurrent request already rotated the token.
 DELETE FROM tokens WHERE refresh_token = $1;
 
 -- name: DeleteExpiredTokens :exec

@@ -16,6 +16,8 @@ type AuthCodeRepository interface {
 	Create(ctx context.Context, authCode domain.AuthCode) error
 	Get(ctx context.Context, code string) (domain.AuthCode, error)
 	Delete(ctx context.Context, code string) error
+	// MarkUsed returns ErrAuthCodeNotFound when no unused code matched, for
+	// example because a concurrent exchange already redeemed it.
 	MarkUsed(ctx context.Context, code string) error
 	UpdatePKCE(ctx context.Context, code, challenge, method string) error
 	ClearPKCE(ctx context.Context, code string) error
@@ -69,7 +71,14 @@ func (r *authCodeRepository) Delete(ctx context.Context, code string) error {
 }
 
 func (r *authCodeRepository) MarkUsed(ctx context.Context, code string) error {
-	return r.queries.MarkAuthorizationCodeUsed(ctx, code)
+	affected, err := r.queries.MarkAuthorizationCodeUsed(ctx, code)
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return ErrAuthCodeNotFound
+	}
+	return nil
 }
 
 func (r *authCodeRepository) UpdatePKCE(ctx context.Context, code, challenge, method string) error {

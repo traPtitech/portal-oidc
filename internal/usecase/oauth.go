@@ -118,7 +118,10 @@ func (u *oauthUseCase) ProcessToken(
 	result.Request = accessRequest
 	if err != nil {
 		if errors.Is(err, fosite.ErrInvalidGrant) && accessRequest != nil {
-			if invalidateErr := u.storage.InvalidateAuthorizeCodeSession(ctx, accessRequest.GetID()); invalidateErr != nil {
+			// The ID may name a code that is already used or none at all (for
+			// example a refresh_token grant), which needs no invalidation.
+			if invalidateErr := u.storage.InvalidateAuthorizeCodeSession(ctx, accessRequest.GetID()); invalidateErr != nil &&
+				!errors.Is(invalidateErr, fosite.ErrInvalidatedAuthorizeCode) {
 				err = fosite.ErrServerError.WithWrap(invalidateErr)
 			}
 		}
@@ -132,8 +135,28 @@ func (u *oauthUseCase) ProcessToken(
 	response, err := u.provider.NewAccessResponse(ctx, accessRequest)
 	result.Response = response
 	if err != nil {
-		return result, err
+		return result, u.tokenIssuanceError(ctx, accessRequest, err)
 	}
 
 	return result, nil
+}
+
+// tokenIssuanceError reports a request that lost a race with a concurrent
+// exchange of the same authorization code with the error a retry would
+// receive. fosite reports the storage error this race causes as server_error.
+func (u *oauthUseCase) tokenIssuanceError(ctx context.Context, request fosite.AccessRequester, err error) error {
+	var rfcErr *fosite.RFC6749Error
+	if !errors.As(err, &rfcErr) || rfcErr.ErrorField != fosite.ErrServerError.ErrorField {
+		return err
+	}
+	if cause := rfcErr.Cause(); errors.Is(cause, fosite.ErrInvalidatedAuthorizeCode) {
+		// RFC 6749 §4.1.2: revoke the tokens issued from a reused code, as
+		// GetAuthorizeCodeSession does. fosite has rolled back this request's
+		// transaction, so the revocation of the winner's tokens is not undone.
+		if revokeErr := u.storage.RevokeAccessToken(ctx, request.GetID()); revokeErr != nil {
+			return fosite.ErrServerError.WithWrap(errors.Join(cause, revokeErr))
+		}
+		return fosite.ErrInvalidGrant.WithHint("The authorization code has already been used.").WithWrap(cause)
+	}
+	return err
 }

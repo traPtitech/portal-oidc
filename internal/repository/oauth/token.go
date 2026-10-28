@@ -93,7 +93,15 @@ func (s *Storage) CreateRefreshTokenSession(ctx context.Context, signature strin
 }
 
 func (s *Storage) RotateRefreshToken(ctx context.Context, _ string, refreshTokenSignature string) error {
-	return s.getTokens(ctx).DeleteByRefreshToken(ctx, refreshTokenSignature)
+	if err := s.getTokens(ctx).DeleteByRefreshToken(ctx, refreshTokenSignature); err != nil {
+		// The token existed when the request was validated, so another request
+		// rotated it in the meantime.
+		if errors.Is(err, repository.ErrTokenNotFound) {
+			return fosite.ErrSerializationFailure
+		}
+		return err
+	}
+	return nil
 }
 
 func (s *Storage) GetRefreshTokenSession(ctx context.Context, signature string, session fosite.Session) (fosite.Requester, error) {
@@ -117,7 +125,12 @@ func (s *Storage) GetRefreshTokenSession(ctx context.Context, signature string, 
 }
 
 func (s *Storage) DeleteRefreshTokenSession(ctx context.Context, signature string) error {
-	return s.getTokens(ctx).DeleteByRefreshToken(ctx, signature)
+	// fosite stops revoking the token family on any error here, so a token that
+	// is already gone must not be reported.
+	if err := s.getTokens(ctx).DeleteByRefreshToken(ctx, signature); err != nil && !errors.Is(err, repository.ErrTokenNotFound) {
+		return err
+	}
+	return nil
 }
 
 func (s *Storage) RevokeRefreshToken(ctx context.Context, requestID string) error {

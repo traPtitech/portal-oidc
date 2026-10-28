@@ -91,7 +91,13 @@ func (s *Storage) GetAuthorizeCodeSession(ctx context.Context, code string, sess
 }
 
 func (s *Storage) InvalidateAuthorizeCodeSession(ctx context.Context, code string) error {
-	return s.getAuthCodes(ctx).MarkUsed(ctx, code)
+	if err := s.getAuthCodes(ctx).MarkUsed(ctx, code); err != nil {
+		if errors.Is(err, repository.ErrAuthCodeNotFound) {
+			return fosite.ErrInvalidatedAuthorizeCode
+		}
+		return err
+	}
+	return nil
 }
 
 func (s *Storage) GetPKCERequestSession(ctx context.Context, signature string, session fosite.Session) (fosite.Requester, error) {

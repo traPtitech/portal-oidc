@@ -191,6 +191,7 @@ func TestOAuthUseCase_ProcessToken(t *testing.T) {
 		requestID          string
 		wantErrors         []error
 		wantInvalidated    bool
+		wantRevoked        bool
 		wantResponseCalled bool
 		wantResponse       bool
 		wantScopesGranted  bool
@@ -223,6 +224,23 @@ func TestOAuthUseCase_ProcessToken(t *testing.T) {
 			wantErrors: []error{fosite.ErrServerError},
 		},
 		{
+			name:            "already invalidated authorization code keeps the request error",
+			requestErr:      requestErr,
+			invalidationErr: repository.ErrAuthCodeNotFound,
+			requestID:       "authorization-code",
+			wantErrors:      []error{requestErr},
+			wantInvalidated: true,
+		},
+		{
+			name:               "concurrently redeemed authorization code revokes tokens",
+			responseErr:        fosite.ErrServerError.WithWrap(fosite.ErrInvalidatedAuthorizeCode),
+			requestID:          "authorization-code",
+			wantErrors:         []error{fosite.ErrInvalidGrant, fosite.ErrInvalidatedAuthorizeCode},
+			wantRevoked:        true,
+			wantResponseCalled: true,
+			wantScopesGranted:  true,
+		},
+		{
 			name:            "invalidation error returns server error",
 			requestErr:      requestErr,
 			invalidationErr: invalidationErr,
@@ -245,13 +263,23 @@ func TestOAuthUseCase_ProcessToken(t *testing.T) {
 			accessRequest.SetRequestedScopes(fosite.Arguments{"openid", "profile"})
 			accessResponse := fosite.NewAccessResponse()
 			invalidated := false
-			storage := newOAuthTokenStorage(func(_ context.Context, code string) error {
-				if code != "authorization-code" {
-					t.Errorf("authorization code = %q", code)
-				}
-				invalidated = true
-				return tt.invalidationErr
-			})
+			revoked := false
+			storage := oauth.NewStorage(nil, nil, nil,
+				&oauthTokenAuthCodeRepositoryStub{markUsed: func(_ context.Context, code string) error {
+					if code != "authorization-code" {
+						t.Errorf("authorization code = %q", code)
+					}
+					invalidated = true
+					return tt.invalidationErr
+				}},
+				&oauthTokenRepositoryStub{deleteByRequestID: func(_ context.Context, requestID string) error {
+					if requestID != "authorization-code" {
+						t.Errorf("revoked request ID = %q", requestID)
+					}
+					revoked = true
+					return nil
+				}},
+				nil)
 
 			responseCalled := false
 			provider := &oauthTokenProviderStub{
@@ -297,6 +325,9 @@ func TestOAuthUseCase_ProcessToken(t *testing.T) {
 			if invalidated != tt.wantInvalidated {
 				t.Errorf("authorization code invalidated = %t, want %t", invalidated, tt.wantInvalidated)
 			}
+			if revoked != tt.wantRevoked {
+				t.Errorf("tokens revoked = %t, want %t", revoked, tt.wantRevoked)
+			}
 			if responseCalled != tt.wantResponseCalled {
 				t.Errorf("NewAccessResponse called = %t, want %t", responseCalled, tt.wantResponseCalled)
 			}
@@ -341,6 +372,11 @@ func (s *oauthTokenAuthCodeRepositoryStub) MarkUsed(ctx context.Context, code st
 	return s.markUsed(ctx, code)
 }
 
-func newOAuthTokenStorage(markUsed func(context.Context, string) error) *oauth.Storage {
-	return oauth.NewStorage(nil, nil, nil, &oauthTokenAuthCodeRepositoryStub{markUsed: markUsed}, nil, nil)
+type oauthTokenRepositoryStub struct {
+	repository.TokenRepository
+	deleteByRequestID func(context.Context, string) error
+}
+
+func (s *oauthTokenRepositoryStub) DeleteByRequestID(ctx context.Context, requestID string) error {
+	return s.deleteByRequestID(ctx, requestID)
 }

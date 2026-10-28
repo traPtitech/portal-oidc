@@ -20,6 +20,8 @@ type TokenRepository interface {
 	GetByRefreshToken(ctx context.Context, refreshToken string) (domain.Token, error)
 	GetByID(ctx context.Context, id uuid.UUID) (domain.Token, error)
 	DeleteByAccessToken(ctx context.Context, accessToken string) error
+	// DeleteByRefreshToken returns ErrTokenNotFound when no token was deleted,
+	// for example because a concurrent request already rotated it.
 	DeleteByRefreshToken(ctx context.Context, refreshToken string) error
 	DeleteByID(ctx context.Context, id uuid.UUID) error
 	DeleteByRequestID(ctx context.Context, requestID string) error
@@ -102,10 +104,17 @@ func (r *tokenRepository) DeleteByAccessToken(ctx context.Context, accessToken s
 }
 
 func (r *tokenRepository) DeleteByRefreshToken(ctx context.Context, refreshToken string) error {
-	return r.queries.DeleteTokenByRefreshToken(ctx, sql.NullString{
+	affected, err := r.queries.DeleteTokenByRefreshToken(ctx, sql.NullString{
 		String: refreshToken,
 		Valid:  true,
 	})
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return ErrTokenNotFound
+	}
+	return nil
 }
 
 func (r *tokenRepository) DeleteByID(ctx context.Context, id uuid.UUID) error {

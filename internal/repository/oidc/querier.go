@@ -32,7 +32,8 @@ type Querier interface {
 	DeleteOIDCSession(ctx context.Context, authorizeCode string) error
 	DeleteToken(ctx context.Context, id uuid.UUID) error
 	DeleteTokenByAccessToken(ctx context.Context, accessToken sql.NullString) error
-	DeleteTokenByRefreshToken(ctx context.Context, refreshToken sql.NullString) error
+	// Zero rows means a concurrent request already rotated the token.
+	DeleteTokenByRefreshToken(ctx context.Context, refreshToken sql.NullString) (int64, error)
 	DeleteTokensByRequestID(ctx context.Context, requestID string) error
 	DeleteTokensByUserAndClient(ctx context.Context, arg DeleteTokensByUserAndClientParams) error
 	GetAuthorizationCode(ctx context.Context, code string) (AuthorizationCode, error)
@@ -42,7 +43,8 @@ type Querier interface {
 	GetTokenByID(ctx context.Context, id uuid.UUID) (Token, error)
 	GetTokenByRefreshToken(ctx context.Context, refreshToken sql.NullString) (Token, error)
 	ListClients(ctx context.Context) ([]Client, error)
-	MarkAuthorizationCodeUsed(ctx context.Context, code string) error
+	// Zero rows means a concurrent exchange already redeemed the code.
+	MarkAuthorizationCodeUsed(ctx context.Context, code string) (int64, error)
 	UpdateAuthorizationCodePKCE(ctx context.Context, arg UpdateAuthorizationCodePKCEParams) error
 	UpdateClient(ctx context.Context, arg UpdateClientParams) error
 	UpdateClientSecret(ctx context.Context, arg UpdateClientSecretParams) error
