@@ -10,7 +10,16 @@ traP の各サービス (traQ, knoQ, NeoShowcase 等) への SSO 基盤を提供
 
 | Name | Columns | Comment | Type | Labels |
 | ---- | ------- | ------- | ---- | ------ |
-| [clients](clients.md) | 7 | OAuth 2.1 / OIDC クライアントテーブル。<br />各サービスは Client Credentials または Authorization Code フローでトークンを取得し、<br />ユーザーの所属グループ情報等を取得できる。<br /> | BASE TABLE | `OAuth2/OIDC` |
+| [public.clients](public.clients.md) | 7 | OAuth 2.1 / OIDC クライアントテーブル。<br />各サービスは Client Credentials または Authorization Code フローでトークンを取得し、<br />ユーザーの所属グループ情報等を取得できる。<br /> | BASE TABLE | `OAuth2/OIDC` |
+| [public.authorization_codes](public.authorization_codes.md) | 11 |  | BASE TABLE |  |
+| [public.tokens](public.tokens.md) | 9 |  | BASE TABLE |  |
+| [public.oidc_sessions](public.oidc_sessions.md) | 8 |  | BASE TABLE |  |
+
+## Stored procedures and functions
+
+| Name | ReturnType | Arguments | Type |
+| ---- | ------- | ------- | ---- |
+| public.set_updated_at | trigger |  | FUNCTION |
 
 ## Relations
 
