@@ -25,7 +25,7 @@ func TestGetClientRejectsInactiveClients(t *testing.T) {
 	for _, status := range []string{"active", "suspended", "", "unknown"} {
 		t.Run(status, func(t *testing.T) {
 			client := &domain.Client{ClientID: uuid.New(), Status: status}
-			store := NewStorage(nil, nil, clientRepositoryStub{client: client}, nil, nil, nil)
+			store := NewStorage(nil, nil, clientRepositoryStub{client: client}, nil, nil, nil, nil)
 			got, err := store.GetClient(t.Context(), client.ClientID.String())
 			if status == "active" {
 				if err != nil || got == nil || got.GetID() != client.ClientID.String() {

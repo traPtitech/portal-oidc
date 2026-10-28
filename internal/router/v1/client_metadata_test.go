@@ -37,13 +37,16 @@ func newMetadataClient(t *testing.T) (repository.ClientRepository, *domain.Clien
 		t.Fatal(err)
 	}
 	store := oauth.NewStorage(testDB, queries, repo, repository.NewAuthCodeRepository(queries),
-		repository.NewTokenRepository(queries), repository.NewOIDCSessionRepository(queries))
+		repository.NewAccessTokenRepository(queries), repository.NewRefreshTokenRepository(queries),
+		repository.NewOIDCSessionRepository(queries))
 	return repo, client, store
 }
 
-var credentialInserts = map[string]string{
-	"tokens": `INSERT INTO tokens (id, request_id, client_id, user_id, access_token, refresh_token, scopes, expires_at)
-		VALUES ($2::text::uuid, $2::text, $1, $2::text::uuid, $2::text, $2::text, 'openid', now() + interval '1 hour')`,
+var credentialInserts = map[string]string{ //nolint:gosec // parameterized SQL for test credentials, not embedded secrets
+	"access_tokens": `INSERT INTO access_tokens (id, request_id, client_id, user_id, signature, scopes, expires_at)
+		VALUES ($2::text::uuid, $2::text, $1, $2::text::uuid, $2::text, 'openid', now() + interval '1 hour')`,
+	"refresh_tokens": `INSERT INTO refresh_tokens (id, request_id, client_id, user_id, signature, scopes, expires_at)
+		VALUES ($2::text::uuid, $2::text, $1, $2::text::uuid, $2::text, 'openid', now() + interval '1 hour')`,
 	"authorization_codes": `INSERT INTO authorization_codes (code, client_id, user_id, redirect_uri, scopes, expires_at)
 		VALUES ($2::text, $1, $2::text::uuid, 'https://client.example/callback', 'openid', now() + interval '1 hour')`,
 	"oidc_sessions": `INSERT INTO oidc_sessions (authorize_code, client_id, user_id, scopes, requested_at)
@@ -58,7 +61,8 @@ func insertCredential(ctx context.Context, db oidc.DBTX, table string, clientID 
 func assertCredentialCount(t *testing.T, clientID uuid.UUID, want int) {
 	t.Helper()
 	queries := []string{
-		"SELECT count(*) FROM tokens WHERE client_id = $1",
+		"SELECT count(*) FROM access_tokens WHERE client_id = $1",
+		"SELECT count(*) FROM refresh_tokens WHERE client_id = $1",
 		"SELECT count(*) FROM authorization_codes WHERE client_id = $1",
 		"SELECT count(*) FROM oidc_sessions WHERE client_id = $1",
 	}
@@ -81,7 +85,7 @@ func TestIntegration_ClientSuspensionRevokesCredentials(t *testing.T) {
 			for _, id := range []uuid.UUID{client.ClientID, other.ClientID} {
 				credentialID := uuid.NewString()
 				// OIDC sessions must reference an existing authorization code.
-				for _, table := range []string{"authorization_codes", "tokens", "oidc_sessions"} {
+				for _, table := range []string{"authorization_codes", "access_tokens", "refresh_tokens", "oidc_sessions"} {
 					if err := insertCredential(t.Context(), testDB, table, id, credentialID); err != nil {
 						t.Fatal(err)
 					}

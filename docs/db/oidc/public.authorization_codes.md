@@ -39,6 +39,12 @@
 | idx_authorization_codes_client_id | CREATE INDEX idx_authorization_codes_client_id ON public.authorization_codes USING btree (client_id) |
 | idx_authorization_codes_expires_at | CREATE INDEX idx_authorization_codes_expires_at ON public.authorization_codes USING btree (expires_at) |
 
+## Triggers
+
+| Name | Definition |
+| ---- | ---------- |
+| trg_authorization_codes_require_active_client | CREATE TRIGGER trg_authorization_codes_require_active_client BEFORE INSERT ON public.authorization_codes FOR EACH ROW EXECUTE FUNCTION require_active_client() |
+
 ## Relations
 
 ![er](public.authorization_codes.svg)

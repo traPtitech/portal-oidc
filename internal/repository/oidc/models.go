@@ -12,6 +12,18 @@ import (
 	"github.com/google/uuid"
 )
 
+type AccessToken struct {
+	ID        uuid.UUID     `json:"id"`
+	Signature string        `json:"signature"`
+	RequestID string        `json:"request_id"`
+	ClientID  uuid.UUID     `json:"client_id"`
+	UserID    uuid.NullUUID `json:"user_id"`
+	Scopes    string        `json:"scopes"`
+	IssuedAt  time.Time     `json:"issued_at"`
+	ExpiresAt time.Time     `json:"expires_at"`
+	RevokedAt sql.NullTime  `json:"revoked_at"`
+}
+
 type AuthorizationCode struct {
 	Code                string         `json:"code"`
 	ClientID            uuid.UUID      `json:"client_id"`
@@ -55,14 +67,15 @@ type OidcSession struct {
 	CreatedAt     time.Time      `json:"created_at"`
 }
 
-type Token struct {
-	ID           uuid.UUID      `json:"id"`
-	RequestID    string         `json:"request_id"`
-	ClientID     uuid.UUID      `json:"client_id"`
-	UserID       uuid.UUID      `json:"user_id"`
-	AccessToken  sql.NullString `json:"access_token"`
-	RefreshToken sql.NullString `json:"refresh_token"`
-	Scopes       string         `json:"scopes"`
-	ExpiresAt    time.Time      `json:"expires_at"`
-	CreatedAt    time.Time      `json:"created_at"`
+type RefreshToken struct {
+	ID        uuid.UUID    `json:"id"`
+	Signature string       `json:"signature"`
+	RequestID string       `json:"request_id"`
+	ClientID  uuid.UUID    `json:"client_id"`
+	UserID    uuid.UUID    `json:"user_id"`
+	Scopes    string       `json:"scopes"`
+	IssuedAt  time.Time    `json:"issued_at"`
+	ExpiresAt time.Time    `json:"expires_at"`
+	RotatedAt sql.NullTime `json:"rotated_at"`
+	RevokedAt sql.NullTime `json:"revoked_at"`
 }

@@ -15,11 +15,19 @@ OAuth 2.1 / OIDC クライアントテーブル。
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| client_id | uuid |  | false | [public.authorization_codes](public.authorization_codes.md) [public.tokens](public.tokens.md) [public.oidc_sessions](public.oidc_sessions.md) |  | クライアントUUID (RFC 7591準拠) |
+| client_id | uuid |  | false | [public.authorization_codes](public.authorization_codes.md) [public.access_tokens](public.access_tokens.md) [public.refresh_tokens](public.refresh_tokens.md) [public.oidc_sessions](public.oidc_sessions.md) |  | クライアントUUID (RFC 7591準拠) |
 | client_secret_hash | text |  | true |  |  | ハッシュ化されたクライアントシークレット (confidential client用、public clientはNULL) |
 | name | text |  | false |  |  | クライアント名 (traQ, knoQ, NeoShowcase等) |
 | client_type | text |  | false |  |  | クライアントタイプ:<br />- public: SPA等のシークレットを安全に保持できないクライアント<br />- confidential: サーバーサイドでシークレットを保持できるクライアント<br /> |
 | redirect_uris | jsonb |  | false |  |  | OAuth認可後のリダイレクトURI (JSON配列、複数環境対応) |
+| post_logout_redirect_uris | jsonb | '[]'::jsonb | false |  |  |  |
+| allowed_origins | jsonb | '[]'::jsonb | false |  |  |  |
+| grant_types | jsonb | '["authorization_code"]'::jsonb | false |  |  |  |
+| response_types | jsonb | '["code"]'::jsonb | false |  |  |  |
+| scopes | jsonb | '["openid", "profile", "email"]'::jsonb | false |  |  |  |
+| token_endpoint_auth | text | 'client_secret_basic'::text | false |  |  |  |
+| id_token_alg | text | 'RS256'::text | false |  |  |  |
+| status | text | 'active'::text | false |  |  |  |
 | created_at | timestamp with time zone | CURRENT_TIMESTAMP | false |  |  | 作成日時 |
 | updated_at | timestamp with time zone | CURRENT_TIMESTAMP | false |  |  | 更新日時 |
 
@@ -27,11 +35,19 @@ OAuth 2.1 / OIDC クライアントテーブル。
 
 | Name | Type | Definition | Comment |
 | ---- | ---- | ---------- | ------- |
+| clients_allowed_origins_not_null | n | NOT NULL allowed_origins |  |
 | clients_client_id_not_null | n | NOT NULL client_id |  |
 | clients_client_type_not_null | n | NOT NULL client_type |  |
 | clients_created_at_not_null | n | NOT NULL created_at |  |
+| clients_grant_types_not_null | n | NOT NULL grant_types |  |
+| clients_id_token_alg_not_null | n | NOT NULL id_token_alg |  |
 | clients_name_not_null | n | NOT NULL name |  |
+| clients_post_logout_redirect_uris_not_null | n | NOT NULL post_logout_redirect_uris |  |
 | clients_redirect_uris_not_null | n | NOT NULL redirect_uris |  |
+| clients_response_types_not_null | n | NOT NULL response_types |  |
+| clients_scopes_not_null | n | NOT NULL scopes |  |
+| clients_status_not_null | n | NOT NULL status |  |
+| clients_token_endpoint_auth_not_null | n | NOT NULL token_endpoint_auth |  |
 | clients_updated_at_not_null | n | NOT NULL updated_at |  |
 | clients_pkey | PRIMARY KEY | PRIMARY KEY (client_id) | 主キー |
 
@@ -46,6 +62,7 @@ OAuth 2.1 / OIDC クライアントテーブル。
 | Name | Definition |
 | ---- | ---------- |
 | trg_clients_set_updated_at | CREATE TRIGGER trg_clients_set_updated_at BEFORE UPDATE ON public.clients FOR EACH ROW EXECUTE FUNCTION set_updated_at() |
+| trg_clients_revoke_sessions | CREATE TRIGGER trg_clients_revoke_sessions AFTER UPDATE OF status ON public.clients FOR EACH ROW WHEN (((old.status IS DISTINCT FROM new.status) AND (new.status <> 'active'::text))) EXECUTE FUNCTION revoke_inactive_client_sessions() |
 
 ## Relations
 

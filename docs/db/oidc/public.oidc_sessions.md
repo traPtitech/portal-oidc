@@ -35,6 +35,12 @@
 | oidc_sessions_pkey | CREATE UNIQUE INDEX oidc_sessions_pkey ON public.oidc_sessions USING btree (authorize_code) |
 | idx_oidc_sessions_client_id | CREATE INDEX idx_oidc_sessions_client_id ON public.oidc_sessions USING btree (client_id) |
 
+## Triggers
+
+| Name | Definition |
+| ---- | ---------- |
+| trg_oidc_sessions_require_active_client | CREATE TRIGGER trg_oidc_sessions_require_active_client BEFORE INSERT ON public.oidc_sessions FOR EACH ROW EXECUTE FUNCTION require_active_client() |
+
 ## Relations
 
 ![er](public.oidc_sessions.svg)

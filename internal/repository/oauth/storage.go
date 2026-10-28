@@ -28,12 +28,13 @@ var (
 )
 
 type Storage struct {
-	db           *sql.DB
-	baseQueries  *oidc.Queries
-	clients      repository.ClientRepository
-	authCodes    repository.AuthCodeRepository
-	tokens       repository.TokenRepository
-	oidcSessions repository.OIDCSessionRepository
+	db            *sql.DB
+	baseQueries   *oidc.Queries
+	clients       repository.ClientRepository
+	authCodes     repository.AuthCodeRepository
+	accessTokens  repository.AccessTokenRepository
+	refreshTokens repository.RefreshTokenRepository
+	oidcSessions  repository.OIDCSessionRepository
 }
 
 func NewStorage(
@@ -41,26 +42,29 @@ func NewStorage(
 	baseQueries *oidc.Queries,
 	clients repository.ClientRepository,
 	authCodes repository.AuthCodeRepository,
-	tokens repository.TokenRepository,
+	accessTokens repository.AccessTokenRepository,
+	refreshTokens repository.RefreshTokenRepository,
 	oidcSessions repository.OIDCSessionRepository,
 ) *Storage {
 	return &Storage{
-		db:           db,
-		baseQueries:  baseQueries,
-		clients:      clients,
-		authCodes:    authCodes,
-		tokens:       tokens,
-		oidcSessions: oidcSessions,
+		db:            db,
+		baseQueries:   baseQueries,
+		clients:       clients,
+		authCodes:     authCodes,
+		accessTokens:  accessTokens,
+		refreshTokens: refreshTokens,
+		oidcSessions:  oidcSessions,
 	}
 }
 
 type txKey struct{}
 
 type txState struct {
-	tx           *sql.Tx
-	authCodes    repository.AuthCodeRepository
-	tokens       repository.TokenRepository
-	oidcSessions repository.OIDCSessionRepository
+	tx            *sql.Tx
+	authCodes     repository.AuthCodeRepository
+	accessTokens  repository.AccessTokenRepository
+	refreshTokens repository.RefreshTokenRepository
+	oidcSessions  repository.OIDCSessionRepository
 }
 
 func (s *Storage) BeginTX(ctx context.Context) (context.Context, error) {
@@ -72,10 +76,11 @@ func (s *Storage) BeginTX(ctx context.Context) (context.Context, error) {
 	txQueries := s.baseQueries.WithTx(tx)
 
 	return context.WithValue(ctx, txKey{}, &txState{
-		tx:           tx,
-		authCodes:    repository.NewAuthCodeRepository(txQueries),
-		tokens:       repository.NewTokenRepository(txQueries),
-		oidcSessions: repository.NewOIDCSessionRepository(txQueries),
+		tx:            tx,
+		authCodes:     repository.NewAuthCodeRepository(txQueries),
+		accessTokens:  repository.NewAccessTokenRepository(txQueries),
+		refreshTokens: repository.NewRefreshTokenRepository(txQueries),
+		oidcSessions:  repository.NewOIDCSessionRepository(txQueries),
 	}), nil
 }
 
@@ -102,11 +107,18 @@ func (s *Storage) getAuthCodes(ctx context.Context) repository.AuthCodeRepositor
 	return s.authCodes
 }
 
-func (s *Storage) getTokens(ctx context.Context) repository.TokenRepository {
+func (s *Storage) getAccessTokens(ctx context.Context) repository.AccessTokenRepository {
 	if state, ok := ctx.Value(txKey{}).(*txState); ok {
-		return state.tokens
+		return state.accessTokens
 	}
-	return s.tokens
+	return s.accessTokens
+}
+
+func (s *Storage) getRefreshTokens(ctx context.Context) repository.RefreshTokenRepository {
+	if state, ok := ctx.Value(txKey{}).(*txState); ok {
+		return state.refreshTokens
+	}
+	return s.refreshTokens
 }
 
 func (s *Storage) getOIDCSessions(ctx context.Context) repository.OIDCSessionRepository {

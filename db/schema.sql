@@ -51,27 +51,58 @@ CREATE TABLE IF NOT EXISTS authorization_codes (
 CREATE INDEX IF NOT EXISTS idx_authorization_codes_client_id ON authorization_codes (client_id);
 CREATE INDEX IF NOT EXISTS idx_authorization_codes_expires_at ON authorization_codes (expires_at);
 
-CREATE TABLE IF NOT EXISTS tokens (
+-- traPortal v2 spec §access_tokens
+-- signature is the fosite-issued signature of the opaque access token and
+-- serves as the lookup key (same as Ory Hydra's hydra_oauth2_access). user_id
+-- is nullable because the client_credentials grant (future) issues tokens
+-- without a subject. revoked_at is the source of truth for revocation.
+-- Revoked and expired rows are not pruned yet.
+CREATE TABLE IF NOT EXISTS access_tokens (
   id UUID NOT NULL,
+  signature TEXT NOT NULL,
+  request_id TEXT NOT NULL,
+  client_id UUID NOT NULL,
+  user_id UUID NULL,
+  scopes TEXT NOT NULL,
+  issued_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  expires_at TIMESTAMPTZ NOT NULL,
+  revoked_at TIMESTAMPTZ NULL,
+  PRIMARY KEY (id),
+  CONSTRAINT idx_access_tokens_signature UNIQUE (signature),
+  CONSTRAINT fk_access_tokens_client FOREIGN KEY (client_id) REFERENCES clients (client_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_access_tokens_client_id ON access_tokens (client_id);
+CREATE INDEX IF NOT EXISTS idx_access_tokens_user_id ON access_tokens (user_id);
+CREATE INDEX IF NOT EXISTS idx_access_tokens_request_id ON access_tokens (request_id);
+CREATE INDEX IF NOT EXISTS idx_access_tokens_expires_at ON access_tokens (expires_at);
+
+-- traPortal v2 spec §refresh_tokens
+-- signature is the fosite signature of the refresh token. fosite carries request_id over on every
+-- refresh, so all generations of a rotation family share it and OAuth 2.1
+-- §4.13.2 family-revocation is a revoke by request_id. revoked_at + rotated_at
+-- separate "we intentionally retired this token" from "the user explicitly
+-- revoked it".
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+  id UUID NOT NULL,
+  signature TEXT NOT NULL,
   request_id TEXT NOT NULL,
   client_id UUID NOT NULL,
   user_id UUID NOT NULL,
-  access_token TEXT NULL,
-  refresh_token TEXT NULL,
   scopes TEXT NOT NULL,
+  issued_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   expires_at TIMESTAMPTZ NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  rotated_at TIMESTAMPTZ NULL,
+  revoked_at TIMESTAMPTZ NULL,
   PRIMARY KEY (id),
-  CONSTRAINT idx_tokens_access_token UNIQUE (access_token),
-  CONSTRAINT chk_tokens_at_least_one_token CHECK (access_token IS NOT NULL OR refresh_token IS NOT NULL),
-  CONSTRAINT fk_tokens_client FOREIGN KEY (client_id) REFERENCES clients (client_id) ON DELETE CASCADE
+  CONSTRAINT idx_refresh_tokens_signature UNIQUE (signature),
+  CONSTRAINT fk_refresh_tokens_client FOREIGN KEY (client_id) REFERENCES clients (client_id) ON DELETE CASCADE
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_tokens_refresh_token ON tokens (refresh_token);
-CREATE INDEX IF NOT EXISTS idx_tokens_client_id ON tokens (client_id);
-CREATE INDEX IF NOT EXISTS idx_tokens_user_id ON tokens (user_id);
-CREATE INDEX IF NOT EXISTS idx_tokens_request_id ON tokens (request_id);
-CREATE INDEX IF NOT EXISTS idx_tokens_expires_at ON tokens (expires_at);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_client_id ON refresh_tokens (client_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens (user_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_request_id ON refresh_tokens (request_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires_at ON refresh_tokens (expires_at);
 
 CREATE TABLE IF NOT EXISTS oidc_sessions (
   authorize_code TEXT NOT NULL,
@@ -96,7 +127,8 @@ CREATE INDEX IF NOT EXISTS idx_oidc_sessions_client_id ON oidc_sessions (client_
 CREATE OR REPLACE FUNCTION revoke_inactive_client_sessions()
 RETURNS TRIGGER AS $$
 BEGIN
-  DELETE FROM tokens WHERE client_id = NEW.client_id;
+  DELETE FROM access_tokens WHERE client_id = NEW.client_id;
+  DELETE FROM refresh_tokens WHERE client_id = NEW.client_id;
   DELETE FROM authorization_codes WHERE client_id = NEW.client_id;
   DELETE FROM oidc_sessions WHERE client_id = NEW.client_id;
   RETURN NEW;
@@ -129,8 +161,12 @@ CREATE TRIGGER trg_authorization_codes_require_active_client
 BEFORE INSERT ON authorization_codes
 FOR EACH ROW EXECUTE FUNCTION require_active_client();
 
-CREATE TRIGGER trg_tokens_require_active_client
-BEFORE INSERT ON tokens
+CREATE TRIGGER trg_access_tokens_require_active_client
+BEFORE INSERT ON access_tokens
+FOR EACH ROW EXECUTE FUNCTION require_active_client();
+
+CREATE TRIGGER trg_refresh_tokens_require_active_client
+BEFORE INSERT ON refresh_tokens
 FOR EACH ROW EXECUTE FUNCTION require_active_client();
 
 CREATE TRIGGER trg_oidc_sessions_require_active_client
