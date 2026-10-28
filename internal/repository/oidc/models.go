@@ -12,6 +12,18 @@ import (
 	"github.com/google/uuid"
 )
 
+type AccessToken struct {
+	ID        uuid.UUID     `json:"id"`
+	Signature string        `json:"signature"`
+	RequestID string        `json:"request_id"`
+	ClientID  uuid.UUID     `json:"client_id"`
+	UserID    uuid.NullUUID `json:"user_id"`
+	Scopes    string        `json:"scopes"`
+	IssuedAt  time.Time     `json:"issued_at"`
+	ExpiresAt time.Time     `json:"expires_at"`
+	RevokedAt sql.NullTime  `json:"revoked_at"`
+}
+
 type AuthorizationCode struct {
 	Code                string         `json:"code"`
 	ClientID            uuid.UUID      `json:"client_id"`
@@ -27,13 +39,21 @@ type AuthorizationCode struct {
 }
 
 type Client struct {
-	ClientID         uuid.UUID       `json:"client_id"`
-	ClientSecretHash sql.NullString  `json:"client_secret_hash"`
-	Name             string          `json:"name"`
-	ClientType       string          `json:"client_type"`
-	RedirectUris     json.RawMessage `json:"redirect_uris"`
-	CreatedAt        time.Time       `json:"created_at"`
-	UpdatedAt        time.Time       `json:"updated_at"`
+	ClientID               uuid.UUID       `json:"client_id"`
+	ClientSecretHash       sql.NullString  `json:"client_secret_hash"`
+	Name                   string          `json:"name"`
+	ClientType             string          `json:"client_type"`
+	RedirectUris           json.RawMessage `json:"redirect_uris"`
+	PostLogoutRedirectUris json.RawMessage `json:"post_logout_redirect_uris"`
+	AllowedOrigins         json.RawMessage `json:"allowed_origins"`
+	GrantTypes             json.RawMessage `json:"grant_types"`
+	ResponseTypes          json.RawMessage `json:"response_types"`
+	Scopes                 json.RawMessage `json:"scopes"`
+	TokenEndpointAuth      string          `json:"token_endpoint_auth"`
+	IDTokenAlg             string          `json:"id_token_alg"`
+	Status                 string          `json:"status"`
+	CreatedAt              time.Time       `json:"created_at"`
+	UpdatedAt              time.Time       `json:"updated_at"`
 }
 
 type OidcSession struct {
@@ -47,14 +67,15 @@ type OidcSession struct {
 	CreatedAt     time.Time      `json:"created_at"`
 }
 
-type Token struct {
-	ID           uuid.UUID      `json:"id"`
-	RequestID    string         `json:"request_id"`
-	ClientID     uuid.UUID      `json:"client_id"`
-	UserID       uuid.UUID      `json:"user_id"`
-	AccessToken  string         `json:"access_token"`
-	RefreshToken sql.NullString `json:"refresh_token"`
-	Scopes       string         `json:"scopes"`
-	ExpiresAt    time.Time      `json:"expires_at"`
-	CreatedAt    time.Time      `json:"created_at"`
+type RefreshToken struct {
+	ID        uuid.UUID    `json:"id"`
+	Signature string       `json:"signature"`
+	RequestID string       `json:"request_id"`
+	ClientID  uuid.UUID    `json:"client_id"`
+	UserID    uuid.UUID    `json:"user_id"`
+	Scopes    string       `json:"scopes"`
+	IssuedAt  time.Time    `json:"issued_at"`
+	ExpiresAt time.Time    `json:"expires_at"`
+	RotatedAt sql.NullTime `json:"rotated_at"`
+	RevokedAt sql.NullTime `json:"revoked_at"`
 }

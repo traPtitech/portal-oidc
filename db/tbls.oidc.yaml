@@ -34,7 +34,6 @@ comments:
       created_at: 作成日時
       updated_at: 更新日時
     indexComments:
-      PRIMARY: 主キー
+      clients_pkey: 主キー
     constraintComments:
-      PRIMARY: 主キー
-      redirect_uris: JSONバリデーション
+      clients_pkey: 主キー

@@ -6,42 +6,38 @@ package oidc
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/google/uuid"
 )
 
 type Querier interface {
+	ClearAuthorizationCodePKCE(ctx context.Context, code string) error
+	// Access token queries
+	CreateAccessToken(ctx context.Context, arg CreateAccessTokenParams) error
 	// Authorization Code queries
 	CreateAuthorizationCode(ctx context.Context, arg CreateAuthorizationCodeParams) error
 	// Client queries
 	CreateClient(ctx context.Context, arg CreateClientParams) error
 	// OIDC Session queries
 	CreateOIDCSession(ctx context.Context, arg CreateOIDCSessionParams) error
-	// Token queries
-	CreateToken(ctx context.Context, arg CreateTokenParams) error
-	DeleteAllAuthorizationCodes(ctx context.Context) error
+	// Refresh token queries
+	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) error
+	DeleteAccessTokenBySignature(ctx context.Context, signature string) error
 	DeleteAllClients(ctx context.Context) error
-	DeleteAllOIDCSessions(ctx context.Context) error
-	DeleteAllTokens(ctx context.Context) error
 	DeleteAuthorizationCode(ctx context.Context, code string) error
 	DeleteClient(ctx context.Context, clientID uuid.UUID) error
-	DeleteExpiredAuthorizationCodes(ctx context.Context) error
-	DeleteExpiredTokens(ctx context.Context) error
 	DeleteOIDCSession(ctx context.Context, authorizeCode string) error
-	DeleteToken(ctx context.Context, id uuid.UUID) error
-	DeleteTokenByAccessToken(ctx context.Context, accessToken string) error
-	DeleteTokenByRefreshToken(ctx context.Context, refreshToken sql.NullString) error
-	DeleteTokensByRequestID(ctx context.Context, requestID string) error
-	DeleteTokensByUserAndClient(ctx context.Context, arg DeleteTokensByUserAndClientParams) error
+	DeleteRefreshTokenBySignature(ctx context.Context, signature string) error
+	GetAccessTokenBySignature(ctx context.Context, signature string) (AccessToken, error)
 	GetAuthorizationCode(ctx context.Context, code string) (AuthorizationCode, error)
 	GetClient(ctx context.Context, clientID uuid.UUID) (Client, error)
 	GetOIDCSession(ctx context.Context, authorizeCode string) (OidcSession, error)
-	GetTokenByAccessToken(ctx context.Context, accessToken string) (Token, error)
-	GetTokenByID(ctx context.Context, id uuid.UUID) (Token, error)
-	GetTokenByRefreshToken(ctx context.Context, refreshToken sql.NullString) (Token, error)
+	GetRefreshTokenBySignature(ctx context.Context, signature string) (RefreshToken, error)
 	ListClients(ctx context.Context) ([]Client, error)
 	MarkAuthorizationCodeUsed(ctx context.Context, code string) error
+	RevokeAccessTokensByRequestID(ctx context.Context, requestID string) error
+	RevokeRefreshTokensByRequestID(ctx context.Context, requestID string) error
+	RotateRefreshTokenBySignature(ctx context.Context, signature string) (int64, error)
 	UpdateAuthorizationCodePKCE(ctx context.Context, arg UpdateAuthorizationCodePKCEParams) error
 	UpdateClient(ctx context.Context, arg UpdateClientParams) error
 	UpdateClientSecret(ctx context.Context, arg UpdateClientSecretParams) error
