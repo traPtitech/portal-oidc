@@ -38,6 +38,54 @@
           "comment": "OAuth認可後のリダイレクトURI (JSON配列、複数環境対応)"
         },
         {
+          "name": "post_logout_redirect_uris",
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'[]'::jsonb"
+        },
+        {
+          "name": "allowed_origins",
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'[]'::jsonb"
+        },
+        {
+          "name": "grant_types",
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'[\"authorization_code\"]'::jsonb"
+        },
+        {
+          "name": "response_types",
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'[\"code\"]'::jsonb"
+        },
+        {
+          "name": "scopes",
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'[\"openid\", \"profile\", \"email\"]'::jsonb"
+        },
+        {
+          "name": "token_endpoint_auth",
+          "type": "text",
+          "nullable": false,
+          "default": "'client_secret_basic'::text"
+        },
+        {
+          "name": "id_token_alg",
+          "type": "text",
+          "nullable": false,
+          "default": "'RS256'::text"
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "nullable": false,
+          "default": "'active'::text"
+        },
+        {
           "name": "created_at",
           "type": "timestamp with time zone",
           "nullable": false,
@@ -64,6 +112,16 @@
         }
       ],
       "constraints": [
+        {
+          "name": "clients_allowed_origins_not_null",
+          "type": "n",
+          "def": "NOT NULL allowed_origins",
+          "table": "public.clients",
+          "referenced_table": "",
+          "columns": [
+            "allowed_origins"
+          ]
+        },
         {
           "name": "clients_client_id_not_null",
           "type": "n",
@@ -95,6 +153,26 @@
           ]
         },
         {
+          "name": "clients_grant_types_not_null",
+          "type": "n",
+          "def": "NOT NULL grant_types",
+          "table": "public.clients",
+          "referenced_table": "",
+          "columns": [
+            "grant_types"
+          ]
+        },
+        {
+          "name": "clients_id_token_alg_not_null",
+          "type": "n",
+          "def": "NOT NULL id_token_alg",
+          "table": "public.clients",
+          "referenced_table": "",
+          "columns": [
+            "id_token_alg"
+          ]
+        },
+        {
           "name": "clients_name_not_null",
           "type": "n",
           "def": "NOT NULL name",
@@ -105,6 +183,16 @@
           ]
         },
         {
+          "name": "clients_post_logout_redirect_uris_not_null",
+          "type": "n",
+          "def": "NOT NULL post_logout_redirect_uris",
+          "table": "public.clients",
+          "referenced_table": "",
+          "columns": [
+            "post_logout_redirect_uris"
+          ]
+        },
+        {
           "name": "clients_redirect_uris_not_null",
           "type": "n",
           "def": "NOT NULL redirect_uris",
@@ -112,6 +200,46 @@
           "referenced_table": "",
           "columns": [
             "redirect_uris"
+          ]
+        },
+        {
+          "name": "clients_response_types_not_null",
+          "type": "n",
+          "def": "NOT NULL response_types",
+          "table": "public.clients",
+          "referenced_table": "",
+          "columns": [
+            "response_types"
+          ]
+        },
+        {
+          "name": "clients_scopes_not_null",
+          "type": "n",
+          "def": "NOT NULL scopes",
+          "table": "public.clients",
+          "referenced_table": "",
+          "columns": [
+            "scopes"
+          ]
+        },
+        {
+          "name": "clients_status_not_null",
+          "type": "n",
+          "def": "NOT NULL status",
+          "table": "public.clients",
+          "referenced_table": "",
+          "columns": [
+            "status"
+          ]
+        },
+        {
+          "name": "clients_token_endpoint_auth_not_null",
+          "type": "n",
+          "def": "NOT NULL token_endpoint_auth",
+          "table": "public.clients",
+          "referenced_table": "",
+          "columns": [
+            "token_endpoint_auth"
           ]
         },
         {
@@ -140,6 +268,10 @@
         {
           "name": "trg_clients_set_updated_at",
           "def": "CREATE TRIGGER trg_clients_set_updated_at BEFORE UPDATE ON public.clients FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        },
+        {
+          "name": "trg_clients_revoke_sessions",
+          "def": "CREATE TRIGGER trg_clients_revoke_sessions AFTER UPDATE OF status ON public.clients FOR EACH ROW WHEN (((old.status IS DISTINCT FROM new.status) AND (new.status \u003c\u003e 'active'::text))) EXECUTE FUNCTION revoke_inactive_client_sessions()"
         }
       ],
       "labels": [
@@ -341,15 +473,239 @@
             "code"
           ]
         }
+      ],
+      "triggers": [
+        {
+          "name": "trg_authorization_codes_require_active_client",
+          "def": "CREATE TRIGGER trg_authorization_codes_require_active_client BEFORE INSERT ON public.authorization_codes FOR EACH ROW EXECUTE FUNCTION require_active_client()"
+        }
       ]
     },
     {
-      "name": "public.tokens",
+      "name": "public.access_tokens",
       "type": "BASE TABLE",
       "columns": [
         {
           "name": "id",
           "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "signature",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "request_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "client_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "name": "scopes",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "issued_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "revoked_at",
+          "type": "timestamp with time zone",
+          "nullable": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "access_tokens_pkey",
+          "def": "CREATE UNIQUE INDEX access_tokens_pkey ON public.access_tokens USING btree (id)",
+          "table": "public.access_tokens",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_access_tokens_signature",
+          "def": "CREATE UNIQUE INDEX idx_access_tokens_signature ON public.access_tokens USING btree (signature)",
+          "table": "public.access_tokens",
+          "columns": [
+            "signature"
+          ]
+        },
+        {
+          "name": "idx_access_tokens_client_id",
+          "def": "CREATE INDEX idx_access_tokens_client_id ON public.access_tokens USING btree (client_id)",
+          "table": "public.access_tokens",
+          "columns": [
+            "client_id"
+          ]
+        },
+        {
+          "name": "idx_access_tokens_user_id",
+          "def": "CREATE INDEX idx_access_tokens_user_id ON public.access_tokens USING btree (user_id)",
+          "table": "public.access_tokens",
+          "columns": [
+            "user_id"
+          ]
+        },
+        {
+          "name": "idx_access_tokens_request_id",
+          "def": "CREATE INDEX idx_access_tokens_request_id ON public.access_tokens USING btree (request_id)",
+          "table": "public.access_tokens",
+          "columns": [
+            "request_id"
+          ]
+        },
+        {
+          "name": "idx_access_tokens_expires_at",
+          "def": "CREATE INDEX idx_access_tokens_expires_at ON public.access_tokens USING btree (expires_at)",
+          "table": "public.access_tokens",
+          "columns": [
+            "expires_at"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "access_tokens_client_id_not_null",
+          "type": "n",
+          "def": "NOT NULL client_id",
+          "table": "public.access_tokens",
+          "referenced_table": "",
+          "columns": [
+            "client_id"
+          ]
+        },
+        {
+          "name": "access_tokens_expires_at_not_null",
+          "type": "n",
+          "def": "NOT NULL expires_at",
+          "table": "public.access_tokens",
+          "referenced_table": "",
+          "columns": [
+            "expires_at"
+          ]
+        },
+        {
+          "name": "access_tokens_id_not_null",
+          "type": "n",
+          "def": "NOT NULL id",
+          "table": "public.access_tokens",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "access_tokens_issued_at_not_null",
+          "type": "n",
+          "def": "NOT NULL issued_at",
+          "table": "public.access_tokens",
+          "referenced_table": "",
+          "columns": [
+            "issued_at"
+          ]
+        },
+        {
+          "name": "access_tokens_request_id_not_null",
+          "type": "n",
+          "def": "NOT NULL request_id",
+          "table": "public.access_tokens",
+          "referenced_table": "",
+          "columns": [
+            "request_id"
+          ]
+        },
+        {
+          "name": "access_tokens_scopes_not_null",
+          "type": "n",
+          "def": "NOT NULL scopes",
+          "table": "public.access_tokens",
+          "referenced_table": "",
+          "columns": [
+            "scopes"
+          ]
+        },
+        {
+          "name": "access_tokens_signature_not_null",
+          "type": "n",
+          "def": "NOT NULL signature",
+          "table": "public.access_tokens",
+          "referenced_table": "",
+          "columns": [
+            "signature"
+          ]
+        },
+        {
+          "name": "fk_access_tokens_client",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (client_id) REFERENCES clients(client_id) ON DELETE CASCADE",
+          "table": "public.access_tokens",
+          "referenced_table": "public.clients",
+          "columns": [
+            "client_id"
+          ],
+          "referenced_columns": [
+            "client_id"
+          ]
+        },
+        {
+          "name": "access_tokens_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "public.access_tokens",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "idx_access_tokens_signature",
+          "type": "UNIQUE",
+          "def": "UNIQUE (signature)",
+          "table": "public.access_tokens",
+          "referenced_table": "",
+          "columns": [
+            "signature"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_access_tokens_require_active_client",
+          "def": "CREATE TRIGGER trg_access_tokens_require_active_client BEFORE INSERT ON public.access_tokens FOR EACH ROW EXECUTE FUNCTION require_active_client()"
+        }
+      ]
+    },
+    {
+      "name": "public.refresh_tokens",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "signature",
+          "type": "text",
           "nullable": false
         },
         {
@@ -368,19 +724,15 @@
           "nullable": false
         },
         {
-          "name": "access_token",
-          "type": "text",
-          "nullable": true
-        },
-        {
-          "name": "refresh_token",
-          "type": "text",
-          "nullable": true
-        },
-        {
           "name": "scopes",
           "type": "text",
           "nullable": false
+        },
+        {
+          "name": "issued_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "CURRENT_TIMESTAMP"
         },
         {
           "name": "expires_at",
@@ -388,65 +740,61 @@
           "nullable": false
         },
         {
-          "name": "created_at",
+          "name": "rotated_at",
           "type": "timestamp with time zone",
-          "nullable": false,
-          "default": "CURRENT_TIMESTAMP"
+          "nullable": true
+        },
+        {
+          "name": "revoked_at",
+          "type": "timestamp with time zone",
+          "nullable": true
         }
       ],
       "indexes": [
         {
-          "name": "tokens_pkey",
-          "def": "CREATE UNIQUE INDEX tokens_pkey ON public.tokens USING btree (id)",
-          "table": "public.tokens",
+          "name": "refresh_tokens_pkey",
+          "def": "CREATE UNIQUE INDEX refresh_tokens_pkey ON public.refresh_tokens USING btree (id)",
+          "table": "public.refresh_tokens",
           "columns": [
             "id"
           ]
         },
         {
-          "name": "idx_tokens_access_token",
-          "def": "CREATE UNIQUE INDEX idx_tokens_access_token ON public.tokens USING btree (access_token)",
-          "table": "public.tokens",
+          "name": "idx_refresh_tokens_signature",
+          "def": "CREATE UNIQUE INDEX idx_refresh_tokens_signature ON public.refresh_tokens USING btree (signature)",
+          "table": "public.refresh_tokens",
           "columns": [
-            "access_token"
+            "signature"
           ]
         },
         {
-          "name": "idx_tokens_refresh_token",
-          "def": "CREATE UNIQUE INDEX idx_tokens_refresh_token ON public.tokens USING btree (refresh_token)",
-          "table": "public.tokens",
-          "columns": [
-            "refresh_token"
-          ]
-        },
-        {
-          "name": "idx_tokens_client_id",
-          "def": "CREATE INDEX idx_tokens_client_id ON public.tokens USING btree (client_id)",
-          "table": "public.tokens",
+          "name": "idx_refresh_tokens_client_id",
+          "def": "CREATE INDEX idx_refresh_tokens_client_id ON public.refresh_tokens USING btree (client_id)",
+          "table": "public.refresh_tokens",
           "columns": [
             "client_id"
           ]
         },
         {
-          "name": "idx_tokens_user_id",
-          "def": "CREATE INDEX idx_tokens_user_id ON public.tokens USING btree (user_id)",
-          "table": "public.tokens",
+          "name": "idx_refresh_tokens_user_id",
+          "def": "CREATE INDEX idx_refresh_tokens_user_id ON public.refresh_tokens USING btree (user_id)",
+          "table": "public.refresh_tokens",
           "columns": [
             "user_id"
           ]
         },
         {
-          "name": "idx_tokens_request_id",
-          "def": "CREATE INDEX idx_tokens_request_id ON public.tokens USING btree (request_id)",
-          "table": "public.tokens",
+          "name": "idx_refresh_tokens_request_id",
+          "def": "CREATE INDEX idx_refresh_tokens_request_id ON public.refresh_tokens USING btree (request_id)",
+          "table": "public.refresh_tokens",
           "columns": [
             "request_id"
           ]
         },
         {
-          "name": "idx_tokens_expires_at",
-          "def": "CREATE INDEX idx_tokens_expires_at ON public.tokens USING btree (expires_at)",
-          "table": "public.tokens",
+          "name": "idx_refresh_tokens_expires_at",
+          "def": "CREATE INDEX idx_refresh_tokens_expires_at ON public.refresh_tokens USING btree (expires_at)",
+          "table": "public.refresh_tokens",
           "columns": [
             "expires_at"
           ]
@@ -454,91 +802,90 @@
       ],
       "constraints": [
         {
-          "name": "chk_tokens_at_least_one_token",
-          "type": "CHECK",
-          "def": "CHECK (((access_token IS NOT NULL) OR (refresh_token IS NOT NULL)))",
-          "table": "public.tokens",
-          "referenced_table": "",
-          "columns": [
-            "access_token",
-            "refresh_token"
-          ]
-        },
-        {
-          "name": "tokens_client_id_not_null",
+          "name": "refresh_tokens_client_id_not_null",
           "type": "n",
           "def": "NOT NULL client_id",
-          "table": "public.tokens",
+          "table": "public.refresh_tokens",
           "referenced_table": "",
           "columns": [
             "client_id"
           ]
         },
         {
-          "name": "tokens_created_at_not_null",
-          "type": "n",
-          "def": "NOT NULL created_at",
-          "table": "public.tokens",
-          "referenced_table": "",
-          "columns": [
-            "created_at"
-          ]
-        },
-        {
-          "name": "tokens_expires_at_not_null",
+          "name": "refresh_tokens_expires_at_not_null",
           "type": "n",
           "def": "NOT NULL expires_at",
-          "table": "public.tokens",
+          "table": "public.refresh_tokens",
           "referenced_table": "",
           "columns": [
             "expires_at"
           ]
         },
         {
-          "name": "tokens_id_not_null",
+          "name": "refresh_tokens_id_not_null",
           "type": "n",
           "def": "NOT NULL id",
-          "table": "public.tokens",
+          "table": "public.refresh_tokens",
           "referenced_table": "",
           "columns": [
             "id"
           ]
         },
         {
-          "name": "tokens_request_id_not_null",
+          "name": "refresh_tokens_issued_at_not_null",
+          "type": "n",
+          "def": "NOT NULL issued_at",
+          "table": "public.refresh_tokens",
+          "referenced_table": "",
+          "columns": [
+            "issued_at"
+          ]
+        },
+        {
+          "name": "refresh_tokens_request_id_not_null",
           "type": "n",
           "def": "NOT NULL request_id",
-          "table": "public.tokens",
+          "table": "public.refresh_tokens",
           "referenced_table": "",
           "columns": [
             "request_id"
           ]
         },
         {
-          "name": "tokens_scopes_not_null",
+          "name": "refresh_tokens_scopes_not_null",
           "type": "n",
           "def": "NOT NULL scopes",
-          "table": "public.tokens",
+          "table": "public.refresh_tokens",
           "referenced_table": "",
           "columns": [
             "scopes"
           ]
         },
         {
-          "name": "tokens_user_id_not_null",
+          "name": "refresh_tokens_signature_not_null",
+          "type": "n",
+          "def": "NOT NULL signature",
+          "table": "public.refresh_tokens",
+          "referenced_table": "",
+          "columns": [
+            "signature"
+          ]
+        },
+        {
+          "name": "refresh_tokens_user_id_not_null",
           "type": "n",
           "def": "NOT NULL user_id",
-          "table": "public.tokens",
+          "table": "public.refresh_tokens",
           "referenced_table": "",
           "columns": [
             "user_id"
           ]
         },
         {
-          "name": "fk_tokens_client",
+          "name": "fk_refresh_tokens_client",
           "type": "FOREIGN KEY",
           "def": "FOREIGN KEY (client_id) REFERENCES clients(client_id) ON DELETE CASCADE",
-          "table": "public.tokens",
+          "table": "public.refresh_tokens",
           "referenced_table": "public.clients",
           "columns": [
             "client_id"
@@ -548,24 +895,30 @@
           ]
         },
         {
-          "name": "tokens_pkey",
+          "name": "refresh_tokens_pkey",
           "type": "PRIMARY KEY",
           "def": "PRIMARY KEY (id)",
-          "table": "public.tokens",
+          "table": "public.refresh_tokens",
           "referenced_table": "",
           "columns": [
             "id"
           ]
         },
         {
-          "name": "idx_tokens_access_token",
+          "name": "idx_refresh_tokens_signature",
           "type": "UNIQUE",
-          "def": "UNIQUE (access_token)",
-          "table": "public.tokens",
+          "def": "UNIQUE (signature)",
+          "table": "public.refresh_tokens",
           "referenced_table": "",
           "columns": [
-            "access_token"
+            "signature"
           ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_refresh_tokens_require_active_client",
+          "def": "CREATE TRIGGER trg_refresh_tokens_require_active_client BEFORE INSERT ON public.refresh_tokens FOR EACH ROW EXECUTE FUNCTION require_active_client()"
         }
       ]
     },
@@ -741,6 +1094,12 @@
             "authorize_code"
           ]
         }
+      ],
+      "triggers": [
+        {
+          "name": "trg_oidc_sessions_require_active_client",
+          "def": "CREATE TRIGGER trg_oidc_sessions_require_active_client BEFORE INSERT ON public.oidc_sessions FOR EACH ROW EXECUTE FUNCTION require_active_client()"
+        }
       ]
     }
   ],
@@ -759,7 +1118,20 @@
       "def": "FOREIGN KEY (client_id) REFERENCES clients(client_id) ON DELETE CASCADE"
     },
     {
-      "table": "public.tokens",
+      "table": "public.access_tokens",
+      "columns": [
+        "client_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.clients",
+      "parent_columns": [
+        "client_id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (client_id) REFERENCES clients(client_id) ON DELETE CASCADE"
+    },
+    {
+      "table": "public.refresh_tokens",
       "columns": [
         "client_id"
       ],
@@ -801,6 +1173,18 @@
   "functions": [
     {
       "name": "public.set_updated_at",
+      "return_type": "trigger",
+      "arguments": "",
+      "type": "FUNCTION"
+    },
+    {
+      "name": "public.revoke_inactive_client_sessions",
+      "return_type": "trigger",
+      "arguments": "",
+      "type": "FUNCTION"
+    },
+    {
+      "name": "public.require_active_client",
       "return_type": "trigger",
       "arguments": "",
       "type": "FUNCTION"
