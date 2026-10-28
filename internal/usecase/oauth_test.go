@@ -342,5 +342,5 @@ func (s *oauthTokenAuthCodeRepositoryStub) MarkUsed(ctx context.Context, code st
 }
 
 func newOAuthTokenStorage(markUsed func(context.Context, string) error) *oauth.Storage {
-	return oauth.NewStorage(nil, nil, nil, &oauthTokenAuthCodeRepositoryStub{markUsed: markUsed}, nil, nil)
+	return oauth.NewStorage(nil, nil, nil, &oauthTokenAuthCodeRepositoryStub{markUsed: markUsed}, nil, nil, nil)
 }

@@ -378,7 +378,8 @@ func TestIntegration_TokenAuthorizationCodeReuseRevokesTokens(t *testing.T) {
 	queries := oidc.New(testDB)
 	clientRepo := repository.NewClientRepository(queries)
 	authCodeRepo := repository.NewAuthCodeRepository(queries)
-	tokenRepo := repository.NewTokenRepository(queries)
+	accessTokenRepo := repository.NewAccessTokenRepository(queries)
+	refreshTokenRepo := repository.NewRefreshTokenRepository(queries)
 
 	clientID := uuid.New()
 	clientSecret := "reuse-test-client-secret" //nolint:gosec // test credential
@@ -419,15 +420,26 @@ func TestIntegration_TokenAuthorizationCodeReuseRevokesTokens(t *testing.T) {
 	}
 
 	const accessToken = "access-token-issued-for-reused-code"
-	if err := tokenRepo.Create(ctx, domain.Token{
-		ID:          uuid.New(),
-		RequestID:   signature,
-		ClientID:    clientID,
-		UserID:      userID,
-		AccessToken: accessToken,
-		ExpiresAt:   time.Now().Add(time.Hour),
+	if err := accessTokenRepo.Create(ctx, domain.AccessToken{
+		ID:        uuid.New(),
+		RequestID: signature,
+		ClientID:  clientID,
+		UserID:    &userID,
+		Signature: accessToken,
+		ExpiresAt: time.Now().Add(time.Hour),
 	}); err != nil {
-		t.Fatalf("create token: %v", err)
+		t.Fatalf("create access token: %v", err)
+	}
+	const refreshToken = "refresh-token-issued-for-reused-code"
+	if err := refreshTokenRepo.Create(ctx, domain.RefreshToken{
+		ID:        uuid.New(),
+		RequestID: signature,
+		ClientID:  clientID,
+		UserID:    userID,
+		Signature: refreshToken,
+		ExpiresAt: time.Now().Add(time.Hour),
+	}); err != nil {
+		t.Fatalf("create refresh token: %v", err)
 	}
 
 	e := echo.New()
@@ -435,9 +447,196 @@ func TestIntegration_TokenAuthorizationCodeReuseRevokesTokens(t *testing.T) {
 	response := exchangeAuthorizationCode(t, e, clientID.String(), clientSecret, code, redirectURI, "")
 	assertTokenError(t, response, http.StatusBadRequest, gen.InvalidGrant)
 
-	if _, err := tokenRepo.GetByAccessToken(ctx, accessToken); !errors.Is(err, repository.ErrTokenNotFound) {
-		t.Fatalf("token lookup error = %v, want repository.ErrTokenNotFound", err)
+	access, err := accessTokenRepo.GetBySignature(ctx, accessToken)
+	if err != nil {
+		t.Fatalf("get access token: %v", err)
 	}
+	if access.RevokedAt == nil {
+		t.Fatal("access token issued for the reused code was not revoked")
+	}
+	refresh, err := refreshTokenRepo.GetBySignature(ctx, refreshToken)
+	if err != nil {
+		t.Fatalf("get refresh token: %v", err)
+	}
+	if refresh.RevokedAt == nil {
+		t.Fatal("refresh token issued for the reused code was not revoked")
+	}
+}
+
+func TestIntegration_TokenRefreshRotationAndReuse(t *testing.T) {
+	handler, cleanup := setupTestHandler(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	queries := oidc.New(testDB)
+	clientRepo := repository.NewClientRepository(queries)
+	accessTokenRepo := repository.NewAccessTokenRepository(queries)
+	refreshTokenRepo := repository.NewRefreshTokenRepository(queries)
+
+	clientID := uuid.New()
+	clientSecret := "refresh-test-client-secret" //nolint:gosec // test credential
+	secretHash, err := bcrypt.GenerateFromPassword([]byte(clientSecret), bcrypt.MinCost)
+	if err != nil {
+		t.Fatalf("hash client secret: %v", err)
+	}
+	if err := clientRepo.Create(ctx, &domain.Client{
+		ClientID:     clientID,
+		Name:         "refresh token test client",
+		ClientType:   domain.ClientTypeConfidential,
+		RedirectURIs: []string{"https://client.example/refresh-callback"},
+		GrantTypes:   []string{"authorization_code", "refresh_token"},
+		Scopes:       []string{"openid", "offline_access"},
+	}, string(secretHash)); err != nil {
+		t.Fatalf("create client: %v", err)
+	}
+
+	strategy := compose.NewOAuth2HMACStrategy(&fosite.Config{
+		GlobalSecret: []byte("test-secret-key-32-characters!!!"),
+	})
+	userID := uuid.New()
+	// issue stores a refresh token (and an access token for the same request)
+	// as if they had been issued by a previous token response.
+	issue := func(t *testing.T, requestID string) (string, string) {
+		t.Helper()
+		refreshToken, refreshSignature, err := strategy.GenerateRefreshToken(ctx, fosite.NewRequest())
+		if err != nil {
+			t.Fatalf("generate refresh token: %v", err)
+		}
+		if err := refreshTokenRepo.Create(ctx, domain.RefreshToken{
+			Signature: refreshSignature,
+			RequestID: requestID,
+			ClientID:  clientID,
+			UserID:    userID,
+			Scopes:    []string{"openid", "offline_access"},
+			ExpiresAt: time.Now().Add(time.Hour),
+		}); err != nil {
+			t.Fatalf("create refresh token: %v", err)
+		}
+		accessSignature := "access-" + requestID
+		if err := accessTokenRepo.Create(ctx, domain.AccessToken{
+			Signature: accessSignature,
+			RequestID: requestID,
+			ClientID:  clientID,
+			UserID:    &userID,
+			Scopes:    []string{"openid", "offline_access"},
+			ExpiresAt: time.Now().Add(time.Hour),
+		}); err != nil {
+			t.Fatalf("create access token: %v", err)
+		}
+		return refreshToken, accessSignature
+	}
+
+	e := echo.New()
+	gen.RegisterHandlers(e, handler)
+
+	t.Run("rotation then replay revokes the family", func(t *testing.T) {
+		requestID := uuid.NewString()
+		oldRefresh, oldAccess := issue(t, requestID)
+		otherRefresh, otherAccess := issue(t, uuid.NewString())
+
+		response := refreshTokenGrant(ctx, t, e, clientID.String(), clientSecret, oldRefresh)
+		if response.Code != http.StatusOK {
+			t.Fatalf("refresh status = %d, want %d, body = %s", response.Code, http.StatusOK, response.Body.String())
+		}
+		var body struct {
+			RefreshToken string `json:"refresh_token"`
+		}
+		if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil || body.RefreshToken == "" {
+			t.Fatalf("decode refresh response: %v, body = %s", err, response.Body.String())
+		}
+
+		rotated, err := refreshTokenRepo.GetBySignature(ctx, strategy.RefreshTokenSignature(ctx, oldRefresh))
+		if err != nil {
+			t.Fatalf("get rotated refresh token: %v", err)
+		}
+		if rotated.RotatedAt == nil {
+			t.Fatal("previous refresh token was not rotated")
+		}
+		access, err := accessTokenRepo.GetBySignature(ctx, oldAccess)
+		if err != nil {
+			t.Fatalf("get previous access token: %v", err)
+		}
+		if access.RevokedAt == nil {
+			t.Fatal("access token issued before rotation was not revoked")
+		}
+
+		replay := refreshTokenGrant(ctx, t, e, clientID.String(), clientSecret, oldRefresh)
+		assertTokenError(t, replay, http.StatusBadRequest, gen.InvalidGrant)
+
+		current, err := refreshTokenRepo.GetBySignature(ctx, strategy.RefreshTokenSignature(ctx, body.RefreshToken))
+		if err != nil {
+			t.Fatalf("get rotated-in refresh token: %v", err)
+		}
+		if current.RevokedAt == nil {
+			t.Fatal("refresh token family was not revoked after replay")
+		}
+		afterReplay := refreshTokenGrant(ctx, t, e, clientID.String(), clientSecret, body.RefreshToken)
+		assertTokenError(t, afterReplay, http.StatusBadRequest, gen.InvalidGrant)
+
+		// Neither rotation nor reuse detection may touch tokens of another request.
+		other, err := refreshTokenRepo.GetBySignature(ctx, strategy.RefreshTokenSignature(ctx, otherRefresh))
+		if err != nil {
+			t.Fatalf("get refresh token of another request: %v", err)
+		}
+		if other.RotatedAt != nil || other.RevokedAt != nil {
+			t.Fatal("refresh token of another request was rotated or revoked")
+		}
+		otherAccessToken, err := accessTokenRepo.GetBySignature(ctx, otherAccess)
+		if err != nil {
+			t.Fatalf("get access token of another request: %v", err)
+		}
+		if otherAccessToken.RevokedAt != nil {
+			t.Fatal("access token of another request was revoked")
+		}
+	})
+
+	t.Run("second rotation of the same token is rejected", func(t *testing.T) {
+		requestID := uuid.NewString()
+		refreshToken, _ := issue(t, requestID)
+		signature := strategy.RefreshTokenSignature(ctx, refreshToken)
+
+		// Simulates the losing side of two concurrent refreshes: both passed
+		// the lookup, but only the first UPDATE may match.
+		if err := refreshTokenRepo.RotateBySignature(ctx, signature); err != nil {
+			t.Fatalf("first rotation: %v", err)
+		}
+		if err := refreshTokenRepo.RotateBySignature(ctx, signature); !errors.Is(err, repository.ErrRefreshTokenNotRotated) {
+			t.Fatalf("second rotation error = %v, want repository.ErrRefreshTokenNotRotated", err)
+		}
+	})
+
+	t.Run("revoked refresh token is rejected", func(t *testing.T) {
+		requestID := uuid.NewString()
+		refreshToken, _ := issue(t, requestID)
+		if err := refreshTokenRepo.RevokeByRequestID(ctx, requestID); err != nil {
+			t.Fatalf("revoke refresh token: %v", err)
+		}
+
+		response := refreshTokenGrant(ctx, t, e, clientID.String(), clientSecret, refreshToken)
+		assertTokenError(t, response, http.StatusBadRequest, gen.InvalidGrant)
+	})
+}
+
+func refreshTokenGrant(
+	ctx context.Context,
+	t *testing.T,
+	e *echo.Echo,
+	clientID string,
+	clientSecret string,
+	refreshToken string,
+) *httptest.ResponseRecorder {
+	t.Helper()
+
+	form := url.Values{
+		"grant_type":    {"refresh_token"},
+		"refresh_token": {refreshToken},
+	}
+	req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/oauth2/token", strings.NewReader(form.Encode()))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	req.SetBasicAuth(clientID, clientSecret)
+	recorder := httptest.NewRecorder()
+	e.ServeHTTP(recorder, req)
+	return recorder
 }
 
 func exchangeAuthorizationCode(
