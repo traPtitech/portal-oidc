@@ -7,6 +7,7 @@ import (
 
 	"github.com/gorilla/sessions"
 	"github.com/ory/fosite"
+	fositejwt "github.com/ory/fosite/token/jwt"
 
 	"github.com/traPtitech/portal-oidc/internal/audit"
 	"github.com/traPtitech/portal-oidc/internal/usecase"
@@ -26,6 +27,7 @@ type OAuthConfig struct {
 	Issuer        string
 	SessionSecret []byte // #nosec G117 -- internal config, not serialized
 	PrivateKey    *rsa.PrivateKey
+	IDTokenSigner fositejwt.Signer
 	Environment   string
 	TestUserID    string
 }

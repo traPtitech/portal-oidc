@@ -24,6 +24,9 @@ func New(db DBTX) *Queries {
 func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	q := Queries{db: db}
 	var err error
+	if q.clearAuthorizationCodePKCEStmt, err = db.PrepareContext(ctx, clearAuthorizationCodePKCE); err != nil {
+		return nil, fmt.Errorf("error preparing query ClearAuthorizationCodePKCE: %w", err)
+	}
 	if q.createAuditLogStmt, err = db.PrepareContext(ctx, createAuditLog); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateAuditLog: %w", err)
 	}
@@ -128,6 +131,11 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 
 func (q *Queries) Close() error {
 	var err error
+	if q.clearAuthorizationCodePKCEStmt != nil {
+		if cerr := q.clearAuthorizationCodePKCEStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing clearAuthorizationCodePKCEStmt: %w", cerr)
+		}
+	}
 	if q.createAuditLogStmt != nil {
 		if cerr := q.createAuditLogStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createAuditLogStmt: %w", cerr)
@@ -332,6 +340,7 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 type Queries struct {
 	db                                  DBTX
 	tx                                  *sql.Tx
+	clearAuthorizationCodePKCEStmt      *sql.Stmt
 	createAuditLogStmt                  *sql.Stmt
 	createAuthorizationCodeStmt         *sql.Stmt
 	createClientStmt                    *sql.Stmt
@@ -371,6 +380,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
 		db:                                  tx,
 		tx:                                  tx,
+		clearAuthorizationCodePKCEStmt:      q.clearAuthorizationCodePKCEStmt,
 		createAuditLogStmt:                  q.createAuditLogStmt,
 		createAuthorizationCodeStmt:         q.createAuthorizationCodeStmt,
 		createClientStmt:                    q.createClientStmt,

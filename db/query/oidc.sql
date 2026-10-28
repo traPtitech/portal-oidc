@@ -6,8 +6,21 @@ INSERT INTO clients (
     client_secret_hash,
     name,
     client_type,
-    redirect_uris
-) VALUES ($1, $2, $3, $4, $5);
+    redirect_uris,
+    client_uri,
+    logo_uri,
+    post_logout_redirect_uris,
+    allowed_origins,
+    grant_types,
+    response_types,
+    scopes,
+    token_endpoint_auth,
+    jwks_uri,
+    jwks,
+    id_token_alg,
+    status,
+    owner_id
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18);
 
 -- name: GetClient :one
 SELECT * FROM clients WHERE client_id = $1;
@@ -19,8 +32,21 @@ SELECT * FROM clients;
 UPDATE clients SET
     name = $1,
     client_type = $2,
-    redirect_uris = $3
-WHERE client_id = $4;
+    redirect_uris = $3,
+    client_uri = $4,
+    logo_uri = $5,
+    post_logout_redirect_uris = $6,
+    allowed_origins = $7,
+    grant_types = $8,
+    response_types = $9,
+    scopes = $10,
+    token_endpoint_auth = $11,
+    jwks_uri = $12,
+    jwks = $13,
+    id_token_alg = $14,
+    status = $15,
+    owner_id = $16
+WHERE client_id = $17;
 
 -- name: UpdateClientSecret :exec
 UPDATE clients SET
@@ -55,13 +81,23 @@ SELECT * FROM authorization_codes WHERE code = $1;
 DELETE FROM authorization_codes WHERE code = $1;
 
 -- name: MarkAuthorizationCodeUsed :exec
-UPDATE authorization_codes SET used = TRUE WHERE code = $1;
+UPDATE authorization_codes SET
+    used = TRUE,
+    code_challenge = NULL,
+    code_challenge_method = NULL
+WHERE code = $1;
 
 -- name: UpdateAuthorizationCodePKCE :exec
 UPDATE authorization_codes SET
     code_challenge = $1,
     code_challenge_method = $2
 WHERE code = $3;
+
+-- name: ClearAuthorizationCodePKCE :exec
+UPDATE authorization_codes SET
+    code_challenge = NULL,
+    code_challenge_method = NULL
+WHERE code = $1;
 
 -- name: DeleteExpiredAuthorizationCodes :exec
 DELETE FROM authorization_codes WHERE expires_at < NOW();

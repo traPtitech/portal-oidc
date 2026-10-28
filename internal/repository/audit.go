@@ -104,21 +104,6 @@ func mapAuditRows(rows []oidc.AuditLog) []domain.AuditLog {
 	return out
 }
 
-// nullUUID converts an optional uuid.UUID into the sql.NullUUID shape
-// required by the sqlc-generated parameter structs. (A package-level helper
-// will live in repository.go once #135 lands; until then this is duplicated
-// to keep the audit branch independently buildable.)
-func nullUUID(id *uuid.UUID) uuid.NullUUID {
-	if id == nil {
-		return uuid.NullUUID{}
-	}
-	return uuid.NullUUID{UUID: *id, Valid: true}
-}
-
-func nullString(s string) sql.NullString {
-	return sql.NullString{String: s, Valid: s != ""}
-}
-
 func toDomainAuditLog(row oidc.AuditLog) domain.AuditLog {
 	var userID, clientID *uuid.UUID
 	if row.UserID.Valid {
