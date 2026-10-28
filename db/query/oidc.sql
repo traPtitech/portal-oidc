@@ -105,9 +105,8 @@ INSERT INTO access_tokens (
     client_id,
     user_id,
     scopes,
-    audience,
     expires_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+) VALUES ($1, $2, $3, $4, $5, $6, $7);
 
 -- name: GetAccessTokenByJTI :one
 SELECT * FROM access_tokens WHERE jti = $1;
@@ -138,9 +137,8 @@ INSERT INTO refresh_tokens (
     client_id,
     user_id,
     scopes,
-    expires_at,
-    previous_token_id
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+    expires_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7);
 
 -- name: GetRefreshTokenByHash :one
 SELECT * FROM refresh_tokens WHERE token_hash = $1;

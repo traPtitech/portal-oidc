@@ -30,27 +30,24 @@ type AccessToken struct {
 	ClientID  uuid.UUID
 	UserID    *uuid.UUID
 	Scopes    []string
-	Audience  []string
 	IssuedAt  time.Time
 	ExpiresAt time.Time
 	RevokedAt *time.Time
 }
 
-// RefreshToken mirrors spec §refresh_tokens. PreviousTokenID forms the
-// rotation chain so OAuth 2.1 §4.13.2 family-revocation can be implemented
-// when a leaked refresh token is detected.
+// RefreshToken mirrors spec §refresh_tokens. Every generation of a rotation
+// family shares RequestID, which OAuth 2.1 §4.13.2 family-revocation keys on.
 type RefreshToken struct {
-	ID              uuid.UUID
-	TokenHash       string
-	RequestID       string
-	ClientID        uuid.UUID
-	UserID          uuid.UUID
-	Scopes          []string
-	IssuedAt        time.Time
-	ExpiresAt       time.Time
-	RotatedAt       *time.Time
-	PreviousTokenID *uuid.UUID
-	RevokedAt       *time.Time
+	ID        uuid.UUID
+	TokenHash string
+	RequestID string
+	ClientID  uuid.UUID
+	UserID    uuid.UUID
+	Scopes    []string
+	IssuedAt  time.Time
+	ExpiresAt time.Time
+	RotatedAt *time.Time
+	RevokedAt *time.Time
 }
 
 type OIDCSession struct {

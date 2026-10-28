@@ -3,12 +3,10 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/sqlc-dev/pqtype"
 
 	"github.com/traPtitech/portal-oidc/internal/domain"
 	"github.com/traPtitech/portal-oidc/internal/repository/oidc"
@@ -37,14 +35,6 @@ func (r *accessTokenRepository) Create(ctx context.Context, t domain.AccessToken
 	if id == uuid.Nil {
 		id = uuid.New()
 	}
-	audience := pqtype.NullRawMessage{}
-	if len(t.Audience) > 0 {
-		raw, err := json.Marshal(t.Audience)
-		if err != nil {
-			return err
-		}
-		audience = pqtype.NullRawMessage{RawMessage: raw, Valid: true}
-	}
 	return r.queries.CreateAccessToken(ctx, oidc.CreateAccessTokenParams{
 		ID:        id,
 		Jti:       t.JTI,
@@ -52,7 +42,6 @@ func (r *accessTokenRepository) Create(ctx context.Context, t domain.AccessToken
 		ClientID:  t.ClientID,
 		UserID:    nullUUID(t.UserID),
 		Scopes:    strings.Join(t.Scopes, " "),
-		Audience:  audience,
 		ExpiresAt: t.ExpiresAt,
 	})
 }
@@ -65,7 +54,7 @@ func (r *accessTokenRepository) GetByJTI(ctx context.Context, jti string) (domai
 		}
 		return domain.AccessToken{}, err
 	}
-	return toDomainAccessToken(row)
+	return toDomainAccessToken(row), nil
 }
 
 func (r *accessTokenRepository) DeleteByJTI(ctx context.Context, jti string) error {
@@ -80,13 +69,7 @@ func (r *accessTokenRepository) RevokeByRequestID(ctx context.Context, requestID
 	return r.queries.RevokeAccessTokensByRequestID(ctx, requestID)
 }
 
-func toDomainAccessToken(row oidc.AccessToken) (domain.AccessToken, error) {
-	var audience []string
-	if row.Audience.Valid {
-		if err := json.Unmarshal(row.Audience.RawMessage, &audience); err != nil {
-			return domain.AccessToken{}, err
-		}
-	}
+func toDomainAccessToken(row oidc.AccessToken) domain.AccessToken {
 	var userID *uuid.UUID
 	if row.UserID.Valid {
 		id := row.UserID.UUID
@@ -99,12 +82,11 @@ func toDomainAccessToken(row oidc.AccessToken) (domain.AccessToken, error) {
 		ClientID:  row.ClientID,
 		UserID:    userID,
 		Scopes:    splitScopes(row.Scopes),
-		Audience:  audience,
 		IssuedAt:  row.IssuedAt,
 		ExpiresAt: row.ExpiresAt,
 	}
 	if row.RevokedAt.Valid {
 		t.RevokedAt = &row.RevokedAt.Time
 	}
-	return t, nil
+	return t
 }

@@ -37,14 +37,13 @@ func (r *refreshTokenRepository) Create(ctx context.Context, t domain.RefreshTok
 		id = uuid.New()
 	}
 	return r.queries.CreateRefreshToken(ctx, oidc.CreateRefreshTokenParams{
-		ID:              id,
-		TokenHash:       t.TokenHash,
-		RequestID:       t.RequestID,
-		ClientID:        t.ClientID,
-		UserID:          t.UserID,
-		Scopes:          strings.Join(t.Scopes, " "),
-		ExpiresAt:       t.ExpiresAt,
-		PreviousTokenID: nullUUID(t.PreviousTokenID),
+		ID:        id,
+		TokenHash: t.TokenHash,
+		RequestID: t.RequestID,
+		ClientID:  t.ClientID,
+		UserID:    t.UserID,
+		Scopes:    strings.Join(t.Scopes, " "),
+		ExpiresAt: t.ExpiresAt,
 	})
 }
 
@@ -88,10 +87,6 @@ func toDomainRefreshToken(row oidc.RefreshToken) domain.RefreshToken {
 	}
 	if row.RotatedAt.Valid {
 		t.RotatedAt = &row.RotatedAt.Time
-	}
-	if row.PreviousTokenID.Valid {
-		id := row.PreviousTokenID.UUID
-		t.PreviousTokenID = &id
 	}
 	if row.RevokedAt.Valid {
 		t.RevokedAt = &row.RevokedAt.Time

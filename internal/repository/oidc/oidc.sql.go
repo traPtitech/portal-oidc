@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/sqlc-dev/pqtype"
 )
 
 const clearAuthorizationCodePKCE = `-- name: ClearAuthorizationCodePKCE :exec
@@ -36,20 +35,18 @@ INSERT INTO access_tokens (
     client_id,
     user_id,
     scopes,
-    audience,
     expires_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+) VALUES ($1, $2, $3, $4, $5, $6, $7)
 `
 
 type CreateAccessTokenParams struct {
-	ID        uuid.UUID             `json:"id"`
-	Jti       string                `json:"jti"`
-	RequestID string                `json:"request_id"`
-	ClientID  uuid.UUID             `json:"client_id"`
-	UserID    uuid.NullUUID         `json:"user_id"`
-	Scopes    string                `json:"scopes"`
-	Audience  pqtype.NullRawMessage `json:"audience"`
-	ExpiresAt time.Time             `json:"expires_at"`
+	ID        uuid.UUID     `json:"id"`
+	Jti       string        `json:"jti"`
+	RequestID string        `json:"request_id"`
+	ClientID  uuid.UUID     `json:"client_id"`
+	UserID    uuid.NullUUID `json:"user_id"`
+	Scopes    string        `json:"scopes"`
+	ExpiresAt time.Time     `json:"expires_at"`
 }
 
 // Access token queries
@@ -61,7 +58,6 @@ func (q *Queries) CreateAccessToken(ctx context.Context, arg CreateAccessTokenPa
 		arg.ClientID,
 		arg.UserID,
 		arg.Scopes,
-		arg.Audience,
 		arg.ExpiresAt,
 	)
 	return err
@@ -211,20 +207,18 @@ INSERT INTO refresh_tokens (
     client_id,
     user_id,
     scopes,
-    expires_at,
-    previous_token_id
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    expires_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7)
 `
 
 type CreateRefreshTokenParams struct {
-	ID              uuid.UUID     `json:"id"`
-	TokenHash       string        `json:"token_hash"`
-	RequestID       string        `json:"request_id"`
-	ClientID        uuid.UUID     `json:"client_id"`
-	UserID          uuid.UUID     `json:"user_id"`
-	Scopes          string        `json:"scopes"`
-	ExpiresAt       time.Time     `json:"expires_at"`
-	PreviousTokenID uuid.NullUUID `json:"previous_token_id"`
+	ID        uuid.UUID `json:"id"`
+	TokenHash string    `json:"token_hash"`
+	RequestID string    `json:"request_id"`
+	ClientID  uuid.UUID `json:"client_id"`
+	UserID    uuid.UUID `json:"user_id"`
+	Scopes    string    `json:"scopes"`
+	ExpiresAt time.Time `json:"expires_at"`
 }
 
 // Refresh token queries
@@ -237,7 +231,6 @@ func (q *Queries) CreateRefreshToken(ctx context.Context, arg CreateRefreshToken
 		arg.UserID,
 		arg.Scopes,
 		arg.ExpiresAt,
-		arg.PreviousTokenID,
 	)
 	return err
 }
@@ -378,7 +371,7 @@ func (q *Queries) DeleteRefreshTokensByRequestID(ctx context.Context, requestID 
 }
 
 const getAccessTokenByJTI = `-- name: GetAccessTokenByJTI :one
-SELECT id, jti, request_id, client_id, user_id, scopes, audience, issued_at, expires_at, revoked_at FROM access_tokens WHERE jti = $1
+SELECT id, jti, request_id, client_id, user_id, scopes, issued_at, expires_at, revoked_at FROM access_tokens WHERE jti = $1
 `
 
 func (q *Queries) GetAccessTokenByJTI(ctx context.Context, jti string) (AccessToken, error) {
@@ -391,7 +384,6 @@ func (q *Queries) GetAccessTokenByJTI(ctx context.Context, jti string) (AccessTo
 		&i.ClientID,
 		&i.UserID,
 		&i.Scopes,
-		&i.Audience,
 		&i.IssuedAt,
 		&i.ExpiresAt,
 		&i.RevokedAt,
@@ -470,7 +462,7 @@ func (q *Queries) GetOIDCSession(ctx context.Context, authorizeCode string) (Oid
 }
 
 const getRefreshTokenByHash = `-- name: GetRefreshTokenByHash :one
-SELECT id, token_hash, request_id, client_id, user_id, scopes, issued_at, expires_at, rotated_at, previous_token_id, revoked_at FROM refresh_tokens WHERE token_hash = $1
+SELECT id, token_hash, request_id, client_id, user_id, scopes, issued_at, expires_at, rotated_at, revoked_at FROM refresh_tokens WHERE token_hash = $1
 `
 
 func (q *Queries) GetRefreshTokenByHash(ctx context.Context, tokenHash string) (RefreshToken, error) {
@@ -486,7 +478,6 @@ func (q *Queries) GetRefreshTokenByHash(ctx context.Context, tokenHash string) (
 		&i.IssuedAt,
 		&i.ExpiresAt,
 		&i.RotatedAt,
-		&i.PreviousTokenID,
 		&i.RevokedAt,
 	)
 	return i, err
