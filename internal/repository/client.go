@@ -15,11 +15,8 @@ import (
 
 var ErrClientNotFound = errors.New("client not found")
 
-// Default per-client metadata applied when callers do not specify values.
-// These match the historical hard-coded behaviour from before the spec-aligned
-// columns were added (see traPortal v2 §clients).
 var (
-	defaultGrantTypes        = []string{"authorization_code", "refresh_token"}
+	defaultGrantTypes        = []string{"authorization_code"}
 	defaultResponseTypes     = []string{"code"}
 	defaultScopes            = []string{"openid", "profile", "email"}
 	defaultTokenEndpointAuth = "client_secret_basic"

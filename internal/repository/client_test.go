@@ -15,7 +15,7 @@ func TestClientPermissionDefaults(t *testing.T) {
 	}{
 		{
 			name:       "omitted",
-			wantGrants: `["authorization_code","refresh_token"]`, wantResponses: `["code"]`,
+			wantGrants: `["authorization_code"]`, wantResponses: `["code"]`,
 			wantScopes: `["openid","profile","email"]`,
 		},
 		{

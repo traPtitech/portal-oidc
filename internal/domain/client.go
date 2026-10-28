@@ -13,18 +13,6 @@ const (
 	ClientTypeConfidential ClientType = "confidential"
 )
 
-// Client mirrors the spec table traPortal v2 §clients.
-//
-// New per-client OAuth metadata is added with sensible defaults so older clients
-// (created before the fields existed) still operate identically to the previous
-// hard-coded behaviour:
-//
-//	GrantTypes        = ["authorization_code", "refresh_token"]
-//	ResponseTypes     = ["code"]
-//	Scopes            = ["openid", "profile", "email"]
-//	TokenEndpointAuth = "client_secret_basic"
-//	IDTokenAlg        = "RS256"
-//	Status            = "active"
 type Client struct {
 	ClientID               uuid.UUID
 	Name                   string

@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS clients (
   logo_uri TEXT NULL,
   post_logout_redirect_uris JSONB NOT NULL DEFAULT '[]'::jsonb,
   allowed_origins JSONB NOT NULL DEFAULT '[]'::jsonb,
-  grant_types JSONB NOT NULL DEFAULT '["authorization_code","refresh_token"]'::jsonb,
+  grant_types JSONB NOT NULL DEFAULT '["authorization_code"]'::jsonb,
   response_types JSONB NOT NULL DEFAULT '["code"]'::jsonb,
   scopes JSONB NOT NULL DEFAULT '["openid","profile","email"]'::jsonb,
   token_endpoint_auth TEXT NOT NULL DEFAULT 'client_secret_basic',
