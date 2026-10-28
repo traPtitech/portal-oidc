@@ -7,20 +7,11 @@ INSERT INTO clients (
     name,
     client_type,
     redirect_uris,
-    client_uri,
-    logo_uri,
-    post_logout_redirect_uris,
-    allowed_origins,
     grant_types,
     response_types,
     scopes,
-    token_endpoint_auth,
-    jwks_uri,
-    jwks,
-    id_token_alg,
-    status,
-    owner_id
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18);
+    status
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: GetClient :one
 SELECT * FROM clients WHERE client_id = $1;
@@ -33,20 +24,11 @@ UPDATE clients SET
     name = $1,
     client_type = $2,
     redirect_uris = $3,
-    client_uri = $4,
-    logo_uri = $5,
-    post_logout_redirect_uris = $6,
-    allowed_origins = $7,
-    grant_types = $8,
-    response_types = $9,
-    scopes = $10,
-    token_endpoint_auth = $11,
-    jwks_uri = $12,
-    jwks = $13,
-    id_token_alg = $14,
-    status = $15,
-    owner_id = $16
-WHERE client_id = $17 AND updated_at = $18;
+    grant_types = $4,
+    response_types = $5,
+    scopes = $6,
+    status = $7
+WHERE client_id = $8 AND updated_at = $9;
 
 -- name: UpdateClientSecret :exec
 UPDATE clients SET

@@ -17,25 +17,16 @@ const (
 // Creation defaults are applied by the repository and the database schema;
 // their equivalence is covered by TestClientCreationDefaultsMatchSchema.
 type Client struct {
-	ClientID               uuid.UUID
-	Name                   string
-	ClientType             ClientType
-	RedirectURIs           []string
-	ClientURI              string
-	LogoURI                string
-	PostLogoutRedirectURIs []string
-	AllowedOrigins         []string
-	GrantTypes             []string
-	ResponseTypes          []string
-	Scopes                 []string
-	TokenEndpointAuth      string
-	JWKSURI                string
-	JWKS                   []byte // raw JSON, nil when unset
-	IDTokenAlg             string
-	Status                 string // "active" or "suspended"
-	OwnerID                *uuid.UUID
-	CreatedAt              time.Time
-	UpdatedAt              time.Time
+	ClientID      uuid.UUID
+	Name          string
+	ClientType    ClientType
+	RedirectURIs  []string
+	GrantTypes    []string
+	ResponseTypes []string
+	Scopes        []string
+	Status        string // "active" or "suspended"
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 type ClientWithSecret struct {

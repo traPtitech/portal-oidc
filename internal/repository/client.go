@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/sqlc-dev/pqtype"
 
 	"github.com/traPtitech/portal-oidc/internal/domain"
 	"github.com/traPtitech/portal-oidc/internal/repository/oidc"
@@ -25,12 +24,10 @@ var ErrInvalidClientMetadata = errors.New("invalid client metadata")
 // These match the historical hard-coded behaviour from before the spec-aligned
 // columns were added (see traPortal v2 §clients).
 var (
-	defaultGrantTypes        = []string{"authorization_code", "refresh_token"}
-	defaultResponseTypes     = []string{"code"}
-	defaultScopes            = []string{"openid", "profile", "email"}
-	defaultTokenEndpointAuth = "client_secret_basic"
-	defaultIDTokenAlg        = "RS256"
-	defaultStatus            = "active"
+	defaultGrantTypes    = []string{"authorization_code", "refresh_token"}
+	defaultResponseTypes = []string{"code"}
+	defaultScopes        = []string{"openid", "profile", "email"}
+	defaultStatus        = "active"
 )
 
 type ClientRepository interface {
@@ -143,14 +140,6 @@ func (r *clientRepository) toDomain(dbClient oidc.Client) (*domain.Client, error
 	if err != nil {
 		return nil, err
 	}
-	postLogoutURIs, err := unmarshalStringArray(dbClient.PostLogoutRedirectUris)
-	if err != nil {
-		return nil, err
-	}
-	allowedOrigins, err := unmarshalStringArray(dbClient.AllowedOrigins)
-	if err != nil {
-		return nil, err
-	}
 	grantTypes, err := unmarshalStringArray(dbClient.GrantTypes)
 	if err != nil {
 		return nil, err
@@ -164,36 +153,17 @@ func (r *clientRepository) toDomain(dbClient oidc.Client) (*domain.Client, error
 		return nil, err
 	}
 
-	var jwks []byte
-	if dbClient.Jwks.Valid {
-		jwks = dbClient.Jwks.RawMessage
-	}
-	var ownerID *uuid.UUID
-	if dbClient.OwnerID.Valid {
-		id := dbClient.OwnerID.UUID
-		ownerID = &id
-	}
-
 	return &domain.Client{
-		ClientID:               dbClient.ClientID,
-		Name:                   dbClient.Name,
-		ClientType:             domain.ClientType(dbClient.ClientType),
-		RedirectURIs:           redirectURIs,
-		ClientURI:              dbClient.ClientUri.String,
-		LogoURI:                dbClient.LogoUri.String,
-		PostLogoutRedirectURIs: postLogoutURIs,
-		AllowedOrigins:         allowedOrigins,
-		GrantTypes:             grantTypes,
-		ResponseTypes:          responseTypes,
-		Scopes:                 scopes,
-		TokenEndpointAuth:      dbClient.TokenEndpointAuth,
-		JWKSURI:                dbClient.JwksUri.String,
-		JWKS:                   jwks,
-		IDTokenAlg:             dbClient.IDTokenAlg,
-		Status:                 dbClient.Status,
-		OwnerID:                ownerID,
-		CreatedAt:              dbClient.CreatedAt,
-		UpdatedAt:              dbClient.UpdatedAt,
+		ClientID:      dbClient.ClientID,
+		Name:          dbClient.Name,
+		ClientType:    domain.ClientType(dbClient.ClientType),
+		RedirectURIs:  redirectURIs,
+		GrantTypes:    grantTypes,
+		ResponseTypes: responseTypes,
+		Scopes:        scopes,
+		Status:        dbClient.Status,
+		CreatedAt:     dbClient.CreatedAt,
+		UpdatedAt:     dbClient.UpdatedAt,
 	}, nil
 }
 
@@ -220,8 +190,6 @@ func buildCreateParams(client *domain.Client, secretHash string) (oidc.CreateCli
 	normalized.GrantTypes = orDefault(client.GrantTypes, defaultGrantTypes)
 	normalized.ResponseTypes = orDefault(client.ResponseTypes, defaultResponseTypes)
 	normalized.Scopes = orDefault(client.Scopes, defaultScopes)
-	normalized.TokenEndpointAuth = orDefaultStr(client.TokenEndpointAuth, defaultTokenEndpointAuth)
-	normalized.IDTokenAlg = orDefaultStr(client.IDTokenAlg, defaultIDTokenAlg)
 	normalized.Status = orDefaultStr(client.Status, defaultStatus)
 	params, err := marshalClientMetadata(&normalized)
 	if err != nil {
@@ -234,15 +202,6 @@ func buildCreateParams(client *domain.Client, secretHash string) (oidc.CreateCli
 // marshalClientMetadata only encodes values; callers own defaulting and validation.
 func marshalClientMetadata(client *domain.Client) (oidc.CreateClientParams, error) {
 	redirectURIs, err := marshalStringArray(client.RedirectURIs)
-	if err != nil {
-		return oidc.CreateClientParams{}, err
-	}
-
-	postLogoutURIs, err := marshalStringArray(client.PostLogoutRedirectURIs)
-	if err != nil {
-		return oidc.CreateClientParams{}, err
-	}
-	allowedOrigins, err := marshalStringArray(client.AllowedOrigins)
 	if err != nil {
 		return oidc.CreateClientParams{}, err
 	}
@@ -259,29 +218,15 @@ func marshalClientMetadata(client *domain.Client) (oidc.CreateClientParams, erro
 		return oidc.CreateClientParams{}, err
 	}
 
-	jwks := pqtype.NullRawMessage{}
-	if len(client.JWKS) > 0 {
-		jwks = pqtype.NullRawMessage{RawMessage: client.JWKS, Valid: true}
-	}
-
 	return oidc.CreateClientParams{
-		ClientID:               client.ClientID,
-		Name:                   client.Name,
-		ClientType:             string(client.ClientType),
-		RedirectUris:           redirectURIs,
-		ClientUri:              nullString(client.ClientURI),
-		LogoUri:                nullString(client.LogoURI),
-		PostLogoutRedirectUris: postLogoutURIs,
-		AllowedOrigins:         allowedOrigins,
-		GrantTypes:             grantTypes,
-		ResponseTypes:          responseTypes,
-		Scopes:                 scopes,
-		TokenEndpointAuth:      client.TokenEndpointAuth,
-		JwksUri:                nullString(client.JWKSURI),
-		Jwks:                   jwks,
-		IDTokenAlg:             client.IDTokenAlg,
-		Status:                 client.Status,
-		OwnerID:                nullUUID(client.OwnerID),
+		ClientID:      client.ClientID,
+		Name:          client.Name,
+		ClientType:    string(client.ClientType),
+		RedirectUris:  redirectURIs,
+		GrantTypes:    grantTypes,
+		ResponseTypes: responseTypes,
+		Scopes:        scopes,
+		Status:        client.Status,
 	}, nil
 }
 
@@ -293,9 +238,6 @@ func buildUpdateParams(client *domain.Client) (oidc.UpdateClientParams, error) {
 	if client.Status != "active" && client.Status != "suspended" {
 		return oidc.UpdateClientParams{}, fmt.Errorf("%w: status must be active or suspended", ErrInvalidClientMetadata)
 	}
-	if client.TokenEndpointAuth == "" || client.IDTokenAlg == "" {
-		return oidc.UpdateClientParams{}, fmt.Errorf("%w: token authentication and ID token algorithm are required", ErrInvalidClientMetadata)
-	}
 
 	params, err := marshalClientMetadata(client)
 	if err != nil {
@@ -303,36 +245,20 @@ func buildUpdateParams(client *domain.Client) (oidc.UpdateClientParams, error) {
 	}
 
 	return oidc.UpdateClientParams{
-		UpdatedAt:              client.UpdatedAt,
-		ClientID:               params.ClientID,
-		Name:                   params.Name,
-		ClientType:             params.ClientType,
-		RedirectUris:           params.RedirectUris,
-		ClientUri:              params.ClientUri,
-		LogoUri:                params.LogoUri,
-		PostLogoutRedirectUris: params.PostLogoutRedirectUris,
-		AllowedOrigins:         params.AllowedOrigins,
-		GrantTypes:             params.GrantTypes,
-		ResponseTypes:          params.ResponseTypes,
-		Scopes:                 params.Scopes,
-		TokenEndpointAuth:      params.TokenEndpointAuth,
-		JwksUri:                params.JwksUri,
-		Jwks:                   params.Jwks,
-		IDTokenAlg:             params.IDTokenAlg,
-		Status:                 params.Status,
-		OwnerID:                params.OwnerID,
+		UpdatedAt:     client.UpdatedAt,
+		ClientID:      params.ClientID,
+		Name:          params.Name,
+		ClientType:    params.ClientType,
+		RedirectUris:  params.RedirectUris,
+		GrantTypes:    params.GrantTypes,
+		ResponseTypes: params.ResponseTypes,
+		Scopes:        params.Scopes,
+		Status:        params.Status,
 	}, nil
 }
 
 func nullString(s string) sql.NullString {
 	return sql.NullString{String: s, Valid: s != ""}
-}
-
-func nullUUID(id *uuid.UUID) uuid.NullUUID {
-	if id == nil {
-		return uuid.NullUUID{}
-	}
-	return uuid.NullUUID{UUID: *id, Valid: true}
 }
 
 func orDefault(values, fallback []string) []string {

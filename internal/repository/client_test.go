@@ -30,7 +30,7 @@ func TestClientPermissionDefaults(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client := &domain.Client{Status: "active", TokenEndpointAuth: "client_secret_basic", IDTokenAlg: "RS256", GrantTypes: tt.values, ResponseTypes: tt.values, Scopes: tt.values}
+			client := &domain.Client{Status: "active", GrantTypes: tt.values, ResponseTypes: tt.values, Scopes: tt.values}
 			created, err := buildCreateParams(client, "")
 			if err != nil {
 				t.Fatal(err)
@@ -65,8 +65,8 @@ func TestClientRenamePreservesPermissions(t *testing.T) {
 		t.Run(permissions[0], func(t *testing.T) {
 			r := &clientRepository{}
 			client, err := r.toDomain(oidc.Client{
-				Status: "active", TokenEndpointAuth: "client_secret_basic", IDTokenAlg: "RS256",
-				Name: "before", GrantTypes: []byte(permissions[0]),
+				Status: "active",
+				Name:   "before", GrantTypes: []byte(permissions[0]),
 				ResponseTypes: []byte(permissions[1]), Scopes: []byte(permissions[2]),
 			})
 			if err != nil {
@@ -85,19 +85,15 @@ func TestClientRenamePreservesPermissions(t *testing.T) {
 	}
 }
 
-func TestClientUpdateRejectsMissingSecurityMetadata(t *testing.T) {
-	for _, field := range []string{"status", "unknown_status", "token_endpoint_auth", "id_token_alg"} {
+func TestClientUpdateRejectsInvalidStatus(t *testing.T) {
+	for _, field := range []string{"status", "unknown_status"} {
 		t.Run(field, func(t *testing.T) {
-			c := &domain.Client{GrantTypes: []string{}, ResponseTypes: []string{}, Scopes: []string{}, Status: "suspended", TokenEndpointAuth: "client_secret_basic", IDTokenAlg: "RS256"}
+			c := &domain.Client{GrantTypes: []string{}, ResponseTypes: []string{}, Scopes: []string{}, Status: "suspended"}
 			switch field {
 			case "status":
 				c.Status = ""
 			case "unknown_status":
 				c.Status = "Active"
-			case "token_endpoint_auth":
-				c.TokenEndpointAuth = ""
-			case "id_token_alg":
-				c.IDTokenAlg = ""
 			}
 			if _, err := buildUpdateParams(c); !errors.Is(err, ErrInvalidClientMetadata) {
 				t.Fatalf("error = %v", err)
@@ -109,7 +105,7 @@ func TestClientUpdateRejectsMissingSecurityMetadata(t *testing.T) {
 func TestClientUpdateRequiresEachPermissionSlice(t *testing.T) {
 	for _, field := range []string{"grant_types", "response_types", "scopes"} {
 		t.Run(field, func(t *testing.T) {
-			c := &domain.Client{Status: "active", TokenEndpointAuth: "client_secret_basic", IDTokenAlg: "RS256", GrantTypes: []string{}, ResponseTypes: []string{}, Scopes: []string{}}
+			c := &domain.Client{Status: "active", GrantTypes: []string{}, ResponseTypes: []string{}, Scopes: []string{}}
 			switch field {
 			case "grant_types":
 				c.GrantTypes = nil
