@@ -1,0 +1,5 @@
+package: gen
+output: ../internal/router/internalapi/gen/api.go
+generate:
+  echo5-server: true
+  models: true

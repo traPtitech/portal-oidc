@@ -172,3 +172,14 @@ FOR EACH ROW EXECUTE FUNCTION require_active_client();
 CREATE TRIGGER trg_oidc_sessions_require_active_client
 BEFORE INSERT ON oidc_sessions
 FOR EACH ROW EXECUTE FUNCTION require_active_client();
+
+-- Authentication belongs to OIDC; Portal may not have committed its profile yet.
+CREATE TABLE identity_accounts (
+ user_id UUID PRIMARY KEY,
+ email TEXT NOT NULL UNIQUE,
+ email_verified BOOLEAN NOT NULL,
+ auth_verifier JSONB NOT NULL,
+ expires_at TIMESTAMPTZ NOT NULL,
+ provision_fingerprint BYTEA NOT NULL CHECK (octet_length(provision_fingerprint) = 32),
+ created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

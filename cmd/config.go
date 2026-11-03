@@ -11,7 +11,12 @@ import (
 	"github.com/knadh/koanf/v2"
 )
 
+type InternalConfig struct {
+	Token string `koanf:"token"` // #nosec G117 -- service credential, never serialized
+}
+
 type Config struct {
+	Internal    InternalConfig `koanf:"internal"`
 	Host        string         `koanf:"host"`
 	Environment string         `koanf:"environment"`
 	Database    DatabaseConfig `koanf:"database"`
