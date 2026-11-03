@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { createHash, randomBytes } from "node:crypto";
+const callbackURL = "http://127.0.0.1:8080/callback";
 const fixture = JSON.parse(
   readFileSync(new URL("../../development/provision.json", import.meta.url)),
 );
@@ -23,7 +24,7 @@ test("browser derives secret and completes OIDC without sending its password", a
     data: {
       name: "Browser login test",
       client_type: "confidential",
-      redirect_uris: ["http://localhost:8080/callback"],
+      redirect_uris: [callbackURL],
     },
   });
   expect(created.ok()).toBeTruthy();
@@ -31,7 +32,7 @@ test("browser derives secret and completes OIDC without sending its password", a
   const verifier = randomBytes(32).toString("base64url");
   const params = new URLSearchParams({
     client_id: client.client_id,
-    redirect_uri: "http://localhost:8080/callback",
+    redirect_uri: callbackURL,
     response_type: "code",
     scope: "openid profile email",
     state: "browser-test",
@@ -71,7 +72,7 @@ test("browser derives secret and completes OIDC without sending its password", a
     form: {
       grant_type: "authorization_code",
       code: callback.searchParams.get("code"),
-      redirect_uri: "http://localhost:8080/callback",
+      redirect_uri: callbackURL,
       code_verifier: verifier,
     },
   });
