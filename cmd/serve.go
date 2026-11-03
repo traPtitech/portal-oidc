@@ -56,14 +56,11 @@ func newServer(cfg Config) (http.Handler, error) {
 		Secret:               []byte(cfg.OAuth.Secret),
 	}, privateKey)
 
-	var userUseCase usecase.UserUseCase
-	if cfg.Environment == "production" {
-		portalQueries, portalErr := setupPortalDatabase(cfg.Portal.Database)
-		if portalErr != nil {
-			return nil, portalErr
-		}
-		userUseCase = usecase.NewUserUseCase(repository.NewUserRepository(portalQueries))
+	portalQueries, err := setupPortalDatabase(cfg.Portal.Database)
+	if err != nil {
+		return nil, err
 	}
+	userUseCase := usecase.NewUserUseCase(repository.NewUserRepository(portalQueries), repository.NewAccountRepository(oidcDB, queries))
 	handler := v1.NewHandler(
 		usecase.NewClientUseCase(clientRepo),
 		usecase.NewOAuthUseCase(oauth2Provider, oauthStorage),
@@ -75,7 +72,6 @@ func newServer(cfg Config) (http.Handler, error) {
 			PrivateKey:    privateKey,
 			IDTokenSigner: idTokenSigner,
 			Environment:   cfg.Environment,
-			TestUserID:    cfg.OAuth.TestUserID,
 		},
 	)
 
@@ -91,6 +87,7 @@ func newServer(cfg Config) (http.Handler, error) {
 	internalapi.Register(e, usecase.NewAccountUseCase(repository.NewAccountRepository(oidcDB, queries)), cfg.Internal.Token)
 	gen.RegisterHandlers(e, handler)
 	e.GET("/login", handler.GetLogin)
+	handler.RegisterLoginAssets(e)
 	e.POST("/login", handler.PostLogin, loginRateLimiter())
 	e.GET("/logout", handler.Logout)
 	e.GET("/health", func(c *echo.Context) error {

@@ -24,3 +24,50 @@ or deleting anything. Logs contain UUID and failure category only.
 
 Registration and login ship as separate stacked PRs. Deploy both with the matching
 Portal branch; this first PR alone does not enable login for the new credentials.
+
+## Login
+
+The second PR replaces the existing login form's submission with `email` and
+`auth_secret`; the browser still presents email and password fields. Policy v1
+normalizes email with trim/lowercase, hashes `traPortal kdf v1:` plus that email
+for the Argon2id salt, derives 32 bytes with Argon2id (64 MiB, 3 iterations,
+4 lanes), then uses HKDF-SHA-256 with info `traPortal auth v1` to derive a
+32-byte auth secret. The submitted encoding is canonical unpadded base64url.
+The OIDC service verifies its SHA-256 against the registered verifier.
+
+The worker runs from the OIDC origin. Passwords and intermediate key material
+stay in browser memory; neither password nor root key is submitted or persisted.
+JavaScript/worker failure has no plaintext fallback. Login retains the OIDC
+session, authorization-code flow, UUID subject, safe return URL and rate limit,
+and adds a session-bound CSRF token. The form contract is in
+`api/login.openapi.yaml`. An incorrect credential produces a generic error.
+
+Both an unexpired OIDC account and its committed Portal profile must exist.
+Unverified email does not prevent login; the email scope returns the stored
+`email_verified` value, including false. The profile scope reads `trap_id` from
+Portal by UUID. Development uses the same authentication path as production;
+there is no fixed-user bypass or legacy PBKDF2 fallback. There are no existing
+users to migrate. Password changes/reset, email verification and E2EE key
+unwrapping are outside these PRs.
+
+## Local fixtures and asset builds
+
+Use the fixtures only in disposable development/test databases:
+
+1. Apply `db/schema.sql` to the OIDC database and `db/portal-schema.sql` to a
+   disposable Portal database. The latter is a development snapshot, not a
+   production Portal migration.
+2. Apply `development/seed-profile.sql` to that Portal database.
+3. Start the server with `OIDC_INTERNAL__TOKEN` configured. Send
+   `development/provision.json` to `POST /internal/users/provision`, with that
+   value in `X-Portal-Internal-Token` and `Content-Type: application/json`.
+4. Log in as `testuser@example.test` with password `password`. These public
+   fixture credentials are shared by the browser and conformance tests.
+
+`npm --prefix web ci --ignore-scripts` and `npm --prefix web run build` regenerate
+the committed Go-embedded assets. Node.js 20.19 or newer is required. CI verifies
+regeneration, the shared Go/JavaScript KDF vector, and the real browser flow.
+After installing Chromium with `cd web && npx playwright install chromium`,
+run `npm --prefix web run test:browser` against the disposable server on port
+8080 with internal token `browser-test-internal-token` (or configure
+`OIDC_TEST_URL` and `OIDC_TEST_INTERNAL_TOKEN`).

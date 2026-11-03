@@ -7,125 +7,22 @@ package portal
 
 import (
 	"context"
-	"database/sql"
-	"time"
 
 	"github.com/google/uuid"
 )
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, trap_id, password_hash, student_number, created_at, updated_at
-FROM users WHERE id = $1
+SELECT id, trap_id FROM users WHERE id=$1
 `
 
 type GetUserByIDRow struct {
-	ID            uuid.UUID      `json:"id"`
-	TrapID        string         `json:"trap_id"`
-	PasswordHash  string         `json:"password_hash"`
-	StudentNumber sql.NullString `json:"student_number"`
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
+	ID     uuid.UUID `json:"id"`
+	TrapID string    `json:"trap_id"`
 }
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow, error) {
 	row := q.queryRow(ctx, q.getUserByIDStmt, getUserByID, id)
 	var i GetUserByIDRow
-	err := row.Scan(
-		&i.ID,
-		&i.TrapID,
-		&i.PasswordHash,
-		&i.StudentNumber,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
+	err := row.Scan(&i.ID, &i.TrapID)
 	return i, err
-}
-
-const getUserByStudentNumber = `-- name: GetUserByStudentNumber :one
-SELECT id, trap_id, password_hash, student_number, created_at, updated_at
-FROM users WHERE student_number = $1
-`
-
-type GetUserByStudentNumberRow struct {
-	ID            uuid.UUID      `json:"id"`
-	TrapID        string         `json:"trap_id"`
-	PasswordHash  string         `json:"password_hash"`
-	StudentNumber sql.NullString `json:"student_number"`
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
-}
-
-func (q *Queries) GetUserByStudentNumber(ctx context.Context, studentNumber sql.NullString) (GetUserByStudentNumberRow, error) {
-	row := q.queryRow(ctx, q.getUserByStudentNumberStmt, getUserByStudentNumber, studentNumber)
-	var i GetUserByStudentNumberRow
-	err := row.Scan(
-		&i.ID,
-		&i.TrapID,
-		&i.PasswordHash,
-		&i.StudentNumber,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const getUserByTrapID = `-- name: GetUserByTrapID :one
-SELECT id, trap_id, password_hash, student_number, created_at, updated_at
-FROM users WHERE trap_id = $1
-`
-
-type GetUserByTrapIDRow struct {
-	ID            uuid.UUID      `json:"id"`
-	TrapID        string         `json:"trap_id"`
-	PasswordHash  string         `json:"password_hash"`
-	StudentNumber sql.NullString `json:"student_number"`
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
-}
-
-func (q *Queries) GetUserByTrapID(ctx context.Context, trapID string) (GetUserByTrapIDRow, error) {
-	row := q.queryRow(ctx, q.getUserByTrapIDStmt, getUserByTrapID, trapID)
-	var i GetUserByTrapIDRow
-	err := row.Scan(
-		&i.ID,
-		&i.TrapID,
-		&i.PasswordHash,
-		&i.StudentNumber,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const listUserStatuses = `-- name: ListUserStatuses :many
-SELECT user_id, status, detail, created_at
-FROM user_statuses WHERE user_id = $1
-`
-
-func (q *Queries) ListUserStatuses(ctx context.Context, userID uuid.UUID) ([]UserStatus, error) {
-	rows, err := q.query(ctx, q.listUserStatusesStmt, listUserStatuses, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []UserStatus{}
-	for rows.Next() {
-		var i UserStatus
-		if err := rows.Scan(
-			&i.UserID,
-			&i.Status,
-			&i.Detail,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }

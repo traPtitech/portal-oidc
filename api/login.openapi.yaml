@@ -1,0 +1,35 @@
+openapi: 3.0.3
+info:
+  title: OIDC browser login
+  version: 1.0.0
+paths:
+  /login:
+    get:
+      summary: Render the email/password form with policy v1 and a session CSRF token
+      parameters:
+        - in: query
+          name: return_url
+          schema: {type: string}
+      responses:
+        '200': {description: Same-origin HTML; no-store}
+    post:
+      summary: Authenticate a browser-derived secret and resume OIDC authorization
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [email, auth_secret, csrf_token, return_url]
+              properties:
+                email: {type: string}
+                auth_secret: {type: string, pattern: '^[A-Za-z0-9_-]{43}$'}
+                csrf_token: {type: string}
+                return_url: {type: string}
+      responses:
+        '302': {description: Session cookie and sanitized relative redirect}
+        '400': {description: Raw passwords are not accepted}
+        '401': {description: Invalid credentials or unavailable account}
+        '403': {description: Invalid login CSRF token}
+        '429': {description: Login rate limit exceeded}
+        '503': {description: Authentication storage unavailable}
