@@ -1,0 +1,13 @@
+{
+  "email": "testuser@example.test",
+  "password": "password",
+  "policy": {
+    "kdf": "argon2id",
+    "version": 1,
+    "memoryKiB": 65536,
+    "iterations": 3,
+    "parallelism": 4
+  },
+  "secret": "OrQP6xENqW6T6BF9fBxKJH10qSbUtEZuvAyKWRBoraA",
+  "hash": "HfCHmffiQCJ_ZtkPHrDR2V6JjoLG-nz4XixcGszbZ8k"
+}

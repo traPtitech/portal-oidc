@@ -14,61 +14,18 @@ import (
 var ErrUserNotFound = errors.New("user not found")
 
 type UserRepository interface {
-	GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error)
-	GetByTrapID(ctx context.Context, trapID string) (*domain.UserWithPassword, error)
-	ListStatuses(ctx context.Context, userID uuid.UUID) ([]string, error)
+	GetByID(context.Context, uuid.UUID) (*domain.User, error)
 }
+type userRepository struct{ queries *portal.Queries }
 
-type userRepository struct {
-	queries *portal.Queries
-}
-
-func NewUserRepository(queries *portal.Queries) UserRepository {
-	return &userRepository{queries: queries}
-}
-
+func NewUserRepository(q *portal.Queries) UserRepository { return &userRepository{q} }
 func (r *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
-	user, err := r.queries.GetUserByID(ctx, id)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrUserNotFound
-		}
-		return nil, err
+	u, err := r.queries.GetUserByID(ctx, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrUserNotFound
 	}
-
-	return &domain.User{
-		ID:     user.ID,
-		TrapID: user.TrapID,
-	}, nil
-}
-
-func (r *userRepository) GetByTrapID(ctx context.Context, trapID string) (*domain.UserWithPassword, error) {
-	user, err := r.queries.GetUserByTrapID(ctx, trapID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrUserNotFound
-		}
-		return nil, err
-	}
-
-	return &domain.UserWithPassword{
-		User: domain.User{
-			ID:     user.ID,
-			TrapID: user.TrapID,
-		},
-		PasswordHash: user.PasswordHash,
-	}, nil
-}
-
-func (r *userRepository) ListStatuses(ctx context.Context, userID uuid.UUID) ([]string, error) {
-	statuses, err := r.queries.ListUserStatuses(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-
-	result := make([]string, len(statuses))
-	for i, s := range statuses {
-		result[i] = s.Status
-	}
-	return result, nil
+	return &domain.User{ID: u.ID, TrapID: u.TrapID}, nil
 }

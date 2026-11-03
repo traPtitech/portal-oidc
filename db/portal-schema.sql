@@ -9,33 +9,35 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Users
+-- Portal profile snapshot; authentication is owned by OIDC.
 CREATE TABLE users (
-  id UUID NOT NULL,
-  trap_id VARCHAR(32) NOT NULL,
-  password_hash VARCHAR(255) NOT NULL,
-  email BYTEA NULL,
-  personal_info BYTEA NULL,
-  student_number VARCHAR(8) NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (id),
-  CONSTRAINT uq_users_trap_id UNIQUE (trap_id),
-  CONSTRAINT uq_users_student_number UNIQUE (student_number)
+    id UUID PRIMARY KEY,
+    trap_id TEXT UNIQUE NOT NULL,
+    display_name TEXT,
+    student_id_prefix TEXT,
+    department TEXT,
+    -- tp2 envelope strings (personal-info / personal-info-key-self /
+    -- personal-info-key-secretary). Portal never decrypts them.
+    personal_info TEXT,
+    personal_info_key_self TEXT,
+    personal_info_key_secretary TEXT,
+    personal_info_key_secretary_epoch INT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    icon_url TEXT,
+    CONSTRAINT users_secretary_wrap_has_epoch CHECK (
+        (personal_info_key_secretary IS NULL) = (personal_info_key_secretary_epoch IS NULL)
+        AND (
+            personal_info_key_secretary_epoch IS NULL
+            OR personal_info_key_secretary_epoch >= 1
+        )
+    )
 );
 
-CREATE TRIGGER trg_users_set_updated_at
-BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER update_users_updated_at
+BEFORE UPDATE ON users FOR EACH ROW
+EXECUTE FUNCTION set_updated_at ();
 
--- User statuses
-CREATE TABLE user_statuses (
-  user_id UUID NOT NULL,
-  status VARCHAR(64) NOT NULL,
-  detail VARCHAR(255) NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (user_id, status),
-  CONSTRAINT fk_user_statuses_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE
-);
 
 -- User links (SNS connections)
 CREATE TABLE user_links (

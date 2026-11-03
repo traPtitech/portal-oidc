@@ -27,15 +27,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getUserByIDStmt, err = db.PrepareContext(ctx, getUserByID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetUserByID: %w", err)
 	}
-	if q.getUserByStudentNumberStmt, err = db.PrepareContext(ctx, getUserByStudentNumber); err != nil {
-		return nil, fmt.Errorf("error preparing query GetUserByStudentNumber: %w", err)
-	}
-	if q.getUserByTrapIDStmt, err = db.PrepareContext(ctx, getUserByTrapID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetUserByTrapID: %w", err)
-	}
-	if q.listUserStatusesStmt, err = db.PrepareContext(ctx, listUserStatuses); err != nil {
-		return nil, fmt.Errorf("error preparing query ListUserStatuses: %w", err)
-	}
 	return &q, nil
 }
 
@@ -44,21 +35,6 @@ func (q *Queries) Close() error {
 	if q.getUserByIDStmt != nil {
 		if cerr := q.getUserByIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getUserByIDStmt: %w", cerr)
-		}
-	}
-	if q.getUserByStudentNumberStmt != nil {
-		if cerr := q.getUserByStudentNumberStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getUserByStudentNumberStmt: %w", cerr)
-		}
-	}
-	if q.getUserByTrapIDStmt != nil {
-		if cerr := q.getUserByTrapIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getUserByTrapIDStmt: %w", cerr)
-		}
-	}
-	if q.listUserStatusesStmt != nil {
-		if cerr := q.listUserStatusesStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing listUserStatusesStmt: %w", cerr)
 		}
 	}
 	return err
@@ -98,21 +74,15 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 }
 
 type Queries struct {
-	db                         DBTX
-	tx                         *sql.Tx
-	getUserByIDStmt            *sql.Stmt
-	getUserByStudentNumberStmt *sql.Stmt
-	getUserByTrapIDStmt        *sql.Stmt
-	listUserStatusesStmt       *sql.Stmt
+	db              DBTX
+	tx              *sql.Tx
+	getUserByIDStmt *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
-		db:                         tx,
-		tx:                         tx,
-		getUserByIDStmt:            q.getUserByIDStmt,
-		getUserByStudentNumberStmt: q.getUserByStudentNumberStmt,
-		getUserByTrapIDStmt:        q.getUserByTrapIDStmt,
-		listUserStatusesStmt:       q.listUserStatusesStmt,
+		db:              tx,
+		tx:              tx,
+		getUserByIDStmt: q.getUserByIDStmt,
 	}
 }

@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
@@ -13,6 +14,7 @@ import (
 	"github.com/go-jose/go-jose/v4"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 	"github.com/ory/fosite"
 
 	"github.com/traPtitech/portal-oidc/internal/repository/oauth"
@@ -72,6 +74,12 @@ func (h *Handler) authorize(ctx *echo.Context) error {
 	returnURL.RawQuery = ar.GetRequestForm().Encode()
 
 	info, authenticated := h.getAuthInfo(ctx)
+	if authenticated {
+		authenticated, err = h.validLoginSession(c, info)
+		if err != nil {
+			return echo.NewHTTPError(503, "authentication unavailable")
+		}
+	}
 
 	maxAge, err := parseMaxAge(ar)
 	if err != nil {
@@ -299,18 +307,28 @@ func (h *Handler) handleUserInfo(ctx *echo.Context, token string) error {
 	sub := ar.GetSession().GetSubject()
 	info := gen.UserInfo{Sub: sub}
 
-	if h.userUseCase != nil && ar.GetGrantedScopes().Has("profile") {
+	if h.userUseCase != nil {
 		subID, err := uuid.Parse(sub)
 		if err != nil {
 
 			return ctx.JSON(http.StatusUnauthorized, gen.OAuthError{Error: gen.InvalidGrant})
 		}
 		user, userErr := h.userUseCase.GetByID(c, subID)
+		if errors.Is(userErr, usecase.ErrUserNotFound) || errors.Is(userErr, usecase.ErrUserNotActive) {
+			return ctx.JSON(http.StatusUnauthorized, gen.OAuthError{Error: gen.InvalidGrant})
+		}
 		if userErr != nil {
 			return ctx.JSON(http.StatusInternalServerError, gen.OAuthError{Error: gen.ServerError})
 		}
-		info.Name = &user.TrapID
-		info.PreferredUsername = &user.TrapID
+		if ar.GetGrantedScopes().Has("profile") {
+			info.Name = &user.TrapID
+			info.PreferredUsername = &user.TrapID
+		}
+		if ar.GetGrantedScopes().Has("email") {
+			email := openapi_types.Email(user.Email)
+			info.Email = &email
+			info.EmailVerified = &user.EmailVerified
+		}
 	}
 
 	return ctx.JSON(http.StatusOK, info)
@@ -408,4 +426,19 @@ func (h *Handler) GetOAuthAuthorizationServerMetadata(ctx *echo.Context) error {
 		CodeChallengeMethodsSupported:     &codeChallengeMethodsSupported,
 		TokenEndpointAuthMethodsSupported: &tokenEndpointAuthMethodsSupported,
 	})
+}
+
+func (h *Handler) validLoginSession(ctx context.Context, info authInfo) (bool, error) {
+	if h.userUseCase == nil {
+		return false, nil
+	}
+	id, err := uuid.Parse(info.UserID)
+	if err != nil {
+		return false, nil //nolint:nilerr // Malformed session identities are unauthenticated.
+	}
+	_, err = h.userUseCase.GetByID(ctx, id)
+	if errors.Is(err, usecase.ErrUserNotFound) || errors.Is(err, usecase.ErrUserNotActive) {
+		return false, nil
+	}
+	return err == nil, err
 }

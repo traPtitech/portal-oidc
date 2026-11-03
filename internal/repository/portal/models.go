@@ -105,14 +105,18 @@ type SecretLog struct {
 }
 
 type User struct {
-	ID            uuid.UUID      `json:"id"`
-	TrapID        string         `json:"trap_id"`
-	PasswordHash  string         `json:"password_hash"`
-	Email         []byte         `json:"email"`
-	PersonalInfo  []byte         `json:"personal_info"`
-	StudentNumber sql.NullString `json:"student_number"`
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
+	ID                            uuid.UUID      `json:"id"`
+	TrapID                        string         `json:"trap_id"`
+	DisplayName                   sql.NullString `json:"display_name"`
+	StudentIDPrefix               sql.NullString `json:"student_id_prefix"`
+	Department                    sql.NullString `json:"department"`
+	PersonalInfo                  sql.NullString `json:"personal_info"`
+	PersonalInfoKeySelf           sql.NullString `json:"personal_info_key_self"`
+	PersonalInfoKeySecretary      sql.NullString `json:"personal_info_key_secretary"`
+	PersonalInfoKeySecretaryEpoch sql.NullInt32  `json:"personal_info_key_secretary_epoch"`
+	CreatedAt                     time.Time      `json:"created_at"`
+	UpdatedAt                     sql.NullTime   `json:"updated_at"`
+	IconUrl                       sql.NullString `json:"icon_url"`
 }
 
 type UserKey struct {
@@ -133,13 +137,6 @@ type UserLink struct {
 	AccessToken []byte         `json:"access_token"`
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
-}
-
-type UserStatus struct {
-	UserID    uuid.UUID      `json:"user_id"`
-	Status    string         `json:"status"`
-	Detail    sql.NullString `json:"detail"`
-	CreatedAt time.Time      `json:"created_at"`
 }
 
 type Webhook struct {

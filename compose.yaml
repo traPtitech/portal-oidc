@@ -13,6 +13,7 @@ services:
     environment:
       - CONFIG_FILE=/app/config.yaml
       - TZ=Asia/Tokyo
+      - OIDC_INTERNAL__TOKEN=${PORTAL_INTERNAL_TOKEN:-}
       - OIDC_DATABASE__HOST=oidc
       - OIDC_DATABASE__PORT=5432
       - OIDC_PORTAL__DATABASE__HOST=portal
