@@ -79,7 +79,7 @@ func (h *Handler) PostLogin(c *echo.Context) error {
 	if h.userUseCase == nil {
 		return c.NoContent(503)
 	}
-	user, err := h.userUseCase.Authenticate(c.Request().Context(), c.FormValue("email"), c.FormValue("auth_secret"))
+	user, err := h.userUseCase.Authenticate(c.Request().Context(), c.FormValue("trapId"), c.FormValue("auth_secret"))
 	if err != nil {
 		if errors.Is(err, usecase.ErrInvalidPassword) || errors.Is(err, usecase.ErrUserNotFound) || errors.Is(err, usecase.ErrUserNotActive) {
 			retry := "/login?return_url=" + url.QueryEscape(sanitizeReturnURL(c.FormValue("return_url")))

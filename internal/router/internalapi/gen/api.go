@@ -37,7 +37,10 @@ type ProvisionRequest struct {
 	Email         *string       `json:"email"`
 	EmailVerified *bool         `json:"emailVerified"`
 	ExpiresAt     *time.Time    `json:"expiresAt"`
-	UserId        *uuid.UUID    `json:"userId"`
+
+	// TrapId Immutable case-sensitive traQ ID used for login and policy-v1 KDF salt.
+	TrapId *string    `json:"trapId"`
+	UserId *uuid.UUID `json:"userId"`
 }
 
 // ProvisionUserJSONRequestBody defines body for ProvisionUser for application/json ContentType.

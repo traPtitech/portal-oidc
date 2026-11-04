@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Login</title><link rel="stylesheet" href="/login/assets/login.css"><script src="/login/assets/login.js" defer></script></head>
 <body><main><h1>Login</h1><form method="post" action="/login" data-policy="{{.Policy}}">
-<label>Email<input id="email" type="email" name="email" autocomplete="username" required></label>
+<label>traQ ID<input id="trapId" type="text" name="trapId" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="32" required></label>
 <label>Password<input id="password" type="password" autocomplete="current-password" required></label>
 <input type="hidden" name="auth_secret"><input type="hidden" name="return_url" value="{{.ReturnURL}}"><input type="hidden" name="csrf_token" value="{{.CSRF}}">
 <button type="submit" disabled>Login</button><p id="status" role="status"></p><noscript>JavaScript is required to log in.</noscript>

@@ -21,7 +21,7 @@ type AccountRepository interface {
 	Provision(context.Context, domain.Account) (bool, error)
 	Delete(context.Context, uuid.UUID) error
 	GetByID(context.Context, uuid.UUID) (*domain.Account, error)
-	GetByEmail(context.Context, string) (*domain.Account, error)
+	GetByTrapID(context.Context, string) (*domain.Account, error)
 }
 type accountRepository struct {
 	db      *sql.DB
@@ -46,7 +46,7 @@ func (r *accountRepository) Provision(ctx context.Context, a domain.Account) (bo
 	}
 	defer func() { _ = tx.Rollback() }() //nolint:errcheck // Best-effort rollback after commit or primary error.
 	q := r.queries.WithTx(tx)
-	count, err := q.InsertIdentityAccount(ctx, oidc.InsertIdentityAccountParams{UserID: a.UserID, Email: a.Email, EmailVerified: a.EmailVerified, AuthVerifier: verifier, ExpiresAt: a.ExpiresAt, ProvisionFingerprint: fp[:]})
+	count, err := q.InsertIdentityAccount(ctx, oidc.InsertIdentityAccountParams{UserID: a.UserID, TrapID: a.TrapID, Email: a.Email, EmailVerified: a.EmailVerified, AuthVerifier: verifier, ExpiresAt: a.ExpiresAt, ProvisionFingerprint: fp[:]})
 	if err != nil {
 		return false, err
 	}
@@ -77,8 +77,8 @@ func (r *accountRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.
 	a, e := r.queries.GetIdentityAccountByID(ctx, id)
 	return accountFromRow(a, e)
 }
-func (r *accountRepository) GetByEmail(ctx context.Context, email string) (*domain.Account, error) {
-	a, e := r.queries.GetIdentityAccountByEmail(ctx, email)
+func (r *accountRepository) GetByTrapID(ctx context.Context, trapID string) (*domain.Account, error) {
+	a, e := r.queries.GetIdentityAccountByTrapID(ctx, trapID)
 	return accountFromRow(a, e)
 }
 func accountFromRow(a oidc.IdentityAccount, err error) (*domain.Account, error) {
@@ -92,5 +92,5 @@ func accountFromRow(a oidc.IdentityAccount, err error) (*domain.Account, error) 
 	if err := json.Unmarshal(a.AuthVerifier, &v); err != nil {
 		return nil, err
 	}
-	return &domain.Account{UserID: a.UserID, Email: a.Email, EmailVerified: a.EmailVerified, AuthVerifier: v, ExpiresAt: a.ExpiresAt}, nil
+	return &domain.Account{UserID: a.UserID, TrapID: a.TrapID, Email: a.Email, EmailVerified: a.EmailVerified, AuthVerifier: v, ExpiresAt: a.ExpiresAt}, nil
 }

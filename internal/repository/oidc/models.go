@@ -58,6 +58,7 @@ type Client struct {
 
 type IdentityAccount struct {
 	UserID               uuid.UUID       `json:"user_id"`
+	TrapID               string          `json:"trap_id"`
 	Email                string          `json:"email"`
 	EmailVerified        bool            `json:"email_verified"`
 	AuthVerifier         json.RawMessage `json:"auth_verifier"`
