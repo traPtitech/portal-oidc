@@ -17,13 +17,13 @@ func TestBrowserDerivationVector(t *testing.T) {
 		t.Fatal(e)
 	}
 	var v struct {
-		Email, Password, Secret, Hash string
-		Policy                        KDFParams
+		TrapID, Password, Secret, Hash string
+		Policy                         KDFParams
 	}
 	if e = json.Unmarshal(raw, &v); e != nil {
 		t.Fatal(e)
 	}
-	salt := sha256.Sum256([]byte("traPortal kdf v1:" + NormalizeEmail(v.Email)))
+	salt := sha256.Sum256([]byte("traPortal kdf v1:" + v.TrapID))
 	root := argon2.IDKey([]byte(v.Password), salt[:], 3, 65536, 4, 32)
 	secret := make([]byte, 32)
 	if _, e = io.ReadFull(hkdf.New(sha256.New, root, nil, []byte("traPortal auth v1")), secret); e != nil {

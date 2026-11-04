@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -52,17 +53,24 @@ func (u *userUseCase) activeProfile(ctx context.Context, a *domain.Account) (*do
 	if err != nil {
 		return nil, err
 	}
+	if user.TrapID != a.TrapID {
+		return nil, ErrUserNotActive
+	}
 	user.Email = a.Email
 	user.EmailVerified = a.EmailVerified
 	return user, nil
 }
-func (u *userUseCase) Authenticate(ctx context.Context, email, secret string) (*domain.User, error) {
+func (u *userUseCase) Authenticate(ctx context.Context, trapID, secret string) (*domain.User, error) {
+	trapID = strings.TrimSpace(trapID)
+	if !domain.ValidTrapID(trapID) {
+		return nil, ErrInvalidPassword
+	}
 	raw, err := domain.DecodeSecret(secret)
 	if err != nil {
 		return nil, ErrInvalidPassword
 	}
 	hash := sha256.Sum256(raw)
-	a, err := u.accounts.GetByEmail(ctx, domain.NormalizeEmail(email))
+	a, err := u.accounts.GetByTrapID(ctx, trapID)
 	if errors.Is(err, repository.ErrAccountNotFound) {
 		return nil, ErrInvalidPassword
 	}

@@ -83,18 +83,29 @@ func (h *Handler) DeleteUser(c *echo.Context, userId uuid.UUID) error {
 }
 
 func accountFromRequest(body gen.ProvisionRequest) (domain.Account, error) {
-	if body.UserId == nil || body.Email == nil || body.EmailVerified == nil || body.ExpiresAt == nil || body.AuthVerifier == nil {
+	if body.UserId == nil || body.TrapId == nil || body.Email == nil || body.EmailVerified == nil || body.ExpiresAt == nil || body.AuthVerifier == nil {
 		return domain.Account{}, domain.ErrInvalidAccount
 	}
-	v := body.AuthVerifier
+	verifier, err := verifierFromRequest(body.AuthVerifier)
+	if err != nil {
+		return domain.Account{}, err
+	}
+	return domain.Account{
+		UserID: *body.UserId, TrapID: *body.TrapId, Email: *body.Email,
+		EmailVerified: *body.EmailVerified, ExpiresAt: *body.ExpiresAt, AuthVerifier: verifier,
+	}, nil
+}
+
+func verifierFromRequest(v *gen.AuthVerifier) (domain.AuthVerifier, error) {
 	if v.Version == nil || v.Alg == nil || v.Params == nil || v.Hash == nil {
-		return domain.Account{}, domain.ErrInvalidAccount
+		return domain.AuthVerifier{}, domain.ErrInvalidAccount
 	}
 	k := v.Params
 	if k.Kdf == nil || k.Version == nil || k.MemoryKiB == nil || k.Iterations == nil || k.Parallelism == nil {
-		return domain.Account{}, domain.ErrInvalidAccount
+		return domain.AuthVerifier{}, domain.ErrInvalidAccount
 	}
-	a := domain.Account{UserID: *body.UserId, Email: *body.Email, EmailVerified: *body.EmailVerified, ExpiresAt: *body.ExpiresAt, AuthVerifier: domain.AuthVerifier{Version: *v.Version, Alg: *v.Alg, Hash: *v.Hash, Params: domain.KDFParams{Kdf: *k.Kdf, Version: *k.Version, MemoryKiB: *k.MemoryKiB, Iterations: *k.Iterations, Parallelism: *k.Parallelism}}}
-
-	return a, nil
+	return domain.AuthVerifier{
+		Version: *v.Version, Alg: *v.Alg, Hash: *v.Hash,
+		Params: domain.KDFParams{Kdf: *k.Kdf, Version: *k.Version, MemoryKiB: *k.MemoryKiB, Iterations: *k.Iterations, Parallelism: *k.Parallelism},
+	}, nil
 }

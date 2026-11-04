@@ -17,7 +17,7 @@ form.addEventListener("submit", (event) => {
     status.textContent = "Unable to sign in. Please try again.";
   };
   try {
-    const email = form.elements.email.value.trim().toLowerCase();
+    const trapId = form.elements.trapId.value.trim();
     worker = new Worker("/login/assets/worker.js");
     worker.onerror = fail;
     worker.onmessage = ({ data }) => {
@@ -26,13 +26,13 @@ form.addEventListener("submit", (event) => {
         fail();
         return;
       }
-      form.elements.email.value = email;
+      form.elements.trapId.value = trapId;
       form.elements.auth_secret.value = data.secret;
       HTMLFormElement.prototype.submit.call(form);
     };
     const input = document.querySelector("#password");
     worker.postMessage({
-      email,
+      trapId,
       password: input.value,
       policy: JSON.parse(form.dataset.policy),
     });

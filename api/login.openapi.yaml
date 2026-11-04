@@ -5,7 +5,7 @@ info:
 paths:
   /login:
     get:
-      summary: Render the email/password form with policy v1 and a session CSRF token
+      summary: Render the traQ ID/password form with policy v1 and a session CSRF token
       parameters:
         - in: query
           name: return_url
@@ -20,9 +20,9 @@ paths:
           application/x-www-form-urlencoded:
             schema:
               type: object
-              required: [email, auth_secret, csrf_token, return_url]
+              required: [trapId, auth_secret, csrf_token, return_url]
               properties:
-                email: {type: string}
+                trapId: {type: string, minLength: 1, maxLength: 32, description: Case-sensitive traQ ID}
                 auth_secret: {type: string, pattern: '^[A-Za-z0-9_-]{43}$'}
                 csrf_token: {type: string}
                 return_url: {type: string}

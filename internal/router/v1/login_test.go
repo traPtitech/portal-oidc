@@ -22,6 +22,7 @@ import (
 
 type profileFixture struct {
 	id     uuid.UUID
+	trapID string
 	absent bool
 }
 
@@ -29,11 +30,12 @@ func (p *profileFixture) GetByID(_ context.Context, id uuid.UUID) (*domain.User,
 	if p.absent || id != p.id {
 		return nil, repository.ErrUserNotFound
 	}
-	return &domain.User{ID: id, TrapID: "testuser"}, nil
+	return &domain.User{ID: id, TrapID: p.trapID}, nil
 }
 func TestAuthSecretLogin(t *testing.T) {
 	_, accounts := identityHandler()
 	a := provisionFixture()
+	a.TrapID = "TestUser"
 	raw := make([]byte, 32)
 	raw[0] = 42
 	secret := base64.RawURLEncoding.EncodeToString(raw)
@@ -42,14 +44,19 @@ func TestAuthSecretLogin(t *testing.T) {
 	if _, e := accounts.Provision(t.Context(), a); e != nil {
 		t.Fatal(e)
 	}
-	profile := &profileFixture{id: a.UserID}
+	profile := &profileFixture{id: a.UserID, trapID: a.TrapID}
 	users := usecase.NewUserUseCase(profile, accounts)
 	for _, bad := range []string{a.AuthVerifier.Hash, "password", secret + "="} {
-		if _, e := users.Authenticate(t.Context(), a.Email, bad); !errors.Is(e, usecase.ErrInvalidPassword) {
+		if _, e := users.Authenticate(t.Context(), a.TrapID, bad); !errors.Is(e, usecase.ErrInvalidPassword) {
 			t.Fatal("accepted wrong secret", e)
 		}
 	}
-	user, e := users.Authenticate(t.Context(), strings.ToUpper(a.Email), secret)
+	for _, badID := range []string{a.Email, strings.ToLower(a.TrapID), "missing", ""} {
+		if _, err := users.Authenticate(t.Context(), badID, secret); !errors.Is(err, usecase.ErrInvalidPassword) {
+			t.Fatalf("accepted identifier %q: %v", badID, err)
+		}
+	}
+	user, e := users.Authenticate(t.Context(), " "+a.TrapID+" ", secret)
 	if e != nil || user.EmailVerified || user.ID != a.UserID {
 		t.Fatal("unverified login failed", e)
 	}
@@ -64,7 +71,7 @@ func TestAuthSecretLogin(t *testing.T) {
 		t.Fatal("missing CSRF")
 	}
 	post := func(csrf, credential string, password ...string) *httptest.ResponseRecorder {
-		form := url.Values{"email": {a.Email}, "auth_secret": {credential}, "csrf_token": {csrf}, "return_url": {"//attacker.test"}}
+		form := url.Values{"trapId": {a.TrapID}, "auth_secret": {credential}, "csrf_token": {csrf}, "return_url": {"//attacker.test"}}
 		if len(password) > 0 {
 			form.Set("password", password[0])
 		}
@@ -90,15 +97,26 @@ func TestAuthSecretLogin(t *testing.T) {
 	if out.Code != 302 || out.Header().Get("Location") != "/" {
 		t.Fatal(out.Code)
 	}
+	if _, e := testDB.ExecContext(t.Context(), "UPDATE identity_accounts SET email=$1 WHERE user_id=$2", "changed-"+a.Email, a.UserID); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := users.Authenticate(t.Context(), a.TrapID, secret); e != nil {
+		t.Fatalf("email change affected credentials: %v", e)
+	}
+	profile.trapID = "RenamedUser"
+	if _, e := users.Authenticate(t.Context(), a.TrapID, secret); !errors.Is(e, usecase.ErrUserNotActive) {
+		t.Fatalf("mismatched profile identity: %v", e)
+	}
+	profile.trapID = a.TrapID
 	profile.absent = true
-	if _, e := users.Authenticate(t.Context(), a.Email, secret); !errors.Is(e, usecase.ErrUserNotFound) {
+	if _, e := users.Authenticate(t.Context(), a.TrapID, secret); !errors.Is(e, usecase.ErrUserNotFound) {
 		t.Fatal(e)
 	}
 	profile.absent = false
 	if _, e := testDB.ExecContext(t.Context(), "UPDATE identity_accounts SET expires_at=$1 WHERE user_id=$2", time.Now().Add(-time.Hour), a.UserID); e != nil {
 		t.Fatal(e)
 	}
-	if _, e := users.Authenticate(t.Context(), a.Email, secret); !errors.Is(e, usecase.ErrUserNotActive) {
+	if _, e := users.Authenticate(t.Context(), a.TrapID, secret); !errors.Is(e, usecase.ErrUserNotActive) {
 		t.Fatal(e)
 	}
 	valid, e := h.validLoginSession(t.Context(), authInfo{UserID: a.UserID.String()})

@@ -121,10 +121,20 @@
             "$ref": "#/components/schemas/AuthVerifier",
             "x-go-type-skip-optional-pointer": false,
             "x-go-type": "*AuthVerifier"
+          },
+          "trapId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^[a-zA-Z0-9]([a-zA-Z0-9_-]{0,30}[a-zA-Z0-9])?$",
+            "description": "Immutable case-sensitive traQ ID used for login and policy-v1 KDF salt.",
+            "x-go-type-skip-optional-pointer": false,
+            "x-go-type": "*string"
           }
         },
         "required": [
           "userId",
+          "trapId",
           "email",
           "emailVerified",
           "expiresAt",

@@ -72,11 +72,11 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getClientStmt, err = db.PrepareContext(ctx, getClient); err != nil {
 		return nil, fmt.Errorf("error preparing query GetClient: %w", err)
 	}
-	if q.getIdentityAccountByEmailStmt, err = db.PrepareContext(ctx, getIdentityAccountByEmail); err != nil {
-		return nil, fmt.Errorf("error preparing query GetIdentityAccountByEmail: %w", err)
-	}
 	if q.getIdentityAccountByIDStmt, err = db.PrepareContext(ctx, getIdentityAccountByID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetIdentityAccountByID: %w", err)
+	}
+	if q.getIdentityAccountByTrapIDStmt, err = db.PrepareContext(ctx, getIdentityAccountByTrapID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetIdentityAccountByTrapID: %w", err)
 	}
 	if q.getOIDCSessionStmt, err = db.PrepareContext(ctx, getOIDCSession); err != nil {
 		return nil, fmt.Errorf("error preparing query GetOIDCSession: %w", err)
@@ -196,14 +196,14 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getClientStmt: %w", cerr)
 		}
 	}
-	if q.getIdentityAccountByEmailStmt != nil {
-		if cerr := q.getIdentityAccountByEmailStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getIdentityAccountByEmailStmt: %w", cerr)
-		}
-	}
 	if q.getIdentityAccountByIDStmt != nil {
 		if cerr := q.getIdentityAccountByIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getIdentityAccountByIDStmt: %w", cerr)
+		}
+	}
+	if q.getIdentityAccountByTrapIDStmt != nil {
+		if cerr := q.getIdentityAccountByTrapIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getIdentityAccountByTrapIDStmt: %w", cerr)
 		}
 	}
 	if q.getOIDCSessionStmt != nil {
@@ -316,8 +316,8 @@ type Queries struct {
 	getAccessTokenBySignatureStmt      *sql.Stmt
 	getAuthorizationCodeStmt           *sql.Stmt
 	getClientStmt                      *sql.Stmt
-	getIdentityAccountByEmailStmt      *sql.Stmt
 	getIdentityAccountByIDStmt         *sql.Stmt
+	getIdentityAccountByTrapIDStmt     *sql.Stmt
 	getOIDCSessionStmt                 *sql.Stmt
 	getRefreshTokenBySignatureStmt     *sql.Stmt
 	insertIdentityAccountStmt          *sql.Stmt
@@ -351,8 +351,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getAccessTokenBySignatureStmt:      q.getAccessTokenBySignatureStmt,
 		getAuthorizationCodeStmt:           q.getAuthorizationCodeStmt,
 		getClientStmt:                      q.getClientStmt,
-		getIdentityAccountByEmailStmt:      q.getIdentityAccountByEmailStmt,
 		getIdentityAccountByIDStmt:         q.getIdentityAccountByIDStmt,
+		getIdentityAccountByTrapIDStmt:     q.getIdentityAccountByTrapIDStmt,
 		getOIDCSessionStmt:                 q.getOIDCSessionStmt,
 		getRefreshTokenBySignatureStmt:     q.getRefreshTokenBySignatureStmt,
 		insertIdentityAccountStmt:          q.insertIdentityAccountStmt,

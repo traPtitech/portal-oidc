@@ -176,6 +176,7 @@ FOR EACH ROW EXECUTE FUNCTION require_active_client();
 -- Authentication belongs to OIDC; Portal may not have committed its profile yet.
 CREATE TABLE identity_accounts (
  user_id UUID PRIMARY KEY,
+ trap_id TEXT NOT NULL UNIQUE CHECK (trap_id ~ '^[a-zA-Z0-9]([a-zA-Z0-9_-]{0,30}[a-zA-Z0-9])?$'),
  email TEXT NOT NULL UNIQUE,
  email_verified BOOLEAN NOT NULL,
  auth_verifier JSONB NOT NULL,

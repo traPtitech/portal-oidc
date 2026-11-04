@@ -44,7 +44,7 @@ test("browser derives secret and completes OIDC without sending its password", a
     if (r.method() === "POST") sends.push(r);
   });
   await page.goto("/oauth2/authorize?" + params);
-  await page.getByLabel("Email").fill(" TestUser@example.test ");
+  await page.getByLabel("traQ ID").fill(" " + vector.trapId + " ");
   await page.getByLabel("Password").fill(vector.password);
   await page.getByRole("button", { name: "Login", exact: true }).click();
   await expect(page.getByRole("status")).toHaveText("Signing in…");
@@ -59,7 +59,8 @@ test("browser derives secret and completes OIDC without sending its password", a
   const sent = new URLSearchParams(login.postData());
   expect(sent.has("password")).toBe(false);
   expect(sent.get("auth_secret")).toBe(vector.secret);
-  expect(sent.get("email")).toBe(vector.email);
+  expect(sent.get("trapId")).toBe(vector.trapId);
+  expect(sent.has("email")).toBe(false);
   expect(sends.every((r) => !r.postData()?.includes("password="))).toBe(true);
   const token = await request.post("/oauth2/token", {
     headers: {
@@ -86,7 +87,7 @@ test("browser derives secret and completes OIDC without sending its password", a
     sub: fixture.userId,
     email: vector.email,
     email_verified: false,
-    preferred_username: "testuser",
+    preferred_username: vector.trapId,
   });
   const removed = await request.delete("/internal/users/" + fixture.userId, {
     headers: {
@@ -128,7 +129,7 @@ test("worker failure does not send a password or submit the login form", async (
   });
   await page.route("**/login/assets/worker.js", (route) => route.abort());
   await page.goto("/login");
-  await page.getByLabel("Email").fill(vector.email);
+  await page.getByLabel("traQ ID").fill(vector.trapId);
   await page.getByLabel("Password").fill(vector.password);
   await page.getByRole("button", { name: "Login", exact: true }).click();
   await expect(page.getByRole("status")).toHaveText(

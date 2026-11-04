@@ -83,7 +83,7 @@ def find_authorize_url(log_entries: list) -> str | None:
 _login_vector = json.loads(
     (Path(__file__).resolve().parents[2] / "web/test/vector.json").read_text()
 )
-TEST_EMAIL = os.environ.get("CONFORMANCE_TEST_EMAIL", _login_vector["email"])
+TEST_TRAP_ID = os.environ.get("CONFORMANCE_TEST_TRAP_ID", _login_vector["trapId"])
 TEST_AUTH_SECRET = os.environ.get("CONFORMANCE_TEST_AUTH_SECRET", _login_vector["secret"])
 LOGIN_INPUT_DELAY_SECONDS = 1
 RUNNER_DRIVEN_BROWSER_MODULES = {
@@ -126,7 +126,7 @@ def submit_login_form(
         return browser.post(
             login_url,
             data={
-                "email": TEST_EMAIL,
+                "trapId": TEST_TRAP_ID,
                 "auth_secret": TEST_AUTH_SECRET,
                 "csrf_token": match.group(1),
                 "return_url": return_url,
