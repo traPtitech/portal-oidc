@@ -19,6 +19,7 @@ import (
 	"github.com/traPtitech/portal-oidc/internal/repository/oauth"
 	"github.com/traPtitech/portal-oidc/internal/repository/oidc"
 	"github.com/traPtitech/portal-oidc/internal/repository/portal"
+	"github.com/traPtitech/portal-oidc/internal/router/internalapi"
 	v1 "github.com/traPtitech/portal-oidc/internal/router/v1"
 	"github.com/traPtitech/portal-oidc/internal/router/v1/gen"
 	"github.com/traPtitech/portal-oidc/internal/usecase"
@@ -80,13 +81,14 @@ func newServer(cfg Config) (http.Handler, error) {
 
 	e := echo.New()
 	e.Use(middleware.Recover())
-	e.Use(middleware.BodyLimit(1 * middleware.MB))
+	e.Use(middleware.BodyLimitWithConfig(middleware.BodyLimitConfig{LimitBytes: 1 * middleware.MB, Skipper: func(c *echo.Context) bool { return strings.HasPrefix(c.Request().URL.Path, "/internal/") }}))
 	e.Use(middleware.SecureWithConfig(secureConfig(cfg.Host)))
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
 		AllowHeaders: []string{"*"},
 		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 	}))
+	internalapi.Register(e, usecase.NewAccountUseCase(repository.NewAccountRepository(oidcDB, queries)), cfg.Internal.Token)
 	gen.RegisterHandlers(e, handler)
 	e.GET("/login", handler.GetLogin)
 	e.POST("/login", handler.PostLogin, loginRateLimiter())

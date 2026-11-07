@@ -26,13 +26,17 @@ type Querier interface {
 	DeleteAllClients(ctx context.Context) error
 	DeleteAuthorizationCode(ctx context.Context, code string) error
 	DeleteClient(ctx context.Context, clientID uuid.UUID) error
+	DeleteIdentityAccount(ctx context.Context, userID uuid.UUID) error
 	DeleteOIDCSession(ctx context.Context, authorizeCode string) error
 	DeleteRefreshTokenBySignature(ctx context.Context, signature string) error
 	GetAccessTokenBySignature(ctx context.Context, signature string) (AccessToken, error)
 	GetAuthorizationCode(ctx context.Context, code string) (AuthorizationCode, error)
 	GetClient(ctx context.Context, clientID uuid.UUID) (Client, error)
+	GetIdentityAccountByEmail(ctx context.Context, email string) (IdentityAccount, error)
+	GetIdentityAccountByID(ctx context.Context, userID uuid.UUID) (IdentityAccount, error)
 	GetOIDCSession(ctx context.Context, authorizeCode string) (OidcSession, error)
 	GetRefreshTokenBySignature(ctx context.Context, signature string) (RefreshToken, error)
+	InsertIdentityAccount(ctx context.Context, arg InsertIdentityAccountParams) (int64, error)
 	ListClients(ctx context.Context) ([]Client, error)
 	MarkAuthorizationCodeUsed(ctx context.Context, code string) error
 	RevokeAccessTokensByRequestID(ctx context.Context, requestID string) error

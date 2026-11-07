@@ -66,11 +66,13 @@ dir = "api"
 run = """
 oapi-codegen --config oapi.server.yaml openapi.yaml
 oapi-codegen --config oapi.models.yaml openapi.yaml
+oapi-codegen --config oapi.internal.yaml internal.openapi.yaml
 """
-sources = ["openapi.yaml", "oapi.server.yaml", "oapi.models.yaml"]
+sources = ["openapi.yaml", "oapi.server.yaml", "oapi.models.yaml", "oapi.internal.yaml", "internal.openapi.yaml"]
 outputs = [
   "../internal/router/v1/gen/server.go",
   "../internal/router/v1/gen/models.go",
+  "../internal/router/internalapi/gen/api.go",
 ]
 
 # =============================================================================

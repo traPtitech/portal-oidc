@@ -1,0 +1,96 @@
+package repository
+
+import (
+	"context"
+	"crypto/subtle"
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/traPtitech/portal-oidc/internal/domain"
+	"github.com/traPtitech/portal-oidc/internal/repository/oidc"
+)
+
+var ErrAccountConflict = errors.New("account conflict")
+var ErrAccountNotFound = errors.New("account not found")
+
+type AccountRepository interface {
+	Provision(context.Context, domain.Account) (bool, error)
+	Delete(context.Context, uuid.UUID) error
+	GetByID(context.Context, uuid.UUID) (*domain.Account, error)
+	GetByEmail(context.Context, string) (*domain.Account, error)
+}
+type accountRepository struct {
+	db      *sql.DB
+	queries *oidc.Queries
+}
+
+func NewAccountRepository(db *sql.DB, q *oidc.Queries) AccountRepository {
+	return &accountRepository{db, q}
+}
+func (r *accountRepository) Provision(ctx context.Context, a domain.Account) (bool, error) {
+	fp, err := a.Fingerprint()
+	if err != nil {
+		return false, err
+	}
+	verifier, err := json.Marshal(a.AuthVerifier)
+	if err != nil {
+		return false, err
+	}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = tx.Rollback() }() //nolint:errcheck // Best-effort rollback after commit or primary error.
+	q := r.queries.WithTx(tx)
+	count, err := q.InsertIdentityAccount(ctx, oidc.InsertIdentityAccountParams{UserID: a.UserID, Email: a.Email, EmailVerified: a.EmailVerified, AuthVerifier: verifier, ExpiresAt: a.ExpiresAt, ProvisionFingerprint: fp[:]})
+	if err != nil {
+		return false, err
+	}
+	if count == 0 {
+		row, e := q.GetIdentityAccountByID(ctx, a.UserID)
+		if errors.Is(e, sql.ErrNoRows) {
+			if !a.ExpiresAt.After(time.Now()) {
+				return false, domain.ErrInvalidAccount
+			}
+			return false, ErrAccountConflict
+		}
+		if e != nil {
+			return false, e
+		}
+		if subtle.ConstantTimeCompare(row.ProvisionFingerprint, fp[:]) != 1 {
+			return false, ErrAccountConflict
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return false, err
+	}
+	return count == 1, nil
+}
+func (r *accountRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	return r.queries.DeleteIdentityAccount(ctx, id)
+}
+func (r *accountRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Account, error) {
+	a, e := r.queries.GetIdentityAccountByID(ctx, id)
+	return accountFromRow(a, e)
+}
+func (r *accountRepository) GetByEmail(ctx context.Context, email string) (*domain.Account, error) {
+	a, e := r.queries.GetIdentityAccountByEmail(ctx, email)
+	return accountFromRow(a, e)
+}
+func accountFromRow(a oidc.IdentityAccount, err error) (*domain.Account, error) {
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrAccountNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	var v domain.AuthVerifier
+	if err := json.Unmarshal(a.AuthVerifier, &v); err != nil {
+		return nil, err
+	}
+	return &domain.Account{UserID: a.UserID, Email: a.Email, EmailVerified: a.EmailVerified, AuthVerifier: v, ExpiresAt: a.ExpiresAt}, nil
+}
