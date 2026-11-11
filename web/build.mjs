@@ -1,6 +1,6 @@
 import { build } from "esbuild";
 await build({
-  entryPoints: ["src/login.js", "src/worker.js"],
+  entryPoints: ["src/login.js"],
   bundle: true,
   minify: true,
   outdir: "../internal/router/v1/loginassets",

@@ -19,14 +19,14 @@ var trapIDPattern = regexp.MustCompile(`^[a-zA-Z0-9](?:[a-zA-Z0-9_-]{0,30}[a-zA-
 func ValidTrapID(id string) bool { return trapIDPattern.MatchString(id) }
 
 type KDFParams struct {
-	Kdf         string `json:"kdf"`
-	Version     int    `json:"version"`
-	MemoryKiB   int    `json:"memoryKiB"`
-	Iterations  int    `json:"iterations"`
-	Parallelism int    `json:"parallelism"`
+	Kdf        string `json:"kdf"`
+	Version    int    `json:"version"`
+	Iterations int    `json:"iterations"`
 }
 
-func CurrentKDFPolicy() KDFParams { return KDFParams{"argon2id", 1, 65536, 3, 4} }
+func CurrentKDFPolicy() KDFParams {
+	return KDFParams{Kdf: "pbkdf2-sha256", Version: 1, Iterations: 100000}
+}
 
 type AuthVerifier struct {
 	Version int       `json:"version"`
@@ -43,7 +43,7 @@ func DecodeSecret(value string) ([]byte, error) {
 	return b, nil
 }
 func (v AuthVerifier) Validate() error {
-	if v.Version != 1 || v.Alg != "argon2id-verifier-v1" || v.Params != CurrentKDFPolicy() {
+	if v.Version != 1 || v.Alg != "pbkdf2-sha256-verifier-v1" || v.Params != CurrentKDFPolicy() {
 		return ErrInvalidAccount
 	}
 	_, err := DecodeSecret(v.Hash)

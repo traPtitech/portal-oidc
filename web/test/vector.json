@@ -2,13 +2,11 @@
   "email": "testuser@example.test",
   "password": "password",
   "policy": {
-    "kdf": "argon2id",
+    "kdf": "pbkdf2-sha256",
     "version": 1,
-    "memoryKiB": 65536,
-    "iterations": 3,
-    "parallelism": 4
+    "iterations": 100000
   },
-  "secret": "5geUWvbOL63FStPlNkhjHOa6RzYf9eFV8iy0CSOptfA",
-  "hash": "0h0VSEWoNxOrtN0Ol5QT9IzUnrnhULqwf7_xN6d_Iro",
+  "secret": "J8O46iuJu9mpZ2vZnuR6n0G0IjJTE91xDhtxC4qIDgw",
+  "hash": "SMwhjdMoxIooOFO0uROITbq5agil20i_4wPPL3LtAYU",
   "trapId": "TestUser_01"
 }

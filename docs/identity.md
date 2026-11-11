@@ -23,19 +23,19 @@ databases before they retry or delete anything.
 
 ## Login
 
-The login page asks for the traQ ID and the password. A Web Worker from the OIDC
-origin derives the auth secret with policy v1:
+The login page asks for the traQ ID and the password. The browser derives the
+auth secret with Web Crypto and policy v1:
 
 ```text
 salt        = SHA-256(UTF-8("traPortal kdf v1:" + trapId))
-root        = Argon2id(UTF-8(password), salt, memoryKiB=65536, iterations=3, parallelism=4, length=32)
+root        = PBKDF2-HMAC-SHA-256(UTF-8(password), salt, iterations=100000, length=32)
 auth_secret = HKDF-SHA-256(root, empty salt, UTF-8("traPortal auth v1"), length=32)
 ```
 
 The browser removes whitespace around the traQ ID and keeps its case. The form
 posts `trapId`, `auth_secret` as unpadded base64url, a session CSRF token and
 `return_url` to `POST /login`. The browser does not send or store the password
-or the root key. If JavaScript or the worker fails, the form is not submitted.
+or the root key. If JavaScript or the derivation fails, the form is not submitted.
 
 The server compares the SHA-256 of `auth_secret` with the stored verifier.
 Login also requires an unexpired account. An email that is not verified does

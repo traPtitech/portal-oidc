@@ -5,15 +5,13 @@
   "expiresAt": "2099-01-01T00:00:00Z",
   "authVerifier": {
     "version": 1,
-    "alg": "argon2id-verifier-v1",
+    "alg": "pbkdf2-sha256-verifier-v1",
     "params": {
-      "kdf": "argon2id",
+      "kdf": "pbkdf2-sha256",
       "version": 1,
-      "memoryKiB": 65536,
-      "iterations": 3,
-      "parallelism": 4
+      "iterations": 100000
     },
-    "hash": "0h0VSEWoNxOrtN0Ol5QT9IzUnrnhULqwf7_xN6d_Iro"
+    "hash": "SMwhjdMoxIooOFO0uROITbq5agil20i_4wPPL3LtAYU"
   },
   "trapId": "TestUser_01"
 }

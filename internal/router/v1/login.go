@@ -34,7 +34,7 @@ func setLoginHeaders(c *echo.Context) {
 	c.Response().Header().Set("Cache-Control", "no-store")
 	// Do not restrict form-action to self: Chromium also applies it to the
 	// authorization redirect chain, whose final destination is the validated RP.
-	c.Response().Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; worker-src 'self'; style-src 'self'; base-uri 'none'; frame-ancestors 'none'")
+	c.Response().Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; base-uri 'none'; frame-ancestors 'none'")
 }
 func (h *Handler) GetLogin(c *echo.Context) error {
 	setLoginHeaders(c)

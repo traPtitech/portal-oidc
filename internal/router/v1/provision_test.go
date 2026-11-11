@@ -21,7 +21,7 @@ import (
 )
 
 func provisionFixture() domain.Account {
-	return domain.Account{UserID: uuid.New(), TrapID: uuid.NewString()[:32], Email: uuid.NewString() + "@example.test", EmailVerified: false, ExpiresAt: time.Now().Add(time.Hour).UTC().Truncate(time.Microsecond), AuthVerifier: domain.AuthVerifier{Version: 1, Alg: "argon2id-verifier-v1", Params: domain.CurrentKDFPolicy(), Hash: base64.RawURLEncoding.EncodeToString(make([]byte, 32))}}
+	return domain.Account{UserID: uuid.New(), TrapID: uuid.NewString()[:32], Email: uuid.NewString() + "@example.test", EmailVerified: false, ExpiresAt: time.Now().Add(time.Hour).UTC().Truncate(time.Microsecond), AuthVerifier: domain.AuthVerifier{Version: 1, Alg: "pbkdf2-sha256-verifier-v1", Params: domain.CurrentKDFPolicy(), Hash: base64.RawURLEncoding.EncodeToString(make([]byte, 32))}}
 }
 func identityHandler() (*echo.Echo, repository.AccountRepository) {
 	r := repository.NewAccountRepository(oidc.New(testDB))
@@ -79,7 +79,7 @@ func TestProvisionContract(t *testing.T) {
 	}
 	call([]byte("{"), 400)
 	invalid := provisionFixture()
-	invalid.AuthVerifier.Params.MemoryKiB = 1
+	invalid.AuthVerifier.Params.Iterations = 1
 	b = mustIdentityJSON(t, invalid)
 	call(b, 422)
 	expired := provisionFixture()

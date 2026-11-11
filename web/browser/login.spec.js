@@ -47,10 +47,6 @@ test("browser derives secret and completes OIDC without sending its password", a
   await page.getByLabel("traQ ID").fill(" " + vector.trapId + " ");
   await page.getByLabel("Password").fill(vector.password);
   await page.getByRole("button", { name: "Login", exact: true }).click();
-  await expect(page.getByRole("status")).toHaveText("Signing in…");
-  await page.evaluate(() => {
-    window.__responsive = true;
-  });
   await page.waitForURL("**/callback?**");
   const callback = new URL(page.url());
   expect(callback.searchParams.get("state")).toBe("browser-test");
@@ -118,26 +114,4 @@ test("a missing script never submits a password", async ({
   ).toBeDisabled();
   expect(await page.locator('input[name="password"]').count()).toBe(0);
   await context.close();
-});
-
-test("worker failure does not send a password or submit the login form", async ({
-  page,
-}) => {
-  const posts = [];
-  page.on("request", (r) => {
-    if (r.method() === "POST") posts.push(r);
-  });
-  await page.route("**/login/assets/worker.js", (route) => route.abort());
-  await page.goto("/login");
-  await page.getByLabel("traQ ID").fill(vector.trapId);
-  await page.getByLabel("Password").fill(vector.password);
-  await page.getByRole("button", { name: "Login", exact: true }).click();
-  await expect(page.getByRole("status")).toHaveText(
-    "Unable to sign in. Please try again.",
-  );
-  await expect(
-    page.getByRole("button", { name: "Login", exact: true }),
-  ).toBeEnabled();
-  await expect(page.getByLabel("Password")).toHaveValue("");
-  expect(posts).toHaveLength(0);
 });

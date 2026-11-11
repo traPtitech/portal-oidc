@@ -71,7 +71,7 @@ func accountFromRequest(body gen.ProvisionRequest) domain.Account {
 		UserID: body.UserId, TrapID: body.TrapId, Email: body.Email, EmailVerified: body.EmailVerified, ExpiresAt: body.ExpiresAt,
 		AuthVerifier: domain.AuthVerifier{
 			Version: v.Version, Alg: v.Alg, Hash: v.Hash,
-			Params: domain.KDFParams{Kdf: k.Kdf, Version: k.Version, MemoryKiB: k.MemoryKiB, Iterations: k.Iterations, Parallelism: k.Parallelism},
+			Params: domain.KDFParams{Kdf: k.Kdf, Version: k.Version, Iterations: k.Iterations},
 		},
 	}
 }

@@ -1,14 +1,12 @@
 package domain
 
 import (
+	"crypto/hkdf"
+	"crypto/pbkdf2"
 	"crypto/sha256"
 	"encoding/json"
-	"io"
 	"os"
 	"testing"
-
-	"golang.org/x/crypto/argon2"
-	"golang.org/x/crypto/hkdf"
 )
 
 func TestBrowserDerivationVector(t *testing.T) {
@@ -23,10 +21,16 @@ func TestBrowserDerivationVector(t *testing.T) {
 	if e = json.Unmarshal(raw, &v); e != nil {
 		t.Fatal(e)
 	}
+	if v.Policy != CurrentKDFPolicy() {
+		t.Fatal("vector policy differs from the current policy")
+	}
 	salt := sha256.Sum256([]byte("traPortal kdf v1:" + v.TrapID))
-	root := argon2.IDKey([]byte(v.Password), salt[:], 3, 65536, 4, 32)
-	secret := make([]byte, 32)
-	if _, e = io.ReadFull(hkdf.New(sha256.New, root, nil, []byte("traPortal auth v1")), secret); e != nil {
+	root, e := pbkdf2.Key(sha256.New, v.Password, salt[:], v.Policy.Iterations, 32)
+	if e != nil {
+		t.Fatal(e)
+	}
+	secret, e := hkdf.Key(sha256.New, root, nil, "traPortal auth v1", 32)
+	if e != nil {
 		t.Fatal(e)
 	}
 	expected, e := DecodeSecret(v.Secret)
