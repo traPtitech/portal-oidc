@@ -6,9 +6,6 @@
     "test": "node --test test/*.test.mjs",
     "test:e2e": "node --test e2e/*.test.mjs"
   },
-  "dependencies": {
-    "@noble/hashes": "2.4.0"
-  },
   "devDependencies": {
     "esbuild": "0.28.2"
   }

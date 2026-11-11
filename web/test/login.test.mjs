@@ -12,8 +12,8 @@ const vector = JSON.parse(
 );
 
 // Runs src/login.js against the inputs of login.html and the parts of the DOM
-// and Worker API that it uses. A submission records every input with a name,
-// as the browser would send it.
+// that it uses. Node provides the same Web Crypto API as the browser. A
+// submission records every input with a name, as the browser would send it.
 let loads = 0;
 async function loadPage() {
   const inputs = parseInputs(html).map(({ id, name, value }) => ({
@@ -29,7 +29,6 @@ async function loadPage() {
   const button = { disabled: true };
   const status = { textContent: "" };
   const submitted = [];
-  const workers = [];
   let onsubmit;
   const post = () => submitted.push(formData(inputs));
   const form = {
@@ -43,20 +42,6 @@ async function loadPage() {
   };
   const nodes = { form, "#status": status, "#password": elements.password };
   globalThis.document = { querySelector: (selector) => nodes[selector] };
-  globalThis.Worker = class {
-    constructor(url) {
-      this.url = url;
-      this.messages = [];
-      this.terminated = false;
-      workers.push(this);
-    }
-    postMessage(data) {
-      this.messages.push(data);
-    }
-    terminate() {
-      this.terminated = true;
-    }
-  };
   await import("../src/login.js?page=" + ++loads);
   return {
     elements,
@@ -64,16 +49,17 @@ async function loadPage() {
     button,
     status,
     submitted,
-    workers,
-    // The browser submits the form itself unless the listener cancels it.
+    // The browser submits the form itself unless the listener cancels it
+    // before its first await. The returned promise settles with the listener.
     submit: () => {
       let cancelled = false;
-      onsubmit({
+      const done = onsubmit({
         preventDefault: () => {
           cancelled = true;
         },
       });
       if (!cancelled) post();
+      return done;
     },
   };
 }
@@ -89,17 +75,11 @@ test("the login script submits the derived secret instead of the password", asyn
   assert.equal(page.button.disabled, false);
   page.elements.trapId.value = " " + vector.trapId + " ";
   page.password.value = vector.password;
-  page.submit();
+  const done = page.submit();
   assert.equal(page.status.textContent, "Signing in…");
   assert.equal(page.button.disabled, true);
   assert.equal(page.password.value, "");
-  const [worker] = page.workers;
-  assert.equal(worker.url, "/login/assets/worker.js");
-  assert.deepEqual(worker.messages, [
-    { trapId: vector.trapId, password: vector.password },
-  ]);
-  worker.onmessage({ data: { secret: vector.secret } });
-  assert.equal(worker.terminated, true);
+  await done;
   assert.deepEqual(page.submitted, [
     {
       trapId: vector.trapId,
@@ -110,34 +90,16 @@ test("the login script submits the derived secret instead of the password", asyn
   ]);
 });
 
-for (const [name, fail] of [
-  ["fails to load", (worker) => worker.onerror(new Event("error"))],
-  ["reports an error", (worker) => worker.onmessage({ data: { error: true } })],
-]) {
-  test(`a worker that ${name} does not submit the login form`, async () => {
-    const page = await loadPage();
-    page.elements.trapId.value = vector.trapId;
-    page.password.value = vector.password;
-    page.submit();
-    const [worker] = page.workers;
-    fail(worker);
-    assert.equal(worker.terminated, true);
-    assert.equal(
-      page.status.textContent,
-      "Unable to sign in. Please try again.",
-    );
-    assert.equal(page.button.disabled, false);
-    assert.equal(page.password.value, "");
-    assert.deepEqual(page.submitted, []);
+test("a failed derivation does not submit the login form", async (t) => {
+  t.mock.method(crypto.subtle, "deriveBits", async () => {
+    throw new Error("unavailable");
   });
-}
-
-test("the worker posts the secret that the server verifies", async () => {
-  const posted = [];
-  globalThis.self = { postMessage: (data) => posted.push(data) };
-  await import("../src/worker.js");
-  globalThis.self.onmessage({
-    data: { trapId: vector.trapId, password: vector.password },
-  });
-  assert.deepEqual(posted, [{ secret: vector.secret }]);
+  const page = await loadPage();
+  page.elements.trapId.value = vector.trapId;
+  page.password.value = vector.password;
+  await page.submit();
+  assert.equal(page.status.textContent, "Unable to sign in. Please try again.");
+  assert.equal(page.button.disabled, false);
+  assert.equal(page.password.value, "");
+  assert.deepEqual(page.submitted, []);
 });

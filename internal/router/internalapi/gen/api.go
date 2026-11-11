@@ -23,11 +23,9 @@ type AuthVerifier struct {
 
 // KDFParams defines model for KDFParams.
 type KDFParams struct {
-	Iterations  int    `json:"iterations"`
-	Kdf         string `json:"kdf"`
-	MemoryKiB   int    `json:"memoryKiB"`
-	Parallelism int    `json:"parallelism"`
-	Version     int    `json:"version"`
+	Iterations int    `json:"iterations"`
+	Kdf        string `json:"kdf"`
+	Version    int    `json:"version"`
 }
 
 // ProvisionRequest defines model for ProvisionRequest.

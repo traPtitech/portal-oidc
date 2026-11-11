@@ -157,22 +157,14 @@
           "version": {
             "type": "integer"
           },
-          "memoryKiB": {
-            "type": "integer"
-          },
           "iterations": {
-            "type": "integer"
-          },
-          "parallelism": {
             "type": "integer"
           }
         },
         "required": [
           "kdf",
           "version",
-          "memoryKiB",
-          "iterations",
-          "parallelism"
+          "iterations"
         ]
       }
     }
