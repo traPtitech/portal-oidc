@@ -1,0 +1,19 @@
+{
+  "userId": "11111111-1111-4111-8111-111111111111",
+  "email": "testuser@example.test",
+  "emailVerified": false,
+  "expiresAt": "2099-01-01T00:00:00Z",
+  "authVerifier": {
+    "version": 1,
+    "alg": "argon2id-verifier-v1",
+    "params": {
+      "kdf": "argon2id",
+      "version": 1,
+      "memoryKiB": 65536,
+      "iterations": 3,
+      "parallelism": 4
+    },
+    "hash": "0h0VSEWoNxOrtN0Ol5QT9IzUnrnhULqwf7_xN6d_Iro"
+  },
+  "trapId": "TestUser_01"
+}

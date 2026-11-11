@@ -2,120 +2,62 @@ package usecase
 
 import (
 	"context"
-	"crypto/sha512"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
 	"errors"
-	"fmt"
-	"strconv"
-	"strings"
+	"time"
 
 	"github.com/google/uuid"
-	"golang.org/x/crypto/pbkdf2"
 
 	"github.com/traPtitech/portal-oidc/internal/domain"
 	"github.com/traPtitech/portal-oidc/internal/repository"
 )
 
 var (
-	ErrInvalidPassword          = errors.New("invalid password")
-	ErrUnsupportedHashAlgorithm = errors.New("unsupported hash algorithm")
-	ErrUserNotActive            = errors.New("user is not active")
-	ErrUserNotFound             = errors.New("user not found")
+	ErrInvalidPassword = errors.New("invalid credentials")
+	ErrUserNotActive   = errors.New("user is not active")
+	ErrUserNotFound    = errors.New("user not found")
 )
 
 type UserUseCase interface {
-	Authenticate(ctx context.Context, trapID, password string) (*domain.User, error)
-	GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error)
+	Authenticate(context.Context, string, string) (*domain.User, error)
+	GetByID(context.Context, uuid.UUID) (*domain.User, error)
 }
+type userUseCase struct{ accounts repository.AccountRepository }
 
-type userUseCase struct {
-	repo repository.UserRepository
-}
-
-func NewUserUseCase(repo repository.UserRepository) UserUseCase {
-	return &userUseCase{repo: repo}
-}
-
+func NewUserUseCase(a repository.AccountRepository) UserUseCase { return &userUseCase{a} }
 func (u *userUseCase) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
-	user, err := u.repo.GetByID(ctx, id)
+	a, err := u.accounts.GetByID(ctx, id)
+	if errors.Is(err, repository.ErrAccountNotFound) {
+		return nil, ErrUserNotFound
+	}
 	if err != nil {
-		if errors.Is(err, repository.ErrUserNotFound) {
-			return nil, ErrUserNotFound
-		}
 		return nil, err
 	}
-	return user, nil
+	return activeUser(a)
 }
-
-func (u *userUseCase) Authenticate(ctx context.Context, trapID, password string) (*domain.User, error) {
-	user, err := u.repo.GetByTrapID(ctx, trapID)
-	if err != nil {
-		if errors.Is(err, repository.ErrUserNotFound) {
-			return nil, ErrUserNotFound
-		}
-		return nil, err
+func activeUser(a *domain.Account) (*domain.User, error) {
+	if !a.ExpiresAt.After(time.Now()) {
+		return nil, ErrUserNotActive
 	}
-
-	if err := verifyPassword(password, user.PasswordHash); err != nil {
-		return nil, err
-	}
-
-	statuses, err := u.repo.ListStatuses(ctx, user.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(statuses) > 0 {
-		isActive := false
-		for _, status := range statuses {
-			if status == "active" {
-				isActive = true
-				break
-			}
-		}
-		if !isActive {
-			return nil, ErrUserNotActive
-		}
-	}
-
-	return &user.User, nil
+	return &domain.User{ID: a.UserID, TrapID: a.TrapID, Email: a.Email, EmailVerified: a.EmailVerified}, nil
 }
-
-func verifyPassword(password, storedHash string) error {
-	parts := strings.Split(storedHash, "$")
-	if len(parts) != 4 {
-		return fmt.Errorf("%w: invalid hash format", ErrUnsupportedHashAlgorithm)
-	}
-
-	switch parts[0] {
-	case "pbkdf2_sha512":
-		return verifyPBKDF2SHA512(password, parts[1], parts[2], parts[3])
-	default:
-		return fmt.Errorf("%w: %s", ErrUnsupportedHashAlgorithm, parts[0])
-	}
-}
-
-func verifyPBKDF2SHA512(password, iterationsStr, saltB64, hashB64 string) error {
-	iterations, err := strconv.Atoi(iterationsStr)
+func (u *userUseCase) Authenticate(ctx context.Context, trapID, secret string) (*domain.User, error) {
+	raw, err := domain.DecodeSecret(secret)
 	if err != nil {
-		return fmt.Errorf("%w: invalid iterations: %w", ErrUnsupportedHashAlgorithm, err)
+		return nil, ErrInvalidPassword
 	}
-
-	salt, err := base64.StdEncoding.DecodeString(saltB64)
+	a, err := u.accounts.GetByTrapID(ctx, trapID)
+	if errors.Is(err, repository.ErrAccountNotFound) {
+		return nil, ErrInvalidPassword
+	}
 	if err != nil {
-		return fmt.Errorf("%w: invalid salt: %w", ErrUnsupportedHashAlgorithm, err)
+		return nil, err
 	}
-
-	expectedHash, err := base64.StdEncoding.DecodeString(hashB64)
-	if err != nil {
-		return fmt.Errorf("%w: invalid hash: %w", ErrUnsupportedHashAlgorithm, err)
+	hash := sha256.Sum256(raw)
+	if subtle.ConstantTimeCompare([]byte(base64.RawURLEncoding.EncodeToString(hash[:])), []byte(a.AuthVerifier.Hash)) != 1 {
+		return nil, ErrInvalidPassword
 	}
-
-	computedHash := pbkdf2.Key([]byte(password), salt, iterations, len(expectedHash), sha512.New)
-
-	if subtle.ConstantTimeCompare(computedHash, expectedHash) != 1 {
-		return ErrInvalidPassword
-	}
-	return nil
+	return activeUser(a)
 }

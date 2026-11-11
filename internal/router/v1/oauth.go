@@ -13,6 +13,7 @@ import (
 	"github.com/go-jose/go-jose/v4"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 	"github.com/ory/fosite"
 
 	"github.com/traPtitech/portal-oidc/internal/repository/oauth"
@@ -299,18 +300,29 @@ func (h *Handler) handleUserInfo(ctx *echo.Context, token string) error {
 	sub := ar.GetSession().GetSubject()
 	info := gen.UserInfo{Sub: sub}
 
-	if h.userUseCase != nil && ar.GetGrantedScopes().Has("profile") {
+	scopes := ar.GetGrantedScopes()
+	if h.userUseCase != nil && (scopes.Has("profile") || scopes.Has("email")) {
 		subID, err := uuid.Parse(sub)
 		if err != nil {
 
 			return ctx.JSON(http.StatusUnauthorized, gen.OAuthError{Error: gen.InvalidGrant})
 		}
 		user, userErr := h.userUseCase.GetByID(c, subID)
+		if errors.Is(userErr, usecase.ErrUserNotFound) || errors.Is(userErr, usecase.ErrUserNotActive) {
+			return ctx.JSON(http.StatusUnauthorized, gen.OAuthError{Error: gen.InvalidGrant})
+		}
 		if userErr != nil {
 			return ctx.JSON(http.StatusInternalServerError, gen.OAuthError{Error: gen.ServerError})
 		}
-		info.Name = &user.TrapID
-		info.PreferredUsername = &user.TrapID
+		if scopes.Has("profile") {
+			info.Name = &user.TrapID
+			info.PreferredUsername = &user.TrapID
+		}
+		if scopes.Has("email") {
+			email := openapi_types.Email(user.Email)
+			info.Email = &email
+			info.EmailVerified = &user.EmailVerified
+		}
 	}
 
 	return ctx.JSON(http.StatusOK, info)

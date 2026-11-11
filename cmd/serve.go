@@ -18,7 +18,6 @@ import (
 	"github.com/traPtitech/portal-oidc/internal/repository"
 	"github.com/traPtitech/portal-oidc/internal/repository/oauth"
 	"github.com/traPtitech/portal-oidc/internal/repository/oidc"
-	"github.com/traPtitech/portal-oidc/internal/repository/portal"
 	"github.com/traPtitech/portal-oidc/internal/router/internalapi"
 	v1 "github.com/traPtitech/portal-oidc/internal/router/v1"
 	"github.com/traPtitech/portal-oidc/internal/router/v1/gen"
@@ -56,14 +55,8 @@ func newServer(cfg Config) (http.Handler, error) {
 		Secret:               []byte(cfg.OAuth.Secret),
 	}, privateKey)
 
-	var userUseCase usecase.UserUseCase
-	if cfg.Environment == "production" {
-		portalQueries, portalErr := setupPortalDatabase(cfg.Portal.Database)
-		if portalErr != nil {
-			return nil, portalErr
-		}
-		userUseCase = usecase.NewUserUseCase(repository.NewUserRepository(portalQueries))
-	}
+	accountRepo := repository.NewAccountRepository(queries)
+	userUseCase := usecase.NewUserUseCase(accountRepo)
 	handler := v1.NewHandler(
 		usecase.NewClientUseCase(clientRepo),
 		usecase.NewOAuthUseCase(oauth2Provider, oauthStorage),
@@ -75,7 +68,6 @@ func newServer(cfg Config) (http.Handler, error) {
 			PrivateKey:    privateKey,
 			IDTokenSigner: idTokenSigner,
 			Environment:   cfg.Environment,
-			TestUserID:    cfg.OAuth.TestUserID,
 		},
 	)
 
@@ -88,9 +80,10 @@ func newServer(cfg Config) (http.Handler, error) {
 		AllowHeaders: []string{"*"},
 		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 	}))
-	internalapi.Register(e, usecase.NewAccountUseCase(repository.NewAccountRepository(queries)), cfg.Internal.Token)
+	internalapi.Register(e, usecase.NewAccountUseCase(accountRepo), cfg.Internal.Token)
 	gen.RegisterHandlers(e, handler)
 	e.GET("/login", handler.GetLogin)
+	handler.RegisterLoginAssets(e)
 	e.POST("/login", handler.PostLogin, loginRateLimiter())
 	e.GET("/logout", handler.Logout)
 	e.GET("/health", func(c *echo.Context) error {
@@ -175,23 +168,4 @@ func setupOIDCDatabase(cfg DatabaseConfig) (*sql.DB, *oidc.Queries, error) {
 	}
 
 	return db, queries, nil
-}
-
-func setupPortalDatabase(cfg DatabaseConfig) (*portal.Queries, error) {
-	db, err := sql.Open("pgx", postgresDSN(cfg))
-	if err != nil {
-		return nil, fmt.Errorf("failed to open portal database: %w", err)
-	}
-	tunePool(db)
-
-	if err := db.PingContext(context.Background()); err != nil {
-		return nil, fmt.Errorf("failed to ping portal database: %w", err)
-	}
-
-	queries, err := portal.Prepare(context.Background(), db)
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare portal queries: %w", err)
-	}
-
-	return queries, nil
 }

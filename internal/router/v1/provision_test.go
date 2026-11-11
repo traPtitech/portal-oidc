@@ -21,7 +21,7 @@ import (
 )
 
 func provisionFixture() domain.Account {
-	return domain.Account{UserID: uuid.New(), Email: uuid.NewString() + "@example.test", EmailVerified: false, ExpiresAt: time.Now().Add(time.Hour).UTC().Truncate(time.Microsecond), AuthVerifier: domain.AuthVerifier{Version: 1, Alg: "argon2id-verifier-v1", Params: domain.CurrentKDFPolicy(), Hash: base64.RawURLEncoding.EncodeToString(make([]byte, 32))}}
+	return domain.Account{UserID: uuid.New(), TrapID: uuid.NewString()[:32], Email: uuid.NewString() + "@example.test", EmailVerified: false, ExpiresAt: time.Now().Add(time.Hour).UTC().Truncate(time.Microsecond), AuthVerifier: domain.AuthVerifier{Version: 1, Alg: "argon2id-verifier-v1", Params: domain.CurrentKDFPolicy(), Hash: base64.RawURLEncoding.EncodeToString(make([]byte, 32))}}
 }
 func identityHandler() (*echo.Echo, repository.AccountRepository) {
 	r := repository.NewAccountRepository(oidc.New(testDB))
@@ -53,7 +53,7 @@ func TestProvisionContract(t *testing.T) {
 	call(body, 201)
 	call(body, 200)
 	stored, err := repo.GetByID(t.Context(), a.UserID)
-	if err != nil || stored.EmailVerified || stored.AuthVerifier != a.AuthVerifier {
+	if err != nil || stored.TrapID != a.TrapID || stored.EmailVerified || stored.AuthVerifier != a.AuthVerifier {
 		t.Fatalf("stored account mismatch: %v", err)
 	}
 	other := a
@@ -64,6 +64,19 @@ func TestProvisionContract(t *testing.T) {
 	other.UserID = uuid.New()
 	b = mustIdentityJSON(t, other)
 	call(b, 409)
+	other = a
+	other.TrapID = "different-id"
+	call(mustIdentityJSON(t, other), 409)
+	other.UserID = uuid.New()
+	other.Email = "another-" + a.Email
+	other.TrapID = a.TrapID
+	call(mustIdentityJSON(t, other), 409)
+	for _, id := range []any{nil, "", "invalid id", "alice@example.test"} {
+		fields := map[string]any{}
+		_ = json.Unmarshal(body, &fields)
+		fields["trapId"] = id
+		call(mustIdentityJSON(t, fields), 422)
+	}
 	call([]byte("{"), 400)
 	invalid := provisionFixture()
 	invalid.AuthVerifier.Params.MemoryKiB = 1
@@ -109,11 +122,12 @@ func TestConcurrentProvision(t *testing.T) {
 	if created != 1 {
 		t.Fatal(created)
 	}
-	a.Email = uuid.NewString() + "@example.test"
+	a = provisionFixture()
 	results = make(chan int, 16)
 	for range 16 {
 		v := a
 		v.UserID = uuid.New()
+		v.TrapID = uuid.NewString()[:32]
 		data := mustIdentityJSON(t, v)
 		wg.Go(func() {
 			results <- identityRequest(e, "POST", "/internal/users/provision", "test-internal-token", data)

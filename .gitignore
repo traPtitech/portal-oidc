@@ -47,3 +47,7 @@ data/
 
 # Conformance suite results
 .github/conformance/results/
+
+node_modules/
+web/test-results/
+web/playwright-report/
