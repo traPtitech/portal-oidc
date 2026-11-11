@@ -142,7 +142,7 @@ test("the derived auth secret completes OIDC and the password is rejected", asyn
 
   const loggedIn = await login({
     trapId: vector.trapId,
-    auth_secret: encodeSecret(derive(vector.trapId, vector.password)),
+    auth_secret: encodeSecret(await derive(vector.trapId, vector.password)),
   });
   assert.equal(loggedIn.status, 302);
   const back = await send(location(loggedIn));
