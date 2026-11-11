@@ -46,6 +46,41 @@ mise run lint    # Run linter
 mise run docs    # Generate DB schema docs
 ```
 
+### Local login
+
+Use these steps only with a disposable development or test database.
+
+1. Apply `db/schema.sql` to the OIDC database. When Docker Compose creates the database, it applies this file.
+2. Start the server with `OIDC_INTERNAL__TOKEN` set. Docker Compose sets it from `PORTAL_INTERNAL_TOKEN` in your shell.
+3. Send the fixture to the internal provision API:
+
+   ```bash
+   curl -X POST http://localhost:8080/internal/users/provision \
+     -H "X-Portal-Internal-Token: <token>" \
+     -H "Content-Type: application/json" \
+     --data @development/provision.json
+   ```
+
+4. Log in as `TestUser_01` with the password `password`.
+
+### Login assets
+
+The server embeds the built login files in `internal/router/v1/loginassets`. If you change `web/src`, rebuild them and commit the output. The build needs Node.js 20.19 or later.
+
+```bash
+npm --prefix web ci --ignore-scripts
+npm --prefix web run build
+npm --prefix web test   # Check the auth secret test vector
+```
+
+To run the browser tests, follow these steps:
+
+1. Install Chromium with `cd web && npx playwright install chromium`.
+2. Start the server on port 8080 with the internal token `browser-test-internal-token`.
+3. Run `npm --prefix web run test:browser`.
+
+`OIDC_TEST_URL` and `OIDC_TEST_INTERNAL_TOKEN` override the URL and the token.
+
 ## License
 
 Code licensed under [the MIT License](https://github.com/traPtitech/portal-oidc/blob/master/LICENSE).

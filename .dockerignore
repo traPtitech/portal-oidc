@@ -48,5 +48,3 @@ coverage.html
 
 # Login asset build/test dependencies (the runtime embeds the built assets)
 web/node_modules/
-web/test-results/
-web/playwright-report/
