@@ -7,6 +7,7 @@ import os
 import re
 import sys
 import time
+from pathlib import Path
 
 import httpx
 
@@ -79,8 +80,11 @@ def find_authorize_url(log_entries: list) -> str | None:
     return None
 
 
-TEST_USERNAME = os.environ.get("CONFORMANCE_TEST_USERNAME", "testuser")
-TEST_PASSWORD = os.environ.get("CONFORMANCE_TEST_PASSWORD", "password")
+_login_vector = json.loads(
+    (Path(__file__).resolve().parents[2] / "web/test/vector.json").read_text()
+)
+TEST_TRAP_ID = os.environ.get("CONFORMANCE_TEST_TRAP_ID", _login_vector["trapId"])
+TEST_AUTH_SECRET = os.environ.get("CONFORMANCE_TEST_AUTH_SECRET", _login_vector["secret"])
 LOGIN_INPUT_DELAY_SECONDS = 1
 RUNNER_DRIVEN_BROWSER_MODULES = {
     "oidcc-prompt-login",
@@ -93,10 +97,20 @@ def submit_login_form(
 ) -> httpx.Response | None:
     """POST credentials to the login form and return the resulting redirect.
 
-    The /login page on portal-oidc is a static HTML form whose action target is
+    The runner submits the shared fixture auth secret, never its password.
+    The /login page has a CSRF-protected form whose action target is
     /login itself. After successful auth it issues a 302 back to the authorize
     URL embedded in the `return_url` hidden field.
     """
+    try:
+        page = browser.get(login_url)
+        page.raise_for_status()
+    except httpx.HTTPError as e:
+        print(f"  Browser: login form unavailable: {e}")
+        return None
+    match = re.search(r'name="csrf_token" value="([^"<>]+)"', page.text)
+    if not match:
+        return None
     parsed = httpx.URL(login_url)
     return_url = ""
     for key, value in parsed.params.multi_items():
@@ -112,8 +126,9 @@ def submit_login_form(
         return browser.post(
             login_url,
             data={
-                "username": TEST_USERNAME,
-                "password": TEST_PASSWORD,
+                "trapId": TEST_TRAP_ID,
+                "auth_secret": TEST_AUTH_SECRET,
+                "csrf_token": match.group(1),
                 "return_url": return_url,
             },
             follow_redirects=False,

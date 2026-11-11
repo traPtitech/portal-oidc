@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"regexp"
 	"strings"
 	"time"
 
@@ -12,6 +13,10 @@ import (
 )
 
 var ErrInvalidAccount = errors.New("invalid account")
+
+var trapIDPattern = regexp.MustCompile(`^[a-zA-Z0-9](?:[a-zA-Z0-9_-]{0,30}[a-zA-Z0-9])?$`)
+
+func ValidTrapID(id string) bool { return trapIDPattern.MatchString(id) }
 
 type KDFParams struct {
 	Kdf         string `json:"kdf"`
@@ -47,6 +52,7 @@ func (v AuthVerifier) Validate() error {
 
 type Account struct {
 	UserID        uuid.UUID    `json:"userId"`
+	TrapID        string       `json:"trapId"`
 	Email         string       `json:"email"`
 	EmailVerified bool         `json:"emailVerified"`
 	AuthVerifier  AuthVerifier `json:"authVerifier"`
@@ -56,7 +62,7 @@ type Account struct {
 func NormalizeEmail(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
 func (a Account) Validate() error {
 	at := strings.IndexByte(a.Email, '@')
-	if a.UserID == uuid.Nil || len(a.Email) > 254 || at <= 0 || at == len(a.Email)-1 || !a.ExpiresAt.After(time.Now()) {
+	if a.UserID == uuid.Nil || !ValidTrapID(a.TrapID) || len(a.Email) > 254 || at <= 0 || at == len(a.Email)-1 || !a.ExpiresAt.After(time.Now()) {
 		return ErrInvalidAccount
 	}
 	return a.AuthVerifier.Validate()

@@ -370,7 +370,7 @@ func (q *Queries) GetClient(ctx context.Context, clientID uuid.UUID) (Client, er
 }
 
 const getIdentityAccountByID = `-- name: GetIdentityAccountByID :one
-SELECT user_id, email, email_verified, auth_verifier, expires_at, provision_fingerprint, created_at FROM identity_accounts WHERE user_id=$1
+SELECT user_id, trap_id, email, email_verified, auth_verifier, expires_at, provision_fingerprint, created_at FROM identity_accounts WHERE user_id=$1
 `
 
 func (q *Queries) GetIdentityAccountByID(ctx context.Context, userID uuid.UUID) (IdentityAccount, error) {
@@ -378,6 +378,27 @@ func (q *Queries) GetIdentityAccountByID(ctx context.Context, userID uuid.UUID) 
 	var i IdentityAccount
 	err := row.Scan(
 		&i.UserID,
+		&i.TrapID,
+		&i.Email,
+		&i.EmailVerified,
+		&i.AuthVerifier,
+		&i.ExpiresAt,
+		&i.ProvisionFingerprint,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getIdentityAccountByTrapID = `-- name: GetIdentityAccountByTrapID :one
+SELECT user_id, trap_id, email, email_verified, auth_verifier, expires_at, provision_fingerprint, created_at FROM identity_accounts WHERE trap_id=$1
+`
+
+func (q *Queries) GetIdentityAccountByTrapID(ctx context.Context, trapID string) (IdentityAccount, error) {
+	row := q.queryRow(ctx, q.getIdentityAccountByTrapIDStmt, getIdentityAccountByTrapID, trapID)
+	var i IdentityAccount
+	err := row.Scan(
+		&i.UserID,
+		&i.TrapID,
 		&i.Email,
 		&i.EmailVerified,
 		&i.AuthVerifier,
@@ -431,12 +452,13 @@ func (q *Queries) GetRefreshTokenBySignature(ctx context.Context, signature stri
 }
 
 const insertIdentityAccount = `-- name: InsertIdentityAccount :execrows
-INSERT INTO identity_accounts (user_id,email,email_verified,auth_verifier,expires_at,provision_fingerprint)
-VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING
+INSERT INTO identity_accounts (user_id,trap_id,email,email_verified,auth_verifier,expires_at,provision_fingerprint)
+VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT DO NOTHING
 `
 
 type InsertIdentityAccountParams struct {
 	UserID               uuid.UUID       `json:"user_id"`
+	TrapID               string          `json:"trap_id"`
 	Email                string          `json:"email"`
 	EmailVerified        bool            `json:"email_verified"`
 	AuthVerifier         json.RawMessage `json:"auth_verifier"`
@@ -447,6 +469,7 @@ type InsertIdentityAccountParams struct {
 func (q *Queries) InsertIdentityAccount(ctx context.Context, arg InsertIdentityAccountParams) (int64, error) {
 	result, err := q.exec(ctx, q.insertIdentityAccountStmt, insertIdentityAccount,
 		arg.UserID,
+		arg.TrapID,
 		arg.Email,
 		arg.EmailVerified,
 		arg.AuthVerifier,

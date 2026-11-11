@@ -7,14 +7,3 @@ database:
   user: root
   password: password
   name: oidc
-
-portal:
-  database:
-    host: localhost
-    port: 5432
-    user: root
-    password: password
-    name: portal
-
-oauth:
-  test_user_id: 00000000-0000-0000-0000-000000000000

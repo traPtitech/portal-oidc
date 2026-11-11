@@ -32,11 +32,14 @@ type KDFParams struct {
 
 // ProvisionRequest defines model for ProvisionRequest.
 type ProvisionRequest struct {
-	AuthVerifier  AuthVerifier       `json:"authVerifier"`
-	Email         string             `json:"email"`
-	EmailVerified bool               `json:"emailVerified"`
-	ExpiresAt     time.Time          `json:"expiresAt"`
-	UserId        openapi_types.UUID `json:"userId"`
+	AuthVerifier  AuthVerifier `json:"authVerifier"`
+	Email         string       `json:"email"`
+	EmailVerified bool         `json:"emailVerified"`
+	ExpiresAt     time.Time    `json:"expiresAt"`
+
+	// TrapId Immutable case-sensitive traQ ID used for login and policy-v1 KDF salt.
+	TrapId string             `json:"trapId"`
+	UserId openapi_types.UUID `json:"userId"`
 }
 
 // ProvisionUserJSONRequestBody defines body for ProvisionUser for application/json ContentType.

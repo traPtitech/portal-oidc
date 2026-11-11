@@ -27,7 +27,6 @@ type OAuthConfig struct {
 	PrivateKey    *rsa.PrivateKey
 	IDTokenSigner fositejwt.Signer
 	Environment   string
-	TestUserID    string
 }
 
 func NewHandler(

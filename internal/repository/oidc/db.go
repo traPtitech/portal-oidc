@@ -75,6 +75,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getIdentityAccountByIDStmt, err = db.PrepareContext(ctx, getIdentityAccountByID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetIdentityAccountByID: %w", err)
 	}
+	if q.getIdentityAccountByTrapIDStmt, err = db.PrepareContext(ctx, getIdentityAccountByTrapID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetIdentityAccountByTrapID: %w", err)
+	}
 	if q.getOIDCSessionStmt, err = db.PrepareContext(ctx, getOIDCSession); err != nil {
 		return nil, fmt.Errorf("error preparing query GetOIDCSession: %w", err)
 	}
@@ -198,6 +201,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getIdentityAccountByIDStmt: %w", cerr)
 		}
 	}
+	if q.getIdentityAccountByTrapIDStmt != nil {
+		if cerr := q.getIdentityAccountByTrapIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getIdentityAccountByTrapIDStmt: %w", cerr)
+		}
+	}
 	if q.getOIDCSessionStmt != nil {
 		if cerr := q.getOIDCSessionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getOIDCSessionStmt: %w", cerr)
@@ -309,6 +317,7 @@ type Queries struct {
 	getAuthorizationCodeStmt           *sql.Stmt
 	getClientStmt                      *sql.Stmt
 	getIdentityAccountByIDStmt         *sql.Stmt
+	getIdentityAccountByTrapIDStmt     *sql.Stmt
 	getOIDCSessionStmt                 *sql.Stmt
 	getRefreshTokenBySignatureStmt     *sql.Stmt
 	insertIdentityAccountStmt          *sql.Stmt
@@ -343,6 +352,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getAuthorizationCodeStmt:           q.getAuthorizationCodeStmt,
 		getClientStmt:                      q.getClientStmt,
 		getIdentityAccountByIDStmt:         q.getIdentityAccountByIDStmt,
+		getIdentityAccountByTrapIDStmt:     q.getIdentityAccountByTrapIDStmt,
 		getOIDCSessionStmt:                 q.getOIDCSessionStmt,
 		getRefreshTokenBySignatureStmt:     q.getRefreshTokenBySignatureStmt,
 		insertIdentityAccountStmt:          q.insertIdentityAccountStmt,

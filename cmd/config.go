@@ -20,12 +20,7 @@ type Config struct {
 	Host        string         `koanf:"host"`
 	Environment string         `koanf:"environment"`
 	Database    DatabaseConfig `koanf:"database"`
-	Portal      PortalConfig   `koanf:"portal"`
 	OAuth       OAuthConfig    `koanf:"oauth"`
-}
-
-type PortalConfig struct {
-	Database DatabaseConfig `koanf:"database"`
 }
 
 type DatabaseConfig struct {
@@ -38,29 +33,21 @@ type DatabaseConfig struct {
 }
 
 type OAuthConfig struct {
-	Secret     string `koanf:"secret"` // #nosec G117 -- config struct, not serialized
-	KeyFile    string `koanf:"key_file"`
-	TestUserID string `koanf:"test_user_id"`
+	Secret  string `koanf:"secret"` // #nosec G117 -- config struct, not serialized
+	KeyFile string `koanf:"key_file"`
 }
 
 var defaults = map[string]any{
-	"host":                     "http://localhost:8080",
-	"environment":              "development",
-	"database.host":            "localhost",
-	"database.port":            5433,
-	"database.user":            "root",
-	"database.password":        "password",
-	"database.name":            "oidc",
-	"database.sslmode":         "disable",
-	"portal.database.host":     "localhost",
-	"portal.database.port":     5432,
-	"portal.database.user":     "root",
-	"portal.database.password": "password",
-	"portal.database.name":     "portal",
-	"portal.database.sslmode":  "disable",
-	"oauth.secret":             "my-super-secret-signing-key-32!!",
-	"oauth.key_file":           "data/private.pem",
-	"oauth.test_user_id":       "00000000-0000-0000-0000-000000000000",
+	"host":              "http://localhost:8080",
+	"environment":       "development",
+	"database.host":     "localhost",
+	"database.port":     5433,
+	"database.user":     "root",
+	"database.password": "password",
+	"database.name":     "oidc",
+	"database.sslmode":  "disable",
+	"oauth.secret":      "my-super-secret-signing-key-32!!",
+	"oauth.key_file":    "data/private.pem",
 }
 
 func loadConfig(configPath string) (*Config, error) {

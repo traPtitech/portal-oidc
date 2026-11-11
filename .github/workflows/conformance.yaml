@@ -88,6 +88,7 @@ jobs:
           OIDC_DATABASE__PASSWORD: password
           OIDC_DATABASE__NAME: oidc
           OIDC_OAUTH__SECRET: conformance-test-secret-key-32!!
+          OIDC_INTERNAL__TOKEN: conformance-internal-token
 
       - name: Wait for conformance suite startup
         wait: conformance-suite-start
@@ -99,6 +100,12 @@ jobs:
           --retry 30 --retry-all-errors --retry-delay 2 --retry-max-time 60
           --connect-timeout 2 --max-time 5
           http://localhost:8080/health
+
+      - name: Provision fixture account
+        run: >-
+          curl --fail-with-body -X POST http://localhost:8080/internal/users/provision
+          -H "Content-Type: application/json" -H "X-Portal-Internal-Token: conformance-internal-token"
+          --data-binary @development/provision.json
 
       - name: Run conformance tests
         run: .github/conformance/run.sh

@@ -51,14 +51,14 @@ outputs = ["coverage.out"]
 
 [tasks.gen]
 description = "全コード生成 (sqlc + oapi)"
-depends = ["gen:sqlc", "gen:oapi"]
+depends = ["gen:sqlc", "gen:oapi", "gen:login"]
 
 [tasks."gen:sqlc"]
 description = "sqlcでDBコード生成"
 dir = "db"
 run = "sqlc generate"
-sources = ["sqlc.yaml", "schema.sql", "portal-schema.sql", "query/*.sql"]
-outputs = ["../internal/repository/oidc/", "../internal/repository/portal/"]
+sources = ["sqlc.yaml", "schema.sql", "query/*.sql"]
+outputs = ["../internal/repository/oidc/"]
 
 [tasks."gen:oapi"]
 description = "OpenAPIでサーバー/モデル生成"
@@ -115,7 +115,7 @@ hide = true
 description = "Portalスキーマドキュメント生成"
 dir = "db"
 run = "tbls doc --config tbls.portal.yaml --rm-dist"
-sources = ["tbls.portal.yaml", "portal-schema.sql"]
+sources = ["tbls.portal.yaml"]
 outputs = ["../docs/db/portal/"]
 hide = true
 
@@ -125,3 +125,13 @@ env = { TARGET_DIR = "document/database" }
 run = """
 echo ${TARGET_DIR}
 """
+
+[tasks."gen:login"]
+description = "Build embedded login assets"
+dir = "web"
+run = "npm ci --ignore-scripts && npm run build"
+
+[tasks."test:login"]
+description = "Test browser credential derivation"
+dir = "web"
+run = "npm ci --ignore-scripts && npm test"
