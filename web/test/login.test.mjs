@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { formData, parseInputs } from "./form.mjs";
 
 const html = readFileSync(
   new URL("../../internal/router/v1/loginassets/login.html", import.meta.url),
@@ -10,17 +11,27 @@ const vector = JSON.parse(
   readFileSync(new URL("./vector.json", import.meta.url)),
 );
 
-// Runs src/login.js against the parts of the DOM and Worker API it uses.
+// Runs src/login.js against the inputs of login.html and the parts of the DOM
+// and Worker API that it uses. A submission records every input with a name,
+// as the browser would send it.
 let loads = 0;
 async function loadPage() {
-  const field = () => ({ value: "" });
-  const elements = { trapId: field(), auth_secret: field() };
-  const password = field();
+  const inputs = parseInputs(html).map(({ id, name, value }) => ({
+    id,
+    name,
+    value: value ?? "",
+  }));
+  const elements = {};
+  for (const input of inputs) {
+    if (input.id) elements[input.id] = input;
+    if (input.name) elements[input.name] = input;
+  }
   const button = { disabled: true };
   const status = { textContent: "" };
   const submitted = [];
   const workers = [];
   let onsubmit;
+  const post = () => submitted.push(formData(inputs));
   const form = {
     elements,
     querySelector: () => button,
@@ -28,13 +39,9 @@ async function loadPage() {
       if (type === "submit") onsubmit = listener;
     },
     reportValidity: () => true,
-    submit: () =>
-      submitted.push({
-        trapId: elements.trapId.value,
-        auth_secret: elements.auth_secret.value,
-      }),
+    submit: post,
   };
-  const nodes = { form, "#status": status, "#password": password };
+  const nodes = { form, "#status": status, "#password": elements.password };
   globalThis.document = { querySelector: (selector) => nodes[selector] };
   globalThis.Worker = class {
     constructor(url) {
@@ -53,18 +60,27 @@ async function loadPage() {
   await import("../src/login.js?page=" + ++loads);
   return {
     elements,
-    password,
+    password: elements.password,
     button,
     status,
     submitted,
     workers,
-    submit: () => onsubmit({ preventDefault() {} }),
+    // The browser submits the form itself unless the listener cancels it.
+    submit: () => {
+      let cancelled = false;
+      onsubmit({
+        preventDefault: () => {
+          cancelled = true;
+        },
+      });
+      if (!cancelled) post();
+    },
   };
 }
 
 test("the login page cannot submit a password without the script", () => {
-  assert.doesNotMatch(html, /name="password"/);
-  assert.doesNotMatch(html.match(/<input id="password"[^>]*>/)[0], /\bname=/);
+  const password = parseInputs(html).find((input) => input.type === "password");
+  assert.equal(password.name, undefined);
   assert.match(html, /<button type="submit" disabled>/);
 });
 
@@ -85,7 +101,12 @@ test("the login script submits the derived secret instead of the password", asyn
   worker.onmessage({ data: { secret: vector.secret } });
   assert.equal(worker.terminated, true);
   assert.deepEqual(page.submitted, [
-    { trapId: vector.trapId, auth_secret: vector.secret },
+    {
+      trapId: vector.trapId,
+      auth_secret: vector.secret,
+      return_url: "{{.ReturnURL}}",
+      csrf_token: "{{.CSRF}}",
+    },
   ]);
 });
 
