@@ -90,37 +90,23 @@
     "schemas": {
       "ProvisionRequest": {
         "type": "object",
-        "additionalProperties": false,
         "properties": {
           "userId": {
             "type": "string",
-            "format": "uuid",
-            "x-go-type-skip-optional-pointer": false,
-            "x-go-type": "*uuid.UUID",
-            "x-go-type-import": {
-              "path": "github.com/google/uuid"
-            }
+            "format": "uuid"
           },
           "email": {
-            "type": "string",
-            "x-go-type-skip-optional-pointer": false,
-            "x-go-type": "*string"
+            "type": "string"
           },
           "emailVerified": {
-            "type": "boolean",
-            "x-go-type-skip-optional-pointer": false,
-            "x-go-type": "*bool"
+            "type": "boolean"
           },
           "expiresAt": {
             "type": "string",
-            "format": "date-time",
-            "x-go-type-skip-optional-pointer": false,
-            "x-go-type": "*time.Time"
+            "format": "date-time"
           },
           "authVerifier": {
-            "$ref": "#/components/schemas/AuthVerifier",
-            "x-go-type-skip-optional-pointer": false,
-            "x-go-type": "*AuthVerifier"
+            "$ref": "#/components/schemas/AuthVerifier"
           }
         },
         "required": [
@@ -133,27 +119,18 @@
       },
       "AuthVerifier": {
         "type": "object",
-        "additionalProperties": false,
         "properties": {
           "version": {
-            "type": "integer",
-            "x-go-type-skip-optional-pointer": false,
-            "x-go-type": "*int"
+            "type": "integer"
           },
           "alg": {
-            "type": "string",
-            "x-go-type-skip-optional-pointer": false,
-            "x-go-type": "*string"
+            "type": "string"
           },
           "hash": {
-            "type": "string",
-            "x-go-type-skip-optional-pointer": false,
-            "x-go-type": "*string"
+            "type": "string"
           },
           "params": {
-            "$ref": "#/components/schemas/KDFParams",
-            "x-go-type-skip-optional-pointer": false,
-            "x-go-type": "*KDFParams"
+            "$ref": "#/components/schemas/KDFParams"
           }
         },
         "required": [
@@ -165,32 +142,21 @@
       },
       "KDFParams": {
         "type": "object",
-        "additionalProperties": false,
         "properties": {
           "kdf": {
-            "type": "string",
-            "x-go-type-skip-optional-pointer": false,
-            "x-go-type": "*string"
+            "type": "string"
           },
           "version": {
-            "type": "integer",
-            "x-go-type-skip-optional-pointer": false,
-            "x-go-type": "*int"
+            "type": "integer"
           },
           "memoryKiB": {
-            "type": "integer",
-            "x-go-type-skip-optional-pointer": false,
-            "x-go-type": "*int"
+            "type": "integer"
           },
           "iterations": {
-            "type": "integer",
-            "x-go-type-skip-optional-pointer": false,
-            "x-go-type": "*int"
+            "type": "integer"
           },
           "parallelism": {
-            "type": "integer",
-            "x-go-type-skip-optional-pointer": false,
-            "x-go-type": "*int"
+            "type": "integer"
           }
         },
         "required": [

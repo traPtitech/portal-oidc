@@ -1,26 +1,20 @@
 # Portal identity integration
 
-The internal API is specified in `api/internal.openapi.yaml`. Configure
-`OIDC_INTERNAL__TOKEN` with the same secret as Portal's `PORTAL_INTERNAL_TOKEN`.
-An empty token disables the internal routes. Expose these routes only to Portal
-through the service network; the token must never be given to a browser.
+Portal provisions authentication accounts through the internal API in
+`api/internal.openapi.yaml`. Set `OIDC_INTERNAL__TOKEN` to the same value as
+Portal's `PORTAL_INTERNAL_TOKEN`. If the token is empty, the server does not
+register the internal routes. Expose these routes only to Portal on the service
+network.
 
-Apply the OIDC schema before starting the new binary. The Portal database is
-owned by Portal and must not be migrated with the OIDC schema task.
+`POST /internal/users/provision` stores the account under the Portal user UUID.
+The account keeps the SHA-256 verifier that Portal sends. It does not keep the
+password or the auth secret. A request that repeats a stored account exactly
+returns 200. A request with the same UUID and different content returns 409. A
+request with an email that another account uses also returns 409. A request
+whose `expiresAt` is not in the future returns 422.
 
-Provisioning is synchronous and keyed by the Portal-generated user UUID. The
-normalized payload fingerprint makes identical replays successful without
-changing credentials; different content or a duplicate email returns 409.
-The account stores the supplied SHA-256 verifier, not the password or auth secret.
-The membership expiry is not a request timeout. Expired initial requests are
-rejected; identical retries still acknowledge a previously committed account.
-
-Portal calls provision before committing its own transaction. There is therefore
-no cross-database foreign key or profile lookup during provisioning. DELETE is
-compensation for a confirmed provision followed by a confirmed Portal rollback.
-It does not fence a delayed POST. After a lost response or uncertain commit,
-operators must reconcile the UUID in both databases before retrying registration
-or deleting anything. Logs contain UUID and failure category only.
-
-Registration and login ship as separate stacked PRs. Deploy both with the matching
-Portal branch; this first PR alone does not enable login for the new credentials.
+Portal calls provision before it commits its own transaction. For this reason,
+provisioning does not read the Portal database. `DELETE /internal/users/{userId}`
+removes the account after a confirmed provision and a confirmed Portal rollback.
+It does not stop a delayed POST. If a provision response is lost, operators must
+compare the UUID in both databases before they retry or delete anything.

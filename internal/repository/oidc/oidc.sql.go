@@ -369,25 +369,6 @@ func (q *Queries) GetClient(ctx context.Context, clientID uuid.UUID) (Client, er
 	return i, err
 }
 
-const getIdentityAccountByEmail = `-- name: GetIdentityAccountByEmail :one
-SELECT user_id, email, email_verified, auth_verifier, expires_at, provision_fingerprint, created_at FROM identity_accounts WHERE email=$1
-`
-
-func (q *Queries) GetIdentityAccountByEmail(ctx context.Context, email string) (IdentityAccount, error) {
-	row := q.queryRow(ctx, q.getIdentityAccountByEmailStmt, getIdentityAccountByEmail, email)
-	var i IdentityAccount
-	err := row.Scan(
-		&i.UserID,
-		&i.Email,
-		&i.EmailVerified,
-		&i.AuthVerifier,
-		&i.ExpiresAt,
-		&i.ProvisionFingerprint,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
 const getIdentityAccountByID = `-- name: GetIdentityAccountByID :one
 SELECT user_id, email, email_verified, auth_verifier, expires_at, provision_fingerprint, created_at FROM identity_accounts WHERE user_id=$1
 `
@@ -451,7 +432,7 @@ func (q *Queries) GetRefreshTokenBySignature(ctx context.Context, signature stri
 
 const insertIdentityAccount = `-- name: InsertIdentityAccount :execrows
 INSERT INTO identity_accounts (user_id,email,email_verified,auth_verifier,expires_at,provision_fingerprint)
-SELECT $1,$2,$3,$4,$5,$6 WHERE $5::timestamptz > CURRENT_TIMESTAMP ON CONFLICT DO NOTHING
+VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING
 `
 
 type InsertIdentityAccountParams struct {

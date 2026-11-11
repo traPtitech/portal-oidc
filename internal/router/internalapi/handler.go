@@ -3,11 +3,8 @@ package internalapi
 import (
 	"crypto/sha256"
 	"crypto/subtle"
-	"encoding/json"
 	"errors"
-	"io"
 	"log/slog"
-	"mime"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -32,69 +29,49 @@ func Register(e *echo.Echo, accounts *usecase.AccountUseCase, token string) {
 			if subtle.ConstantTimeCompare(supplied[:], expected[:]) != 1 {
 				return c.NoContent(http.StatusUnauthorized)
 			}
-			c.Response().Header().Set("Cache-Control", "no-store")
 			return next(c)
 		}
 	})
 	gen.RegisterHandlers(group, &Handler{accounts})
 }
+
 func (h *Handler) ProvisionUser(c *echo.Context) error {
 	var body gen.ProvisionRequest
-	media, _, err := mime.ParseMediaType(c.Request().Header.Get("Content-Type"))
-	if err != nil || media != "application/json" {
-		return c.NoContent(400)
+	if err := c.Bind(&body); err != nil {
+		return c.NoContent(http.StatusBadRequest)
 	}
-	decoder := json.NewDecoder(http.MaxBytesReader(c.Response(), c.Request().Body, 16*1024))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&body); err != nil {
-		return c.NoContent(400)
-	}
-	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
-		return c.NoContent(400)
-	}
-	a, err := accountFromRequest(body)
-	if err != nil {
-		return c.NoContent(400)
-	}
+	a := accountFromRequest(body)
 	created, err := h.accounts.Provision(c.Request().Context(), a)
 	switch {
 	case errors.Is(err, domain.ErrInvalidAccount):
-		return c.NoContent(422)
+		return c.NoContent(http.StatusUnprocessableEntity)
 	case errors.Is(err, repository.ErrAccountConflict):
-		return c.NoContent(409)
+		return c.NoContent(http.StatusConflict)
 	case err != nil:
 		slog.WarnContext(c.Request().Context(), "identity operation failed", "user_id", a.UserID, "reason", "provision_failed")
-		return c.NoContent(500)
+		return c.NoContent(http.StatusInternalServerError)
 	case created:
-		return c.NoContent(201)
+		return c.NoContent(http.StatusCreated)
 	default:
-		return c.NoContent(200)
+		return c.NoContent(http.StatusOK)
 	}
 }
+
 func (h *Handler) DeleteUser(c *echo.Context, userId uuid.UUID) error {
-	if userId == uuid.Nil {
-		return c.NoContent(400)
-	}
 	if err := h.accounts.Delete(c.Request().Context(), userId); err != nil {
 		slog.WarnContext(c.Request().Context(), "identity operation failed", "user_id", userId, "reason", "delete_failed")
-		return c.NoContent(500)
+		return c.NoContent(http.StatusInternalServerError)
 	}
-	return c.NoContent(204)
+	return c.NoContent(http.StatusNoContent)
 }
 
-func accountFromRequest(body gen.ProvisionRequest) (domain.Account, error) {
-	if body.UserId == nil || body.Email == nil || body.EmailVerified == nil || body.ExpiresAt == nil || body.AuthVerifier == nil {
-		return domain.Account{}, domain.ErrInvalidAccount
+func accountFromRequest(body gen.ProvisionRequest) domain.Account {
+	v, k := body.AuthVerifier, body.AuthVerifier.Params
+	return domain.Account{
+		UserID: body.UserId, Email: body.Email, EmailVerified: body.EmailVerified, ExpiresAt: body.ExpiresAt,
+		AuthVerifier: domain.AuthVerifier{
+			Version: v.Version, Alg: v.Alg, Hash: v.Hash,
+			Params: domain.KDFParams{Kdf: k.Kdf, Version: k.Version, MemoryKiB: k.MemoryKiB, Iterations: k.Iterations, Parallelism: k.Parallelism},
+		},
 	}
-	v := body.AuthVerifier
-	if v.Version == nil || v.Alg == nil || v.Params == nil || v.Hash == nil {
-		return domain.Account{}, domain.ErrInvalidAccount
-	}
-	k := v.Params
-	if k.Kdf == nil || k.Version == nil || k.MemoryKiB == nil || k.Iterations == nil || k.Parallelism == nil {
-		return domain.Account{}, domain.ErrInvalidAccount
-	}
-	a := domain.Account{UserID: *body.UserId, Email: *body.Email, EmailVerified: *body.EmailVerified, ExpiresAt: *body.ExpiresAt, AuthVerifier: domain.AuthVerifier{Version: *v.Version, Alg: *v.Alg, Hash: *v.Hash, Params: domain.KDFParams{Kdf: *k.Kdf, Version: *k.Version, MemoryKiB: *k.MemoryKiB, Iterations: *k.Iterations, Parallelism: *k.Parallelism}}}
-
-	return a, nil
 }

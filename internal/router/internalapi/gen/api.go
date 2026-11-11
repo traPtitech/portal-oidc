@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -16,28 +15,28 @@ import (
 
 // AuthVerifier defines model for AuthVerifier.
 type AuthVerifier struct {
-	Alg     *string    `json:"alg"`
-	Hash    *string    `json:"hash"`
-	Params  *KDFParams `json:"params"`
-	Version *int       `json:"version"`
+	Alg     string    `json:"alg"`
+	Hash    string    `json:"hash"`
+	Params  KDFParams `json:"params"`
+	Version int       `json:"version"`
 }
 
 // KDFParams defines model for KDFParams.
 type KDFParams struct {
-	Iterations  *int    `json:"iterations"`
-	Kdf         *string `json:"kdf"`
-	MemoryKiB   *int    `json:"memoryKiB"`
-	Parallelism *int    `json:"parallelism"`
-	Version     *int    `json:"version"`
+	Iterations  int    `json:"iterations"`
+	Kdf         string `json:"kdf"`
+	MemoryKiB   int    `json:"memoryKiB"`
+	Parallelism int    `json:"parallelism"`
+	Version     int    `json:"version"`
 }
 
 // ProvisionRequest defines model for ProvisionRequest.
 type ProvisionRequest struct {
-	AuthVerifier  *AuthVerifier `json:"authVerifier"`
-	Email         *string       `json:"email"`
-	EmailVerified *bool         `json:"emailVerified"`
-	ExpiresAt     *time.Time    `json:"expiresAt"`
-	UserId        *uuid.UUID    `json:"userId"`
+	AuthVerifier  AuthVerifier       `json:"authVerifier"`
+	Email         string             `json:"email"`
+	EmailVerified bool               `json:"emailVerified"`
+	ExpiresAt     time.Time          `json:"expiresAt"`
+	UserId        openapi_types.UUID `json:"userId"`
 }
 
 // ProvisionUserJSONRequestBody defines body for ProvisionUser for application/json ContentType.

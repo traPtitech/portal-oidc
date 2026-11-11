@@ -56,7 +56,7 @@ type Account struct {
 func NormalizeEmail(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
 func (a Account) Validate() error {
 	at := strings.IndexByte(a.Email, '@')
-	if a.UserID == uuid.Nil || len(a.Email) > 254 || at <= 0 || at == len(a.Email)-1 || a.ExpiresAt.IsZero() {
+	if a.UserID == uuid.Nil || len(a.Email) > 254 || at <= 0 || at == len(a.Email)-1 || !a.ExpiresAt.After(time.Now()) {
 		return ErrInvalidAccount
 	}
 	return a.AuthVerifier.Validate()
