@@ -44,8 +44,7 @@ not block login. The `sub` claim is the user UUID. The `profile` scope returns
 come from the OIDC account.
 
 The traQ ID is part of the salt. For this reason, this service does not support
-a traQ ID rename. `web/test/vector.json` is the same test vector as Portal's
-`service/identity/testdata/auth-secret-v1.json`.
+a traQ ID rename. `web/test/vector.json` holds the test vector for policy v1.
 
 ## Local fixtures
 
