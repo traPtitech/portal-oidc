@@ -271,6 +271,15 @@ func (q *Queries) DeleteClient(ctx context.Context, clientID uuid.UUID) error {
 	return err
 }
 
+const deleteIdentityAccount = `-- name: DeleteIdentityAccount :exec
+DELETE FROM identity_accounts WHERE user_id=$1
+`
+
+func (q *Queries) DeleteIdentityAccount(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.exec(ctx, q.deleteIdentityAccountStmt, deleteIdentityAccount, userID)
+	return err
+}
+
 const deleteOIDCSession = `-- name: DeleteOIDCSession :exec
 DELETE FROM oidc_sessions WHERE authorize_code = $1
 `
@@ -360,6 +369,25 @@ func (q *Queries) GetClient(ctx context.Context, clientID uuid.UUID) (Client, er
 	return i, err
 }
 
+const getIdentityAccountByID = `-- name: GetIdentityAccountByID :one
+SELECT user_id, email, email_verified, auth_verifier, expires_at, provision_fingerprint, created_at FROM identity_accounts WHERE user_id=$1
+`
+
+func (q *Queries) GetIdentityAccountByID(ctx context.Context, userID uuid.UUID) (IdentityAccount, error) {
+	row := q.queryRow(ctx, q.getIdentityAccountByIDStmt, getIdentityAccountByID, userID)
+	var i IdentityAccount
+	err := row.Scan(
+		&i.UserID,
+		&i.Email,
+		&i.EmailVerified,
+		&i.AuthVerifier,
+		&i.ExpiresAt,
+		&i.ProvisionFingerprint,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getOIDCSession = `-- name: GetOIDCSession :one
 SELECT authorize_code, client_id, user_id, scopes, nonce, auth_time, requested_at, created_at FROM oidc_sessions WHERE authorize_code = $1
 `
@@ -400,6 +428,35 @@ func (q *Queries) GetRefreshTokenBySignature(ctx context.Context, signature stri
 		&i.RevokedAt,
 	)
 	return i, err
+}
+
+const insertIdentityAccount = `-- name: InsertIdentityAccount :execrows
+INSERT INTO identity_accounts (user_id,email,email_verified,auth_verifier,expires_at,provision_fingerprint)
+VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING
+`
+
+type InsertIdentityAccountParams struct {
+	UserID               uuid.UUID       `json:"user_id"`
+	Email                string          `json:"email"`
+	EmailVerified        bool            `json:"email_verified"`
+	AuthVerifier         json.RawMessage `json:"auth_verifier"`
+	ExpiresAt            time.Time       `json:"expires_at"`
+	ProvisionFingerprint []byte          `json:"provision_fingerprint"`
+}
+
+func (q *Queries) InsertIdentityAccount(ctx context.Context, arg InsertIdentityAccountParams) (int64, error) {
+	result, err := q.exec(ctx, q.insertIdentityAccountStmt, insertIdentityAccount,
+		arg.UserID,
+		arg.Email,
+		arg.EmailVerified,
+		arg.AuthVerifier,
+		arg.ExpiresAt,
+		arg.ProvisionFingerprint,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const listClients = `-- name: ListClients :many

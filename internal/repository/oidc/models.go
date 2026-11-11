@@ -56,6 +56,16 @@ type Client struct {
 	UpdatedAt              time.Time       `json:"updated_at"`
 }
 
+type IdentityAccount struct {
+	UserID               uuid.UUID       `json:"user_id"`
+	Email                string          `json:"email"`
+	EmailVerified        bool            `json:"email_verified"`
+	AuthVerifier         json.RawMessage `json:"auth_verifier"`
+	ExpiresAt            time.Time       `json:"expires_at"`
+	ProvisionFingerprint []byte          `json:"provision_fingerprint"`
+	CreatedAt            time.Time       `json:"created_at"`
+}
+
 type OidcSession struct {
 	AuthorizeCode string         `json:"authorize_code"`
 	ClientID      uuid.UUID      `json:"client_id"`

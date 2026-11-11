@@ -157,3 +157,13 @@ SELECT * FROM oidc_sessions WHERE authorize_code = $1;
 
 -- name: DeleteOIDCSession :exec
 DELETE FROM oidc_sessions WHERE authorize_code = $1;
+
+-- name: InsertIdentityAccount :execrows
+INSERT INTO identity_accounts (user_id,email,email_verified,auth_verifier,expires_at,provision_fingerprint)
+VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING;
+
+-- name: GetIdentityAccountByID :one
+SELECT * FROM identity_accounts WHERE user_id=$1;
+
+-- name: DeleteIdentityAccount :exec
+DELETE FROM identity_accounts WHERE user_id=$1;

@@ -54,6 +54,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.deleteClientStmt, err = db.PrepareContext(ctx, deleteClient); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteClient: %w", err)
 	}
+	if q.deleteIdentityAccountStmt, err = db.PrepareContext(ctx, deleteIdentityAccount); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteIdentityAccount: %w", err)
+	}
 	if q.deleteOIDCSessionStmt, err = db.PrepareContext(ctx, deleteOIDCSession); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteOIDCSession: %w", err)
 	}
@@ -69,11 +72,17 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getClientStmt, err = db.PrepareContext(ctx, getClient); err != nil {
 		return nil, fmt.Errorf("error preparing query GetClient: %w", err)
 	}
+	if q.getIdentityAccountByIDStmt, err = db.PrepareContext(ctx, getIdentityAccountByID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetIdentityAccountByID: %w", err)
+	}
 	if q.getOIDCSessionStmt, err = db.PrepareContext(ctx, getOIDCSession); err != nil {
 		return nil, fmt.Errorf("error preparing query GetOIDCSession: %w", err)
 	}
 	if q.getRefreshTokenBySignatureStmt, err = db.PrepareContext(ctx, getRefreshTokenBySignature); err != nil {
 		return nil, fmt.Errorf("error preparing query GetRefreshTokenBySignature: %w", err)
+	}
+	if q.insertIdentityAccountStmt, err = db.PrepareContext(ctx, insertIdentityAccount); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertIdentityAccount: %w", err)
 	}
 	if q.listClientsStmt, err = db.PrepareContext(ctx, listClients); err != nil {
 		return nil, fmt.Errorf("error preparing query ListClients: %w", err)
@@ -154,6 +163,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deleteClientStmt: %w", cerr)
 		}
 	}
+	if q.deleteIdentityAccountStmt != nil {
+		if cerr := q.deleteIdentityAccountStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteIdentityAccountStmt: %w", cerr)
+		}
+	}
 	if q.deleteOIDCSessionStmt != nil {
 		if cerr := q.deleteOIDCSessionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteOIDCSessionStmt: %w", cerr)
@@ -179,6 +193,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getClientStmt: %w", cerr)
 		}
 	}
+	if q.getIdentityAccountByIDStmt != nil {
+		if cerr := q.getIdentityAccountByIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getIdentityAccountByIDStmt: %w", cerr)
+		}
+	}
 	if q.getOIDCSessionStmt != nil {
 		if cerr := q.getOIDCSessionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getOIDCSessionStmt: %w", cerr)
@@ -187,6 +206,11 @@ func (q *Queries) Close() error {
 	if q.getRefreshTokenBySignatureStmt != nil {
 		if cerr := q.getRefreshTokenBySignatureStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getRefreshTokenBySignatureStmt: %w", cerr)
+		}
+	}
+	if q.insertIdentityAccountStmt != nil {
+		if cerr := q.insertIdentityAccountStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertIdentityAccountStmt: %w", cerr)
 		}
 	}
 	if q.listClientsStmt != nil {
@@ -278,13 +302,16 @@ type Queries struct {
 	deleteAllClientsStmt               *sql.Stmt
 	deleteAuthorizationCodeStmt        *sql.Stmt
 	deleteClientStmt                   *sql.Stmt
+	deleteIdentityAccountStmt          *sql.Stmt
 	deleteOIDCSessionStmt              *sql.Stmt
 	deleteRefreshTokenBySignatureStmt  *sql.Stmt
 	getAccessTokenBySignatureStmt      *sql.Stmt
 	getAuthorizationCodeStmt           *sql.Stmt
 	getClientStmt                      *sql.Stmt
+	getIdentityAccountByIDStmt         *sql.Stmt
 	getOIDCSessionStmt                 *sql.Stmt
 	getRefreshTokenBySignatureStmt     *sql.Stmt
+	insertIdentityAccountStmt          *sql.Stmt
 	listClientsStmt                    *sql.Stmt
 	markAuthorizationCodeUsedStmt      *sql.Stmt
 	revokeAccessTokensByRequestIDStmt  *sql.Stmt
@@ -309,13 +336,16 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteAllClientsStmt:               q.deleteAllClientsStmt,
 		deleteAuthorizationCodeStmt:        q.deleteAuthorizationCodeStmt,
 		deleteClientStmt:                   q.deleteClientStmt,
+		deleteIdentityAccountStmt:          q.deleteIdentityAccountStmt,
 		deleteOIDCSessionStmt:              q.deleteOIDCSessionStmt,
 		deleteRefreshTokenBySignatureStmt:  q.deleteRefreshTokenBySignatureStmt,
 		getAccessTokenBySignatureStmt:      q.getAccessTokenBySignatureStmt,
 		getAuthorizationCodeStmt:           q.getAuthorizationCodeStmt,
 		getClientStmt:                      q.getClientStmt,
+		getIdentityAccountByIDStmt:         q.getIdentityAccountByIDStmt,
 		getOIDCSessionStmt:                 q.getOIDCSessionStmt,
 		getRefreshTokenBySignatureStmt:     q.getRefreshTokenBySignatureStmt,
+		insertIdentityAccountStmt:          q.insertIdentityAccountStmt,
 		listClientsStmt:                    q.listClientsStmt,
 		markAuthorizationCodeUsedStmt:      q.markAuthorizationCodeUsedStmt,
 		revokeAccessTokensByRequestIDStmt:  q.revokeAccessTokensByRequestIDStmt,

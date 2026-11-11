@@ -1,0 +1,172 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Portal internal identity API",
+    "version": "1.0.0"
+  },
+  "security": [
+    {
+      "InternalToken": []
+    }
+  ],
+  "paths": {
+    "/internal/users/provision": {
+      "post": {
+        "operationId": "provisionUser",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProvisionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Identical replay"
+          },
+          "201": {
+            "description": "Committed"
+          },
+          "400": {
+            "description": "Malformed input"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "409": {
+            "description": "Identity conflict"
+          },
+          "422": {
+            "description": "Invalid account"
+          },
+          "500": {
+            "description": "Outcome may be unknown"
+          }
+        }
+      }
+    },
+    "/internal/users/{userId}": {
+      "delete": {
+        "operationId": "deleteUser",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted or absent"
+          },
+          "400": {
+            "description": "Invalid UUID"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Deletion failed"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "InternalToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Portal-Internal-Token"
+      }
+    },
+    "schemas": {
+      "ProvisionRequest": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "emailVerified": {
+            "type": "boolean"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "authVerifier": {
+            "$ref": "#/components/schemas/AuthVerifier"
+          }
+        },
+        "required": [
+          "userId",
+          "email",
+          "emailVerified",
+          "expiresAt",
+          "authVerifier"
+        ]
+      },
+      "AuthVerifier": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer"
+          },
+          "alg": {
+            "type": "string"
+          },
+          "hash": {
+            "type": "string"
+          },
+          "params": {
+            "$ref": "#/components/schemas/KDFParams"
+          }
+        },
+        "required": [
+          "version",
+          "alg",
+          "hash",
+          "params"
+        ]
+      },
+      "KDFParams": {
+        "type": "object",
+        "properties": {
+          "kdf": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "memoryKiB": {
+            "type": "integer"
+          },
+          "iterations": {
+            "type": "integer"
+          },
+          "parallelism": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kdf",
+          "version",
+          "memoryKiB",
+          "iterations",
+          "parallelism"
+        ]
+      }
+    }
+  }
+}

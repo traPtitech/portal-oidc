@@ -19,6 +19,7 @@ import (
 	"github.com/traPtitech/portal-oidc/internal/repository/oauth"
 	"github.com/traPtitech/portal-oidc/internal/repository/oidc"
 	"github.com/traPtitech/portal-oidc/internal/repository/portal"
+	"github.com/traPtitech/portal-oidc/internal/router/internalapi"
 	v1 "github.com/traPtitech/portal-oidc/internal/router/v1"
 	"github.com/traPtitech/portal-oidc/internal/router/v1/gen"
 	"github.com/traPtitech/portal-oidc/internal/usecase"
@@ -87,6 +88,7 @@ func newServer(cfg Config) (http.Handler, error) {
 		AllowHeaders: []string{"*"},
 		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 	}))
+	internalapi.Register(e, usecase.NewAccountUseCase(repository.NewAccountRepository(queries)), cfg.Internal.Token)
 	gen.RegisterHandlers(e, handler)
 	e.GET("/login", handler.GetLogin)
 	e.POST("/login", handler.PostLogin, loginRateLimiter())
