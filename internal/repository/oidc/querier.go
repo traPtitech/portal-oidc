@@ -33,6 +33,7 @@ type Querier interface {
 	GetAuthorizationCode(ctx context.Context, code string) (AuthorizationCode, error)
 	GetClient(ctx context.Context, clientID uuid.UUID) (Client, error)
 	GetIdentityAccountByID(ctx context.Context, userID uuid.UUID) (IdentityAccount, error)
+	GetIdentityAccountByTrapID(ctx context.Context, trapID string) (IdentityAccount, error)
 	GetOIDCSession(ctx context.Context, authorizeCode string) (OidcSession, error)
 	GetRefreshTokenBySignature(ctx context.Context, signature string) (RefreshToken, error)
 	InsertIdentityAccount(ctx context.Context, arg InsertIdentityAccountParams) (int64, error)
