@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createHash, randomBytes } from "node:crypto";
 import { derive, encodeSecret } from "../src/derive.js";
+import { formData, parseInputs } from "../test/form.mjs";
 
 const baseURL = process.env.OIDC_TEST_URL || "http://localhost:8080";
 const internalToken =
@@ -15,26 +16,64 @@ const vector = JSON.parse(
   readFileSync(new URL("../test/vector.json", import.meta.url)),
 );
 
-// fetch does not keep cookies, so the test carries the session cookie itself.
+// fetch does not keep cookies, so the test keeps them with the host, path
+// and lifetime rules of RFC 6265 §5.2 to §5.4 that a browser applies.
+function parseCookie(line, url) {
+  const [pair, ...attrs] = line.split(";").map((part) => part.trim());
+  const i = pair.indexOf("=");
+  const dir = url.pathname.slice(0, url.pathname.lastIndexOf("/"));
+  const cookie = {
+    name: pair.slice(0, i),
+    value: pair.slice(i + 1),
+    host: url.hostname,
+    path: dir || "/",
+    expires: Infinity,
+  };
+  let maxAge;
+  for (const attr of attrs) {
+    const j = attr.indexOf("=");
+    const key = (j < 0 ? attr : attr.slice(0, j)).toLowerCase();
+    const value = j < 0 ? "" : attr.slice(j + 1);
+    if (key === "path" && value.startsWith("/")) cookie.path = value;
+    if (key === "expires") cookie.expires = Date.parse(value);
+    if (key === "max-age") maxAge = Number(value);
+    // Domain cookies would also reach subdomains, which this test never uses.
+    if (key === "domain" && value.replace(/^\./, "") !== url.hostname) {
+      return undefined;
+    }
+  }
+  if (maxAge !== undefined) cookie.expires = Date.now() + maxAge * 1000;
+  return cookie;
+}
+
+function pathMatches(cookiePath, path) {
+  return (
+    path === cookiePath ||
+    path.startsWith(cookiePath.endsWith("/") ? cookiePath : cookiePath + "/")
+  );
+}
+
 function client() {
-  const cookies = new Map();
+  const jar = new Map();
   return async (path, init = {}) => {
+    const url = new URL(path, baseURL);
     const headers = new Headers(init.headers);
-    if (cookies.size > 0) {
+    const cookies = [...jar.values()].filter(
+      (c) =>
+        c.expires > Date.now() &&
+        c.host === url.hostname &&
+        pathMatches(c.path, url.pathname),
+    );
+    if (cookies.length > 0) {
       headers.set(
         "Cookie",
-        [...cookies].map(([name, value]) => name + "=" + value).join("; "),
+        cookies.map((c) => c.name + "=" + c.value).join("; "),
       );
     }
-    const res = await fetch(new URL(path, baseURL), {
-      ...init,
-      headers,
-      redirect: "manual",
-    });
-    for (const cookie of res.headers.getSetCookie()) {
-      const pair = cookie.split(";")[0];
-      const i = pair.indexOf("=");
-      cookies.set(pair.slice(0, i), pair.slice(i + 1));
+    const res = await fetch(url, { ...init, headers, redirect: "manual" });
+    for (const line of res.headers.getSetCookie()) {
+      const cookie = parseCookie(line, url);
+      if (cookie) jar.set(cookie.name + ";" + cookie.path, cookie);
     }
     return res;
   };
@@ -84,18 +123,15 @@ test("the derived auth secret completes OIDC and the password is rejected", asyn
   assert.equal(loginURL.pathname, "/login");
   const page = await send(loginURL);
   assert.equal(page.status, 200);
-  const csrf = (await page.text()).match(
-    /name="csrf_token" value="([^"]+)"/,
-  )?.[1];
-  assert.ok(csrf, "missing CSRF token");
+  // The login script fills trapId and auth_secret and leaves the other
+  // fields of the rendered form as they are.
+  const form = formData(parseInputs(await page.text()));
+  assert.ok(form.csrf_token, "missing CSRF token");
+  assert.equal(form.return_url, loginURL.searchParams.get("return_url"));
   const login = (fields) =>
     send("/login", {
       method: "POST",
-      body: new URLSearchParams({
-        csrf_token: csrf,
-        return_url: loginURL.searchParams.get("return_url"),
-        ...fields,
-      }),
+      body: new URLSearchParams({ ...form, ...fields }),
     });
 
   const withPassword = await login({
