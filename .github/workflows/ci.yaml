@@ -87,12 +87,11 @@ jobs:
           npm run build
           git diff --exit-code -- ../internal/router/v1/loginassets
           npm test
-          npx playwright install --with-deps chromium
 
-      - name: Browser login and OIDC flow
+      - name: Login and OIDC flow
         env:
           PGPASSWORD: password
-          OIDC_INTERNAL__TOKEN: browser-test-internal-token
+          OIDC_INTERNAL__TOKEN: e2e-test-internal-token
         run: |
           psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 5433 -U root -d oidc -f db/schema.sql
           go build -o /tmp/portal-oidc ./cmd
@@ -100,7 +99,7 @@ jobs:
           server_pid=$!
           trap 'kill "$server_pid"; cat /tmp/portal-oidc.log' EXIT
           curl --fail --silent --show-error --retry 30 --retry-all-errors --retry-delay 1 --max-time 5 http://localhost:8080/health
-          npm --prefix web run test:browser
+          npm --prefix web run test:e2e
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
