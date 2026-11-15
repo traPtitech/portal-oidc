@@ -13,7 +13,7 @@ require (
 	github.com/knadh/koanf/providers/env/v2 v2.0.2
 	github.com/knadh/koanf/providers/file v1.2.1
 	github.com/knadh/koanf/v2 v2.4.1
-	github.com/labstack/echo/v5 v5.4.5
+	github.com/labstack/echo/v5 v5.4.6
 	github.com/oapi-codegen/runtime v1.9.0
 	github.com/ory/fosite v0.49.0
 	golang.org/x/crypto v0.59.0
