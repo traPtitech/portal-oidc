@@ -71,18 +71,20 @@ url = "https://github.com/pre-commit/pre-commit/releases/download/v4.7.0/pre-com
 url_api = "https://api.github.com/repos/pre-commit/pre-commit/releases/assets/637459099"
 
 [[tools.tbls]]
-version = "1.96.1"
+version = "1.97.0"
 backend = "aqua:k1LoW/tbls"
 
 [tools.tbls."platforms.linux-x64"]
-checksum = "sha256:18285eef0ba7d917214e8bd7dd6a22afe5fea021eed52e7149100a3d10a2af95"
-url = "https://github.com/k1LoW/tbls/releases/download/v1.96.1/tbls_v1.96.1_linux_amd64.tar.gz"
-url_api = "https://api.github.com/repos/k1LoW/tbls/releases/assets/596628145"
+checksum = "sha256:43c81f408495d9b626d0265a6ebb57c6d1c4a5e072d3eecc3e88825cc6c64e9a"
+checksum_source = "mise-versions"
+url = "https://github.com/k1LoW/tbls/releases/download/v1.97.0/tbls_v1.97.0_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/k1LoW/tbls/releases/assets/768577824"
 
 [tools.tbls."platforms.macos-arm64"]
-checksum = "sha256:99d1d53b02e06635d4d94e2823fecc78b3249e996b1785a199ba1868f9f28a8f"
-url = "https://github.com/k1LoW/tbls/releases/download/v1.96.1/tbls_v1.96.1_darwin_arm64.zip"
-url_api = "https://api.github.com/repos/k1LoW/tbls/releases/assets/596610331"
+checksum = "sha256:b070982d474e84421a2046f45ab67541a0a6df209b2253a7a8f5a6b4b80ad8b9"
+checksum_source = "mise-versions"
+url = "https://github.com/k1LoW/tbls/releases/download/v1.97.0/tbls_v1.97.0_darwin_arm64.zip"
+url_api = "https://api.github.com/repos/k1LoW/tbls/releases/assets/768561046"
 
 [[tools.uv]]
 version = "0.13.9"
