@@ -3,5 +3,5 @@ name = "portal-oidc-conformance"
 version = "0.1.0"
 requires-python = "==3.15.2"
 dependencies = [
-    "httpx==0.28.1",
+    "httpx==0.29.0",
 ]
