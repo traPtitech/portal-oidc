@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       oidc-db:
-        image: postgres:18
+        image: postgres:19
         env:
           POSTGRES_PASSWORD: password
           POSTGRES_DB: oidc
